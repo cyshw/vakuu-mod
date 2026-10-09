@@ -1,0 +1,27 @@
+# Generated files, local programs and account state
+**/bin/
+**/obj/
+**/__pycache__/
+*.py[cod]
+*.dll
+*.exe
+*.pdb
+*.zip
+*.png
+build/
+outputs/claude/
+outputs/button-runtime/
+outputs/*.conf
+outputs/*.cmd
+outputs/*.vbs
+.claude/
+.codex/
+.env
+.env.*
+*.local.json
+*.local.ps1
+local-settings.json
+credentials*.json
+auth*.json
+*.log
+*.tmp

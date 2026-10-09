@@ -1,0 +1,76 @@
+"""Read-only adapter for BoberInSpire's local card reward scoring."""
+import json
+import sys
+from dataclasses import asdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "bober"))
+from python_app.reward_advisor import recommend
+
+DATA = ROOT / "bober" / "data"
+CARDS = {row["id"]: row["name"] for row in json.loads((DATA / "spire_codex_cards.json").read_text(encoding="utf-8"))}
+RELICS = {row["id"]: row["name"] for row in json.loads((DATA / "spire_codex_relics.json").read_text(encoding="utf-8"))}
+CHARACTERS = {name.upper(): name for name in ("Ironclad", "Silent", "Defect", "Necrobinder", "Regent")}
+
+
+def names(rows, catalog, unknown, kind, upgraded=False):
+    result = []
+    for row in rows:
+        key = row.get("id", "").split(".")[-1]
+        name = catalog.get(key)
+        if name is None:
+            unknown.append({"kind": kind, "id": key, "name": row.get("name")})
+            name = key or "UNKNOWN"
+        if upgraded and row.get("is_upgraded"):
+            name += "+"
+        result.append(name)
+    return result
+
+
+def advise(state):
+    if state.get("state_type") != "card_reward":
+        return {"status": "not_card_reward", "state_type": state.get("state_type"),
+                "message": "抓牌評分會在卡牌獎勵畫面出現。"}
+    player = state.get("player", {})
+    if "deck" not in player or "character_id" not in player:
+        return {"status": "missing_deck_api", "message": "請重啟遊戲載入新版 API 模組，才能取得牌組與角色 ID。"}
+    character = CHARACTERS.get(player["character_id"].split(".")[-1])
+    if not character:
+        return {"status": "unsupported_character", "character_id": player["character_id"]}
+    unknown = []
+    deck = names(player["deck"], CARDS, unknown, "deck")
+    relics = names(player.get("relics", []), RELICS, unknown, "relic")
+    offered = state.get("card_reward", {}).get("cards", [])
+    options = names(offered, CARDS, unknown, "offer", upgraded=True)
+    if not options:
+        return {"status": "no_offers"}
+    result = recommend(character, deck, relics, options)
+    # Match by normalized English name while preserving actual UI indices,
+    # including duplicate offers and upgraded copies.
+    unused = list(zip(options, offered))
+    ranked = []
+    for rec in result.recommendations:
+        pos = next(i for i, (name, _) in enumerate(unused) if name == rec.name)
+        _, card = unused.pop(pos)
+        row = asdict(rec)
+        row["english_name"] = row.pop("name")
+        row.update({"index": card["index"], "id": card["id"], "name": card.get("name"),
+                    "is_upgraded": card.get("is_upgraded", False)})
+        ranked.append(row)
+    tier_meta = json.loads((DATA / "tier_lists" / "mobalytics_cards.json").read_text(encoding="utf-8"))
+    return {
+        "status": "incomplete_data" if unknown else "ok",
+        "engine": "BoberInSpire", "character": character,
+        "deck_count": len(deck), "archetype": result.archetype,
+        "ranked_cards": ranked,
+        "best_scored_index": None if unknown else ranked[0]["index"],
+        "can_skip": state.get("card_reward", {}).get("can_skip", False),
+        "skip_evaluated": False,
+        "unknown_items": unknown,
+        "warnings": result.warnings,
+        "tier_snapshot_date": tier_meta.get("snapshot_date"),
+        "limitations": ["本機規則評分，並非勝率或最佳策略保證。",
+                        "未評估血量、路線、頭目與跳過選項。",
+                        "上游評級快照未確認符合 v0.111.0 的全部平衡調整。"],
+    }
