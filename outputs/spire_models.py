@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
@@ -8,6 +9,19 @@ PREFS=ROOT/'button-runtime'/'model-settings.json'
 # Verified against Claude Code 2.1.295 and official model configuration.
 # Pin IDs so the displayed version and the requested version stay consistent.
 CLAUDE_MODEL_IDS={m:'claude-'+m+'-5-5' for m in ('sonnet','opus','haiku')}
+
+def claude_auth_status():
+    """Return only UI login state; never expose account fields or credentials."""
+    try:
+        result=subprocess.run([find_cli('claude'),'auth','status'],capture_output=True,
+            text=True,encoding='utf-8',timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+        status=json.loads(result.stdout)
+        logged_in=status.get('loggedIn')
+        if type(logged_in) is not bool: return {'logged_in':None}
+        return {'logged_in':logged_in}
+    except (OSError,ValueError,RuntimeError,subprocess.TimeoutExpired):
+        return {'logged_in':None}
 MODELS=[{'key':'codex:','label':'Codex · 預設模型'}]+[
     {'key':'codex:'+m,'label':'Codex · '+m} for m in
     ['gpt-6.1-sol','gpt-6-astra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna']

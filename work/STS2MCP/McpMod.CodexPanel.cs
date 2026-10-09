@@ -19,13 +19,15 @@ public static partial class McpMod
     private static Button? _takeoverButton;
     private static OptionButton? _modelPicker;
     private static OptionButton? _effortPicker;
+    private static Button? _claudeLoginButton;
+    private static bool _authPolling;
     private static readonly List<string> _modelKeys = new();
     private static readonly string[] _effortKeys = { "", "low", "medium", "high" };
     private static bool _loadingModels;
     private static Godot.Timer? _codexTimer;
     private static Process? _codexBridge;
     private static bool _codexPolling;
-    private static readonly System.Net.Http.HttpClient _codexHttp = new() { Timeout = TimeSpan.FromSeconds(3) };
+    private static readonly System.Net.Http.HttpClient _codexHttp = new() { Timeout = TimeSpan.FromSeconds(8) };
     private static string _bridgeUrl = "http://127.0.0.1:15527";
     private static string? _codexPreviewPath;
 
@@ -118,7 +120,7 @@ public static partial class McpMod
         toggle.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
         toggle.Text = "呼叫瓦庫";
         toggle.OffsetLeft = -170; toggle.OffsetRight = -20; toggle.OffsetTop = 120; toggle.OffsetBottom = 168;
-        toggle.Pressed += () => { if (_codexPanel != null) _codexPanel.Visible = !_codexPanel.Visible; };
+        toggle.Pressed += () => { if (_codexPanel != null) { _codexPanel.Visible = !_codexPanel.Visible; if (_codexPanel.Visible) _ = RefreshClaudeLogin(); } };
         _codexPanel = new PanelContainer { Name = "CodexPanel", Visible = true };
         root.AddChild(_codexPanel);
         _codexPanel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
@@ -142,9 +144,9 @@ public static partial class McpMod
         _effortPicker = new OptionButton { Disabled = true };
         foreach (var label in new[] { "預設", "低", "中", "高" }) _effortPicker.AddItem(label);
         settingsRow.AddChild(_effortPicker);
-        var login = new Button { Text = "登入 Claude", FocusMode = Control.FocusModeEnum.None };
-        settingsRow.AddChild(login);
-        login.Pressed += () => { _ = SendCodexCommand("login-claude"); };
+        _claudeLoginButton = new Button { Text = "登入 Claude", Visible = false, FocusMode = Control.FocusModeEnum.None };
+        settingsRow.AddChild(_claudeLoginButton);
+        _claudeLoginButton.Pressed += () => { _ = SendCodexCommand("login-claude"); };
         _modelPicker.ItemSelected += index => { if (!_loadingModels) _ = SaveModelSelection(); };
         _effortPicker.ItemSelected += index => { if (!_loadingModels) _ = SaveModelSelection(); };
         var buttons = new HBoxContainer(); buttons.AddThemeConstantOverride("separation", 8); box.AddChild(buttons);
@@ -197,6 +199,7 @@ public static partial class McpMod
                     _modelPicker.Disabled = false; _effortPicker.Disabled = false;
                     _loadingModels = false;
                 });
+                await RefreshClaudeLogin();
                 return;
             }
             catch { await Task.Delay(600); }
@@ -221,6 +224,29 @@ public static partial class McpMod
             await RunOnMainThread(() => { _codexMessage!.Text = "設定未儲存：" + ex.Message; });
         }
         finally { await RunOnMainThread(() => { _modelPicker!.Disabled = false; _effortPicker!.Disabled = false; _adviceButton!.Disabled = false; _takeoverButton!.Disabled = false; }); }
+        await RefreshClaudeLogin();
+    }
+
+    private static async Task RefreshClaudeLogin()
+    {
+        string key = "";
+        await RunOnMainThread(() => {
+            if (_modelPicker != null && _modelPicker.Selected >= 0 && _modelPicker.Selected < _modelKeys.Count)
+                key = _modelKeys[_modelPicker.Selected];
+            if (!key.StartsWith("claude:")) _claudeLoginButton!.Visible = false;
+        });
+        if (!key.StartsWith("claude:") || _authPolling) return;
+        _authPolling = true;
+        try {
+            using var doc = JsonDocument.Parse(await _codexHttp.GetStringAsync(_bridgeUrl + "/claude-auth"));
+            bool needsLogin = doc.RootElement.GetProperty("logged_in").ValueKind == JsonValueKind.False;
+            await RunOnMainThread(() => {
+                if (_modelPicker!.Selected >= 0 && _modelKeys[_modelPicker.Selected] == key)
+                    _claudeLoginButton!.Visible = needsLogin;
+            });
+        }
+        catch { }
+        finally { _authPolling = false; }
     }
 
     private static async Task SendCodexCommand(string command)
@@ -252,8 +278,10 @@ public static partial class McpMod
                 if (_takeoverButton != null) _takeoverButton.Disabled = busy;
                 if (_modelPicker != null) _modelPicker.Disabled = busy;
                 if (_effortPicker != null) _effortPicker.Disabled = busy;
+                if (_claudeLoginButton != null) _claudeLoginButton.Disabled = busy;
                 if (!busy) _codexTimer?.Stop();
             });
+            if (!busy) await RefreshClaudeLogin();
         }
         catch (Exception ex) { await RunOnMainThread(() => { if (_codexMessage != null) _codexMessage.Text = "連線中斷：" + ex.Message; _codexTimer?.Stop(); }); }
         finally { _codexPolling = false; }
@@ -266,6 +294,7 @@ public static partial class McpMod
         ["advice_enabled"] = !(_adviceButton?.Disabled ?? true),
         ["takeover_enabled"] = !(_takeoverButton?.Disabled ?? true),
         ["model_count"] = _modelKeys.Count,
+        ["claude_login_visible"] = _claudeLoginButton?.Visible,
         ["model_key"] = _modelPicker != null && _modelKeys.Count > _modelPicker.Selected && _modelPicker.Selected >= 0 ? _modelKeys[_modelPicker.Selected] : null,
         ["panel_rect"] = _codexPanel?.GetGlobalRect().ToString()
     };

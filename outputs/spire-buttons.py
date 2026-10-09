@@ -195,6 +195,8 @@ def bridge_server(port):
             self.send_response(code); self.send_header('Content-Type','application/json; charset=utf-8')
             self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
         def do_GET(self):
+            if self.path=='/claude-auth':
+                self.respond(models.claude_auth_status()); return
             if self.path=='/models':
                 self.respond({'models':models.MODELS,'selection':models.settings()}); return
             if self.path!='/status': self.respond({'error':'unknown endpoint'},404); return
