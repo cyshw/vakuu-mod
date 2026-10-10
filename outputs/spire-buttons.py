@@ -178,6 +178,7 @@ def transitional(state):
     """Screens caught mid-animation: nothing to choose yet, so asking the model only makes it give up."""
     kind = state.get('state_type')
     screen = state.get(kind) or {}
+    if kind == 'unknown': return True  # Between rooms while the next one loads.
     if kind in ('rest_site', 'rewards'):
         return not screen.get('options' if kind == 'rest_site' else 'items') and not screen.get('can_proceed')
     if kind == 'treasure':  # "Opening chest..." / "Treasure room loading..." carry no relic list yet,
@@ -299,6 +300,15 @@ class Controller:
             state = api.request('/api/v1/singleplayer?format=json')
         return state
 
+    def wait_for_change(self, before, timeout=5):
+        # Some actions (e.g. map travel) keep showing the old screen for a moment; acting on it
+        # repeats the move or trips the stale-state check.
+        deadline = time.monotonic() + timeout
+        if self.stop_event.wait(ACTION_PAUSE): return
+        while time.monotonic() < deadline:
+            if fingerprint(api.request('/api/v1/singleplayer?format=json')) != fingerprint(before): return
+            if self.stop_event.wait(POLL_INTERVAL): return
+
     def wait_until_settled(self, state, timeout=10):
         # Right after resting or claiming the last reward, the screen has nothing to choose and the
         # proceed button is still animating in; asking the model then makes it give up.
@@ -416,7 +426,7 @@ class Controller:
                     result = api.request('/api/v1/singleplayer', body)
                 if result.get('status') != 'ok': raise RuntimeError(str(result))
                 self.report(decision['advice'] + '\n〔已執行〕')
-                self.stop_event.wait(ACTION_PAUSE)
+                self.wait_for_change(current)
             else:
                 self.report(f'這份契約，暫且履行到此。\n已完成 {max_steps} 步並停止；需要時可再次呼叫。')
         except InterruptedError:

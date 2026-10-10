@@ -76,7 +76,7 @@ class Tests(unittest.TestCase):
         decision={'advice':'移除打擊','stop':False,'action':'select_card','parameters_json':'{"index":0}'}
         c=b.Controller(lambda message: None)
         responses=[picking,picking,{'status':'ok'},chosen,chosen,{'status':'ok'}]
-        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False):
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False), patch.object(c,'wait_for_change'):
             c.run(True,2)
         self.assertEqual(decide.call_count,1)
         posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
@@ -181,7 +181,7 @@ class Tests(unittest.TestCase):
         fourth=self.combat([],energy=0)
         c=b.Controller(lambda message: None)
         responses=[first,first,{'status':'ok'},second,second,{'status':'ok'},third,third,{'status':'ok'},fourth,fourth,{'status':'ok'}]
-        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False):
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False), patch.object(c,'wait_for_change'):
             c.run(True,4)
         self.assertEqual(decide.call_count,1)
         posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
@@ -231,5 +231,14 @@ class Tests(unittest.TestCase):
         self.assertEqual(b.auto_decision(pick(1))['action'],'confirm_selection')
         with self.assertRaises(ValueError): b.validate(pick(1),'select_card',{'index':0})
         self.assertFalse(b.selection_complete({'state_type':'card_select','card_select':{'selected_count':1,'max_select':3}}))
+
+    def test_waits_until_action_shows_up_and_while_loading(self):
+        old={'state_type':'map','map':{'current_position':{'row':2}}}
+        moved={'state_type':'unknown'}
+        c=b.Controller(lambda message: None)
+        with patch.object(b.api,'request',side_effect=[old,old,moved]) as api, patch.object(c.stop_event,'wait',return_value=False):
+            c.wait_for_change(old)
+        self.assertEqual(api.call_count,3)
+        self.assertTrue(b.transitional(moved))
 
 if __name__=='__main__': unittest.main()

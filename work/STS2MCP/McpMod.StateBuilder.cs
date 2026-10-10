@@ -1954,9 +1954,9 @@ public static partial class McpMod
         {
             state["enchantment"] = new Dictionary<string, object?>
             {
-                ["name"] = SafeGetText(() => enchantment.GetType().GetProperty("Title")?.GetValue(enchantment)?.ToString()),
-                ["description"] = SafeGetText(() => StripRichTextTags(
-                    enchantment.GetType().GetProperty("DynamicDescription")?.GetValue(enchantment)?.ToString() ?? "")),
+                // Pass the LocString itself so SafeGetText formats it instead of printing its table key.
+                ["name"] = SafeGetText(() => enchantment.GetType().GetProperty("Title")?.GetValue(enchantment)),
+                ["description"] = SafeGetText(() => enchantment.GetType().GetProperty("DynamicDescription")?.GetValue(enchantment)),
                 ["amount"] = PrivateField(screen, "_enchantmentAmount")
             };
         }
