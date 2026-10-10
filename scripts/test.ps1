@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    & $Python -X utf8 -c 'import sys,unittest; sys.path.insert(0,"outputs"); suite=unittest.defaultTestLoader.discover("work",pattern="test_*.py"); result=unittest.TextTestRunner().run(suite); sys.exit(not result.wasSuccessful())'
+    # Windows PowerShell 5.1 strips embedded double quotes from native arguments, so avoid inline -c code.
+    $env:PYTHONPATH = Join-Path $repoRoot 'outputs'
+    & $Python -X utf8 -m unittest discover -s work -p 'test_*.py'
     if ($LASTEXITCODE -ne 0) { throw '測試失敗' }
 } finally { Pop-Location }
