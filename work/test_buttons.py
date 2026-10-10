@@ -66,7 +66,7 @@ class Tests(unittest.TestCase):
         def decide(state):
             c.stop()
             return {'advice':'建議','stop':False,'action':'choose_event_option','parameters_json':'{"index":0}'}
-        with patch.object(b.api,'request',return_value={'state_type':'event'}) as api, patch.object(c,'decide',side_effect=decide):
+        with patch.object(b.api,'request',return_value={'state_type':'event','event':{'options':[{'index':0}]}}) as api, patch.object(c,'decide',side_effect=decide):
             c.run(True,1)
         self.assertTrue(all(len(call.args)==1 for call in api.call_args_list))
 
