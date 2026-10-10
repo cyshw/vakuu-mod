@@ -70,10 +70,13 @@ SCHEMA = {
             'type': 'object', 'additionalProperties': False,
             'properties': {'hand_index': {'type': 'integer'}, 'target': {'type': 'string'}},
             'required': ['hand_index', 'target']}},
-    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards']
+        # Shop items to buy after `action`, so a shop visit is planned in one call.
+        'next_purchases': {'type': 'array', 'items': {'type': 'integer'}},
+    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards', 'next_purchases']
 }
 COMBAT = {'monster', 'elite', 'boss'}
 END_TURN = -1  # hand_index that means "end the turn" in next_cards.
+LEAVE_SHOP = -1  # Item index that means "leave the shop" in next_purchases.
 
 def incoming_damage(intent):
     if 'Attack' not in str(intent.get('type')): return 0
@@ -103,10 +106,41 @@ def combat_facts(state):
         'note': '傷害已含意圖顯示的修正；未計回合結束時的被動格擋或傷害（如冰霜、閃電充能球）。',
     }
 
+def deck_summary(deck):
+    """One entry per distinct card with a count, so the model knows what each card does without repeats."""
+    groups = {}
+    for card in deck:
+        key = (card.get('id'), card.get('name'), card.get('is_upgraded'))
+        if key in groups: groups[key]['count'] += 1
+        else: groups[key] = {'name': card.get('name'), 'count': 1, 'cost': card.get('cost'),
+                             'upgraded': bool(card.get('is_upgraded')), 'description': card.get('description')}
+    return list(groups.values())
+
 def hand_names(state):
     return Counter(c.get('name') for c in (state.get('player') or {}).get('hand') or [])
 
 def start_plan(state, decision):
+    if state.get('state_type') == 'shop': return start_shop_plan(state, decision)
+    return start_turn_plan(state, decision)
+
+def start_shop_plan(state, decision):
+    """Remember the rest of the shopping list; item indices stay stable as items sell out."""
+    if decision['action'] != 'shop_purchase': return None
+    queue = [i for i in decision.get('next_purchases') or [] if isinstance(i, int)]
+    if LEAVE_SHOP in queue: queue = queue[:queue.index(LEAVE_SHOP) + 1]
+    return {'kind': 'shop', 'queue': queue} if queue else None
+
+def shop_plan_decision(plan, state):
+    if state.get('state_type') != 'shop': return None
+    index = plan['queue'].pop(0)
+    if index == LEAVE_SHOP:
+        return _auto('該買的都買了，走吧。\n建議：離開商店。', 'proceed')
+    item = next((i for i in (state.get('shop') or {}).get('items') or [] if i.get('index') == index), None)
+    if not item or not item.get('is_stocked') or not item.get('can_afford'): return None
+    name = item.get('card_name') or item.get('relic_name') or item.get('potion_name') or '刪牌服務'
+    return _auto('照方才的盤算，買下它。\n建議：購買' + name + '。', 'shop_purchase', index=index)
+
+def start_turn_plan(state, decision):
     """Remember the model's remaining moves for this turn, with the hand we expect afterwards."""
     if state.get('state_type') not in COMBAT or decision['action'] not in ('play_card', 'end_turn') \
             or not decision.get('next_cards'):
@@ -126,11 +160,13 @@ def start_plan(state, decision):
         index = json.loads(decision['parameters_json']).get('card_index')
         if not isinstance(index, int) or not 0 <= index < len(hand): return None
         expected[hand[index].get('name')] -= 1
-    return {'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
+    return {'kind': 'turn', 'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
 
 def plan_decision(plan, state):
-    """Next planned move if the turn went as the model expected; None means ask the model again."""
-    if not plan or state.get('state_type') not in COMBAT or (state.get('battle') or {}).get('round') != plan['round']:
+    """Next planned move if things went as the model expected; None means ask the model again."""
+    if not plan or not plan['queue']: return None
+    if plan['kind'] == 'shop': return shop_plan_decision(plan, state)
+    if state.get('state_type') not in COMBAT or (state.get('battle') or {}).get('round') != plan['round']:
         return None
     hand = (state.get('player') or {}).get('hand') or []
     if hand_names(state) - plan['expected']: return None  # Drew or created cards the plan did not know about.
@@ -379,8 +415,9 @@ class Controller:
         compact = api.compact(state)
         # Deck identities are essential for decisions; pile order is not needed.
         if 'player' in state and 'deck' in state['player']:
-            compact['player']['deck'] = [{k:c.get(k) for k in ('id','name','is_upgraded','cost')} for c in state['player']['deck']]
+            compact['player']['deck'] = deck_summary(state['player']['deck'])
         if state.get('state_type') == 'card_reward': compact['card_advice'] = advise(state)
+        if state.get('state_type') == 'shop': compact['shop_card_advice'] = advise(state)
         if state.get('state_type') in COMBAT: compact['combat_facts'] = combat_facts(state)
         prompt = (
             '你扮演殺戮尖塔2的瓦庫 Vakuu「第一個惡魔」，同時是遊戲顧問。'
@@ -399,6 +436,10 @@ class Controller:
             '需要單一目標時填 target 的 entity_id，否則填空字串。'
             '打完要結束回合就在最後加上 hand_index=' + str(END_TURN) + '。能量必須夠付整串牌的費用。'
             '會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。'
+            '商店中 action 是第一筆購買，next_purchases 依序列出之後要買的商品 index，買完要離開就在最後加上 '
+            + str(LEAVE_SHOP) + '；金幣必須夠付整串商品。買刪牌服務後會先選要刪的牌，之後照清單繼續。'
+            'shop_card_advice 是 BoberInSpire 依牌組對商店卡牌的評分。非商店畫面 next_purchases 為空陣列。'
+            'player.deck 已合併相同的牌（count 為張數）並附效果說明。'
             '戰鬥數字以 combat_facts 為準，不要自行重算傷害與格擋；lethal_if_no_more_block 為 true 時優先保命。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
             '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
@@ -451,7 +492,9 @@ class Controller:
                 decision = (auto_decision(state, opened_cards) or plan_decision(plan, state)) if takeover else None
                 if decision is None:
                     decision = self.decide_routed(state)
-                    plan = start_plan(state, decision)
+                    # Buying card removal opens a selection screen; keep the shopping list for afterwards.
+                    keep = plan and plan['kind'] == 'shop' and state.get('state_type') == 'card_select'
+                    plan = start_plan(state, decision) or (plan if keep else None)
                 elif plan and not plan['queue']: plan = None
                 self.report(decision['advice'])
                 if not takeover or decision['stop'] or decision['action'] == 'none': break

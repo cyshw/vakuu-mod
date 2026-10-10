@@ -272,4 +272,32 @@ class Tests(unittest.TestCase):
         self.assertNotIn('play_card',b.allowed_actions(grid))
         with self.assertRaises(ValueError): b.validate({'state_type':'map'},'combat_select_card',{'card_index':1})
 
+    def test_deck_summary_merges_copies(self):
+        deck=[{'id':'STRIKE','name':'打擊','is_upgraded':False,'cost':'1','description':'造成6點傷害。'}]*4+[
+              {'id':'STRIKE','name':'打擊+','is_upgraded':True,'cost':'1','description':'造成9點傷害。'}]
+        summary=b.deck_summary(deck)
+        self.assertEqual([(c['name'],c['count']) for c in summary],[('打擊',4),('打擊+',1)])
+        self.assertEqual(summary[0]['description'],'造成6點傷害。')
+
+    def test_shop_list_survives_card_removal(self):
+        def shop(gold_ok=True, removal_stocked=True):
+            return {'state_type':'shop','shop':{'can_proceed':True,'items':[
+                {'index':0,'category':'card','card_name':'混沌','is_stocked':True,'can_afford':gold_ok},
+                {'index':13,'category':'card_removal','is_stocked':removal_stocked,'can_afford':True}]}}
+        picking={'state_type':'card_select','card_select':{'preview_showing':False,'cards':[{'index':0}]}}
+        buy={'advice':'','stop':False,'action':'shop_purchase','parameters_json':'{"index":13}','next_cards':[],
+             'next_purchases':[0,b.LEAVE_SHOP]}
+        remove={'advice':'','stop':False,'action':'select_card','parameters_json':'{"index":0}','next_cards':[],'next_purchases':[]}
+        after=shop(removal_stocked=False)
+        c=b.Controller(lambda message: None)
+        responses=[shop(),shop(),{'status':'ok'},picking,picking,{'status':'ok'},after,after,{'status':'ok'},after,after,{'status':'ok'}]
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide_routed',side_effect=[buy,remove]) as decide,              patch.object(c.stop_event,'wait',return_value=False), patch.object(c,'wait_for_change'):
+            c.run(True,4)
+        self.assertEqual(decide.call_count,2)
+        posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
+        self.assertEqual(posts,[{'action':'shop_purchase','index':13},{'action':'select_card','index':0},
+                                {'action':'shop_purchase','index':0},{'action':'proceed'}])
+        plan=b.start_plan(shop(),dict(buy,parameters_json='{"index":0}',next_purchases=[13]))
+        self.assertIsNone(b.plan_decision(plan,shop(removal_stocked=False)))  # Sold out: ask again.
+
 if __name__=='__main__': unittest.main()

@@ -24,6 +24,18 @@ def sample():
     }
 
 class AdapterTests(unittest.TestCase):
+    def test_shop_cards_are_scored_with_shop_indices(self):
+        state = sample()
+        state['state_type'] = 'shop'
+        state['shop'] = {'items': [
+            {'index': 0, 'category': 'card', 'is_stocked': True, 'card_id': 'DARK_EMBRACE', 'card_name': '黑暗之擁'},
+            {'index': 1, 'category': 'card', 'is_stocked': False, 'card_id': 'BODY_SLAM', 'card_name': '全身撞擊'},
+            {'index': 5, 'category': 'relic', 'is_stocked': True, 'relic_name': '遺物'},
+            {'index': 6, 'category': 'card', 'is_stocked': True, 'card_id': 'BODY_SLAM', 'card_name': '全身撞擊'}]}
+        result = advise(state)
+        self.assertEqual(result['status'], 'ok')
+        self.assertEqual(sorted(c['index'] for c in result['ranked_cards']), [0, 6])  # Sold-out and relics skipped.
+
     def test_localized_ids_duplicates_upgrades_and_indices(self):
         state = sample()
         original = copy.deepcopy(state)
