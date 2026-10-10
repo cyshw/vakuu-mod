@@ -74,6 +74,12 @@ def main():
         write('model', seconds=round(time.time() - start, 1), model=(selection or {}).get('model_key'), decision=decision)
         return decision
     engine.Controller.decide = logged_decide
+    raw_call = engine.Controller.call_model
+    def logged_call(self, *args, **kwargs):
+        answer = raw_call(self, *args, **kwargs)
+        write('model_call', **self.last_call_metrics)
+        return answer
+    engine.Controller.call_model = logged_call
 
     controller.run(True, args.steps)
 

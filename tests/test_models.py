@@ -43,3 +43,11 @@ class Tests(unittest.TestCase):
         self.assertEqual(m.parse_answer('claude',json.dumps({'structured_output':decision}),None),decision)
         with self.assertRaises(RuntimeError): m.parse_answer('claude','{"is_error":true,"result":"login required"}',None)
         with self.assertRaises(ValueError): m.parse_answer('claude','{"structured_output":{"action":"none"}}',None)
+
+    def test_usage_ignores_bad_lines_and_never_counts_missing_as_zero(self):
+        self.assertIsNone(m.token_usage('codex', 'not json'))
+        output = '[]\n' + json.dumps({'type': 'turn.completed', 'usage':
+                  {'input_tokens': 200, 'cached_input_tokens': 100, 'output_tokens': 20,
+                   'not_tokens': 'secret', 'invalid_tokens': -1}})
+        self.assertEqual(m.token_usage('codex', output),
+                         {'input_tokens': 200, 'cached_input_tokens': 100, 'output_tokens': 20})

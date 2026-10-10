@@ -23,6 +23,7 @@ from spire_codex import event_advice, monster_intel
 from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_search import search_turn, turn_candidates
+from vakuu_choices import choice_offer, chosen_decision
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
                          transitional, validate)
 
@@ -128,13 +129,23 @@ class Controller:
             self.report(f'{tier.title()} {reason}，改由 {stronger.title()} 判斷……')
 
     def decide(self, state, selection=None):
-        prune_runs()
-        run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
-        run_dir.mkdir(parents=True)
-        schema_path = run_dir / 'schema.json'
-        answer_path = run_dir / 'answer.json'
-        schema_path.write_text(json.dumps(SCHEMA), encoding='utf-8')
+        selection = selection or models.settings()
+        cached = self.local_search
+        result = cached[1] if cached and cached[0] == fingerprint(state) else None
+        offer = None if self.want_strategy else choice_offer(state, result)
+        rejection = None
+        if offer:
+            try:
+                answer = self.call_model(offer['prompt'], offer['schema'], selection, candidate=True)
+                decision = chosen_decision(state, offer, answer)
+                if decision is not None: return decision
+                rejection = {'reason': answer['reject_reason'], 'detail': answer['reason'][:120]}
+            except ValueError as exc:
+                rejection = {'reason': 'invalid_candidate_response', 'detail': str(exc)}
+            if self.stop_event.is_set(): raise InterruptedError('已停止')
+            self.report('候選需要完整局面判斷，補上手牌後再問一次。')
         compact = api.compact(state)
+        if rejection: compact['candidate_rejection'] = rejection
         # Deck identities are essential for decisions; pile order is not needed.
         if 'player' in state and 'deck' in state['player']:
             compact['player']['deck'] = deck_summary(state['player']['deck'])
@@ -161,7 +172,7 @@ class Controller:
         if state.get('state_type') in COMBAT:
             cached = self.local_search
             result = cached[1] if cached and cached[0] == fingerprint(state) else None
-            candidates = turn_candidates(state, result)
+            candidates = None if rejection else turn_candidates(state, result)
             if candidates: compact['turn_candidates'] = candidates
             compact['combat_facts'] = combat_facts(state)
             piles = pile_contents(state.get('player') or {})
@@ -176,7 +187,17 @@ class Controller:
         actions = {a: sorted(FIELDS[a]) for a in sorted(allowed_actions(state))}
         prompt = (instructions() + '\n目前畫面可用動作與參數：' + json.dumps(actions, ensure_ascii=False)
                   + '\n遊戲狀態：' + json.dumps(compact, ensure_ascii=False))
-        command,provider=models.build_command(selection or models.settings(),run_dir,SCHEMA)
+        return self.call_model(prompt, SCHEMA, selection)
+
+    def call_model(self, prompt, schema, selection, candidate=False):
+        started = time.perf_counter()
+        prune_runs()
+        run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
+        run_dir.mkdir(parents=True)
+        schema_path = run_dir / 'schema.json'
+        answer_path = run_dir / 'answer.json'
+        schema_path.write_text(json.dumps(schema), encoding='utf-8')
+        command,provider=models.build_command(selection,run_dir,schema)
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         with self.lock:
             if self.stop_event.is_set(): raise InterruptedError('已停止')
@@ -195,7 +216,13 @@ class Controller:
         (run_dir / 'codex.log').write_text(out + '\n' + err,encoding='utf-8')
         if process.returncode != 0:
             raise RuntimeError(provider+' 呼叫失敗：' + (err or out)[-700:])
-        return models.parse_answer(provider,out,answer_path)
+        self.last_call_metrics = {'stage': 'candidate_choice' if candidate else 'full_state',
+                                  'model': selection, 'prompt_chars': len(prompt),
+                                  'seconds': round(time.perf_counter() - started, 2),
+                                  'usage': models.token_usage(provider, out)}
+        (run_dir / 'call-metrics.json').write_text(json.dumps(self.last_call_metrics, ensure_ascii=False), encoding='utf-8')
+        parser = models.parse_json_answer if candidate else models.parse_answer
+        return parser(provider,out,answer_path)
 
     def run(self, takeover=False, max_steps=30):
         opened_cards = set()
@@ -210,7 +237,11 @@ class Controller:
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
-                decision = auto_decision(state, opened_cards) if takeover else None
+                # A selected candidate owns its queue. Verify it before any new
+                # local optimization can replace the model's selected order.
+                decision = plan_decision(plan, state) if takeover and plan and plan.get('candidate_id') else None
+                if takeover and plan and plan.get('candidate_id') and decision is None: plan = None
+                if takeover and decision is None: decision = auto_decision(state, opened_cards)
                 self.local_search = None
                 if takeover and decision is None and state.get('state_type') in COMBAT:
                     result = search_turn(state, include_candidates=True)

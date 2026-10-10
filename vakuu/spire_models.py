@@ -75,7 +75,7 @@ def build_command(selection,run_dir,schema):
     effort=selection['effort']
     exe=find_cli(provider)
     if provider=='codex':
-        command=[exe,'exec','--ephemeral','--skip-git-repo-check','--sandbox','read-only',
+        command=[exe,'exec','--json','--ephemeral','--skip-git-repo-check','--sandbox','read-only',
                  '--output-schema',str(run_dir/'schema.json'),'--output-last-message',str(run_dir/'answer.json'),
                  '--color','never','-C',str(run_dir)]
         if model: command+=['--model',model]
@@ -88,12 +88,31 @@ def build_command(selection,run_dir,schema):
     if effort: command+=['--effort',effort]
     return command,provider
 
-def parse_answer(provider,output,answer_path):
+def parse_json_answer(provider,output,answer_path):
     if provider=='codex': return json.loads(answer_path.read_text(encoding='utf-8'))
     envelope=json.loads(output)
     if envelope.get('is_error'): raise RuntimeError(str(envelope.get('result',envelope.get('errors'))))
     value=envelope.get('structured_output')
     if value is None: value=json.loads(envelope.get('result','{}'))
+    return value
+
+def token_usage(provider, output):
+    if provider == 'codex':
+        usage = None
+        for line in output.splitlines():
+            try: event = json.loads(line)
+            except ValueError: continue
+            if isinstance(event, dict) and event.get('type') == 'turn.completed': usage = event.get('usage')
+    else:
+        try: usage = json.loads(output).get('usage')
+        except (ValueError, AttributeError): usage = None
+    if not isinstance(usage, dict): return None
+    return {k: v for k, v in usage.items() if isinstance(k, str) and k.endswith('tokens')
+            and type(v) is int and v >= 0}
+
+def parse_answer(provider,output,answer_path):
+    value=parse_json_answer(provider,output,answer_path)
+    if provider=='codex': return value
     if not isinstance(value,dict) or not set(value)<={'advice','stop','action','parameters_json','next_cards','next_purchases','strategy','next_nodes'} \
             or not {'advice','stop','action','parameters_json'}<=set(value):
         raise ValueError('Claude 沒有傳回有效的遊戲決策')

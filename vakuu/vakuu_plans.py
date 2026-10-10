@@ -9,6 +9,15 @@ from vakuu_rules import COMBAT, END_TURN, LEAVE_SHOP, hand_selection_complete, s
 def hand_names(state):
     return Counter(c.get('name') for c in (state.get('player') or {}).get('hand') or [])
 
+def card_signature(card):
+    # Index and playability change as energy/hand size changes. Other fields,
+    # including cost and resolved description, must stay exactly as expected.
+    return json.dumps({k: v for k, v in card.items() if k not in
+                       {'index', 'can_play', 'unplayable_reason'}}, sort_keys=True, ensure_ascii=False)
+
+def hand_signatures(state):
+    return Counter(card_signature(c) for c in (state.get('player') or {}).get('hand') or [])
+
 def start_plan(state, decision):
     if state.get('state_type') == 'shop': return start_shop_plan(state, decision)
     return start_turn_plan(state, decision)
@@ -49,14 +58,23 @@ def start_turn_plan(state, decision):
         index = entry.get('hand_index')
         if index == END_TURN: queue.append({'name': END_TURN, 'target': ''}); break
         if not isinstance(index, int) or not 0 <= index < len(hand): break
-        queue.append({'name': hand[index].get('name'), 'target': entry.get('target') or ''})
+        queue.append({'name': hand[index].get('name'), 'target': entry.get('target') or '',
+                      **({'signature': card_signature(hand[index])} if decision.get('candidate_id') else {})})
     if not queue: return None
     expected = hand_names(state)
     if decision['action'] == 'play_card':
         index = json.loads(decision['parameters_json']).get('card_index')
         if not isinstance(index, int) or not 0 <= index < len(hand): return None
         expected[hand[index].get('name')] -= 1
-    return {'kind': 'turn', 'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
+    plan = {'kind': 'turn', 'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
+    if decision.get('candidate_id'):
+        guarded = hand_signatures(state)
+        if decision['action'] == 'play_card': guarded[card_signature(hand[index])] -= 1
+        player = state.get('player') or {}
+        plan.update(candidate_id=decision['candidate_id'], guarded_hand=guarded,
+                    guarded_status=player.get('status') or [], guarded_relics=player.get('relics') or [],
+                    guarded_energy=player.get('energy', 0) - (int(hand[index]['cost']) if decision['action'] == 'play_card' else 0))
+    return plan
 
 def first_card(state, decision):
     if decision.get('action') != 'play_card': return None
@@ -72,6 +90,12 @@ def plan_decision(plan, state):
     if state.get('state_type') not in COMBAT or (state.get('battle') or {}).get('round') != plan['round']:
         return None
     hand = (state.get('player') or {}).get('hand') or []
+    if plan.get('candidate_id'):
+        player = state.get('player') or {}
+        if hand_signatures(state) != +plan['guarded_hand'] or player.get('energy') != plan['guarded_energy'] \
+                or (player.get('status') or []) != plan['guarded_status'] \
+                or (player.get('relics') or []) != plan['guarded_relics']:
+            return None
     if hand_names(state) - plan['expected']: return None  # Drew or created cards the plan did not know about.
     entry = plan['queue'].pop(0)
     if entry['name'] == END_TURN:
@@ -86,7 +110,8 @@ def plan_decision(plan, state):
             if entry.get('target') not in alive: return None
             params['target'] = entry['target']
         return _auto('照方才的盤算，喝下它。\n建議：使用' + potion['name'] + '。', 'use_potion', **params)
-    card = next((c for c in hand if c.get('name') == entry['name'] and c.get('can_play')), None)
+    card = next((c for c in hand if c.get('name') == entry['name'] and c.get('can_play')
+                 and (not entry.get('signature') or card_signature(c) == entry['signature'])), None)
     if card is None: return None
     if wastes_energy_card(state, card):
         return plan_decision(plan, state)  # Skip it (it stays in hand) and take the next planned move.
@@ -96,6 +121,9 @@ def plan_decision(plan, state):
         if entry.get('target') not in alive: return None
         params['target'] = entry['target']
     plan['expected'][card.get('name')] -= 1
+    if plan.get('candidate_id'):
+        plan['guarded_hand'][card_signature(card)] -= 1
+        plan['guarded_energy'] -= int(card['cost'])
     return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
 # Auto-pick a card reward only when its Codex Score is at least this; guides warn that taking every
