@@ -17,7 +17,7 @@ API = 'http://127.0.0.1:15526/api/v1/singleplayer'
 STEAM_APP = 'steam://rungameid/2868840'
 KILL = ("Get-Process SlayTheSpire2 -ErrorAction SilentlyContinue | Stop-Process -Force; "
         "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" | "
-        "Where-Object CommandLine -like '*spire-buttons*--bridge-server*' | "
+        "Where-Object CommandLine -like '*--bridge-server*' | "
         "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }")
 
 

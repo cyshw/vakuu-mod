@@ -10,6 +10,6 @@ foreach ($name in @('sts2.dll','GodotSharp.dll','0Harmony.dll')) {
 }
 $env:DOTNET_CLI_HOME = Join-Path $repoRoot 'build/dotnet-home'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
-& $Dotnet build (Join-Path $repoRoot 'work/STS2MCP/STS2_MCP.csproj') -c Release -o (Join-Path $repoRoot 'build/mod') "-p:STS2GameDir=$gamePath" --nologo
+& $Dotnet build (Join-Path $repoRoot 'mod/STS2_MCP.csproj') -c Release -o (Join-Path $repoRoot 'build/mod') "-p:STS2GameDir=$gamePath" --nologo
 if ($LASTEXITCODE -ne 0) { throw '模組建置失敗' }
-Copy-Item -LiteralPath (Join-Path $repoRoot 'outputs/STS2_MCP.json') -Destination (Join-Path $repoRoot 'build/mod/STS2_MCP.json') -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot 'mod/STS2_MCP.json') -Destination (Join-Path $repoRoot 'build/mod/STS2_MCP.json') -Force

@@ -10,14 +10,11 @@ import time
 import uuid
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
-import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-spec = importlib.util.spec_from_file_location('game_api', ROOT / 'sts2-control.py')
-api = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(api)
+import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
 import spire_quota

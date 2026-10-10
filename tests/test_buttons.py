@@ -1,11 +1,10 @@
-import importlib.util
 import json
 from pathlib import Path
+import sys
 import unittest
 from unittest.mock import patch
-path=Path(__file__).resolve().parent.parent/'outputs'/'spire-buttons.py'
-spec=importlib.util.spec_from_file_location('buttons',path)
-b=importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'vakuu'))
+import vakuu_engine as b
 import vakuu_facts as facts
 import vakuu_plans as plans
 import vakuu_router as router

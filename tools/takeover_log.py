@@ -7,34 +7,31 @@ game start, while this runs the files on disk. Do not touch the game while it ru
     python tools/takeover_log.py --model claude:sonnet --effort high --one-fight
 """
 import argparse
-import importlib.util
 import json
 import sys
 import time
 from pathlib import Path
 
-OUTPUTS = Path(__file__).resolve().parent.parent / 'outputs'
+SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
 
 
 def load_engine():
-    sys.path.insert(0, str(OUTPUTS))
-    spec = importlib.util.spec_from_file_location('buttons', OUTPUTS / 'spire-buttons.py')
-    engine = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(engine)
-    return engine
+    sys.path.insert(0, str(SOURCE))
+    import vakuu_engine
+    return vakuu_engine
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--steps', type=int, default=50)
-    parser.add_argument('--log', type=Path, help='JSONL file (default: outputs/button-runtime/logs/<time>.jsonl)')
+    parser.add_argument('--log', type=Path, help='JSONL file (default: vakuu/button-runtime/logs/<time>.jsonl)')
     parser.add_argument('--model', help='Model key for this run only, e.g. auto:, auto:brief, claude:sonnet')
     parser.add_argument('--effort', choices=['low', 'medium', 'high'])
     parser.add_argument('--one-fight', action='store_true', help='Stop as soon as the current fight ends')
     args = parser.parse_args()
 
     engine = load_engine()
-    log_path = args.log or OUTPUTS / 'button-runtime' / 'logs' / time.strftime('%Y%m%d-%H%M%S.jsonl')
+    log_path = args.log or SOURCE / 'button-runtime' / 'logs' / time.strftime('%Y%m%d-%H%M%S.jsonl')
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log = open(log_path, 'a', encoding='utf-8')
     print('logging to', log_path, flush=True)

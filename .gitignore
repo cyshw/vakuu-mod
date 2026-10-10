@@ -9,11 +9,11 @@
 *.zip
 *.png
 build/
-outputs/claude/
-outputs/button-runtime/
-outputs/*.conf
-outputs/*.cmd
-outputs/*.vbs
+vakuu/claude/
+vakuu/button-runtime/
+vakuu/*.conf
+vakuu/*.cmd
+vakuu/*.vbs
 .claude/
 .codex/
 .env

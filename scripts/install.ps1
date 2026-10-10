@@ -14,7 +14,7 @@ foreach ($name in @('STS2_MCP.dll','STS2_MCP.json')) {
 }
 $config = @{
     python = $pythonPath
-    script = Join-Path $repoRoot 'outputs/spire-buttons.py'
+    script = Join-Path $repoRoot 'vakuu/vakuu_engine.py'
     port = 15527
     preview_path = Join-Path $repoRoot 'build/遊戲內按鈕預覽.png'
 }
