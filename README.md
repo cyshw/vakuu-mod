@@ -8,6 +8,7 @@
 
 - `work/STS2MCP`：修改後的 C# 模組原始碼與原作者授權。
 - `outputs`：Python 控制器、模型設定、Bober 抓牌轉接器、資料及使用說明。
+- `outputs/vakuu_prompt.md`：給模型的指示（角色語氣與各畫面規則）。每次呼叫都重新讀取，修改後不必重開遊戲；`{{END_TURN}}`、`{{LEAVE_SHOP}}` 由程式代入。
 - `work/test_*.py`：控制器、模型與抓牌轉接器測試。
 - `scripts`：建置、測試與安裝工具。
 - `tools`：開發測試工具：`takeover_log.py` 用磁碟上的最新程式接手並記錄每一步（不必重開遊戲），`reload_room.py` 強制重啟遊戲並按「繼續」，重打目前房間（可用來比較不同設定，死亡後存檔會被刪除，無法重打）。
