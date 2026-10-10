@@ -417,6 +417,60 @@ def undecided(state, decision):
     except (ValueError, TypeError): return True
     return False
 
+ROUTE_COUNTS = {'elites': ('Elite',), 'fights': ('Monster', 'Elite'), 'rests': ('RestSite',),
+                'shops': ('Shop',), 'unknowns': ('Unknown',), 'treasures': ('Treasure',)}
+
+def route_facts(state):
+    """Per route option: what every path from it holds, so the model need not trace the node graph.
+
+    The map arrives as ~60 nodes with child coordinates; the model kept judging only the next step,
+    and an elite taken at 43% HP ended a run.
+    """
+    world = state.get('map') or {}
+    nodes = {(n['col'], n['row']): n for n in world.get('nodes') or [] if 'col' in n and 'row' in n}
+    children = lambda key: [tuple(c) for c in nodes[key].get('children') or [] if tuple(c) in nodes]
+    totals, rests, calm = {}, {}, {}
+
+    def elite_free(key):  # Most rooms a path from key can go before its first elite (whole act if none).
+        if key not in calm:
+            below = [elite_free(child) for child in children(key)]
+            calm[key] = 0 if nodes[key].get('type') == 'Elite' else 1 + (max(below) if below else 0)
+        return calm[key]
+
+    def to_end(key):  # (min, max) of each count over all paths from key to the act's end, inclusive.
+        if key not in totals:
+            kind = nodes[key].get('type')
+            own = {name: int(kind in kinds) for name, kinds in ROUTE_COUNTS.items()}
+            below = [to_end(child) for child in children(key)]
+            totals[key] = {name: [own[name] + (min(b[name][0] for b in below) if below else 0),
+                                  own[name] + (max(b[name][1] for b in below) if below else 0)] for name in own}
+        return totals[key]
+
+    def to_rest(key):  # Steps and fights before the first rest site on any path, or None if unreachable.
+        if key not in rests:
+            node = nodes[key]
+            if node.get('type') == 'RestSite':
+                rests[key] = {'steps': 0, 'elites': [0, 0], 'fights': [0, 0]}
+            else:
+                below = [r for r in (to_rest(child) for child in children(key)) if r]
+                elite, fight = int(node.get('type') == 'Elite'), int(node.get('type') in ('Monster', 'Elite'))
+                rests[key] = None if not below else {
+                    'steps': 1 + min(r['steps'] for r in below),
+                    'elites': [elite + min(r['elites'][0] for r in below), elite + max(r['elites'][1] for r in below)],
+                    'fights': [fight + min(r['fights'][0] for r in below), fight + max(r['fights'][1] for r in below)]}
+        return rests[key]
+
+    player = state.get('player') or {}
+    facts = {'hp_ratio': round((player.get('hp') or 0) / (player.get('max_hp') or 1), 2), 'options': []}
+    for option in world.get('next_options') or []:
+        key = (option.get('col'), option.get('row'))
+        if key not in nodes: continue
+        facts['options'].append({'index': option.get('index'), 'type': option.get('type'),
+                                 'until_next_rest_site': to_rest(key), 'to_act_end_min_max': to_end(key),
+                                 # An elite can be forced several rooms later (a single path after a rest site).
+                                 'max_rooms_before_first_elite': elite_free(key)})
+    return facts
+
 def fight_key(state):
     """Identifies the current fight (one per floor), or None outside combat."""
     if state.get('state_type') not in COMBAT: return None
@@ -517,6 +571,7 @@ class Controller:
             compact['player']['deck'] = deck_summary(state['player']['deck'])
         if state.get('state_type') == 'card_reward': compact['card_advice'] = advise(state)
         if state.get('state_type') == 'shop': compact['shop_card_advice'] = advise(state)
+        if state.get('state_type') == 'map': compact['route_facts'] = route_facts(state)
         if self.want_strategy: compact['request_strategy'] = True
         elif self.strategy and self.strategy['fight'] == fight_key(state): compact['fight_strategy'] = self.strategy['text']
         if state.get('state_type') in COMBAT: compact['combat_facts'] = combat_facts(state)
@@ -544,6 +599,9 @@ class Controller:
             'request_strategy 為 true 時，在 strategy 寫本場作戰方針（120字內：敵人機制與危險回合、集火順序、何時全力防禦、'
             '關鍵牌與藥水留到何時），後續回合會交給較弱的模型照著執行；否則 strategy 為空字串。'
             '有 fight_strategy 時照方針執行，除非局面明顯改變。'
+            '選路以 route_facts 為準：until_next_rest_site 是到下一個休息點的最少步數與途中菁英、戰鬥數 [最少,最多]，'
+            'to_act_end_min_max 是到本幕結束各類房間數 [最少,最多]，max_rooms_before_first_elite 是走這條最多能撐幾個房間才必須打菁英。血量偏低（hp_ratio 低於約0.6）或牌組仍以基礎牌為主時避開菁英，'
+            '優先能較快到休息點的路線；血量充足、牌組成形時才主動挑戰菁英換遺物。'
             '戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，'
             'special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。'
             'lethal_if_no_more_block 為 true 時優先保命。'

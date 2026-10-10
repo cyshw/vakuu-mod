@@ -374,4 +374,19 @@ class Tests(unittest.TestCase):
             c.decide_routed(fight); c.decide_routed({'state_type':'event','event':{'options':[{'index':0},{'index':1}]}})
         self.assertEqual([m for m,_ in prompts],['claude:sonnet','claude:haiku'])
 
+    def test_route_facts_expose_forced_elites(self):
+        # Recorded run: resting right away left a single path into an elite two rooms later.
+        node=lambda col,row,kind,*kids: {'col':col,'row':row,'type':kind,'children':[list(k) for k in kids]}
+        nodes=[node(2,6,'Monster',(2,7)), node(2,7,'RestSite',(2,8)), node(2,8,'Monster',(2,9)), node(2,9,'Monster'),
+               node(3,6,'RestSite',(3,7)), node(3,7,'Monster',(4,8)), node(4,8,'Elite',(4,9)), node(4,9,'Monster')]
+        state={'state_type':'map','player':{'hp':25,'max_hp':75},'map':{'nodes':nodes,'next_options':[
+            {'index':0,'col':2,'row':6,'type':'Monster'},{'index':1,'col':3,'row':6,'type':'RestSite'}]}}
+        fight,rest=b.route_facts(state)['options']
+        self.assertEqual(fight['until_next_rest_site'],{'steps':1,'elites':[0,0],'fights':[1,1]})
+        self.assertEqual(fight['max_rooms_before_first_elite'],4)
+        self.assertEqual(rest['until_next_rest_site']['steps'],0)
+        self.assertEqual(rest['max_rooms_before_first_elite'],2)
+        self.assertEqual(rest['to_act_end_min_max']['elites'],[1,1])
+        self.assertEqual(b.route_facts(state)['hp_ratio'],0.33)
+
 if __name__=='__main__': unittest.main()
