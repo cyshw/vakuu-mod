@@ -196,6 +196,42 @@ class Tests(unittest.TestCase):
         self.assertEqual(posts,[{'action':'play_card','card_index':0},{'action':'play_card','card_index':1,'target':'BOSS_0'},
                                 {'action':'play_card','card_index':0,'target':'BOSS_0'},{'action':'end_turn'}])
 
+    def test_potions_are_counted_and_planned(self):
+        state=self.combat(['打擊','防禦'],hp=20)
+        state['player']['potions']=[{'slot':0,'name':'铁皮药水','description':'获得12点格挡。','can_use_in_combat':True,'target_type':'Self'},
+                                    {'slot':1,'name':'火焰药水','description':'造成20点伤害。','can_use_in_combat':True,'target_type':'AnyEnemy'}]
+        state['player']['max_potion_slots']=2
+        state['battle']['enemies'][0]['hp']=18
+        result=facts.combat_facts(state)
+        self.assertEqual([(p['slot'],p.get('block'),p.get('damage')) for p in result['usable_potions']],[(0,12,None),(1,None,20)])
+        self.assertTrue(result['potion_block_covers_lethal'])  # 24 incoming on 20 HP; 12 block leaves 8 HP.
+        self.assertTrue(result['potion_kills_an_enemy'])
+        self.assertTrue(result['potion_belt_full'])
+        self.assertEqual(facts.combat_facts(self.combat(['打擊'])).get('usable_potions'),None)
+        decision={'advice':'','stop':False,'action':'play_card','parameters_json':'{"card_index":1}',
+                  'next_cards':[{'hand_index':-1,'target':'BOSS_0','potion_slot':1},{'hand_index':0,'target':'BOSS_0','potion_slot':-1}]}
+        plan=plans.start_plan(state,decision)
+        after=self.combat(['打擊'],energy=2,hp=20); after['player']['potions']=state['player']['potions']; after['battle']['enemies'][0]['hp']=18
+        move=plans.plan_decision(plan,after)
+        self.assertEqual((move['action'],json.loads(move['parameters_json'])),('use_potion',{'slot':1,'target':'BOSS_0'}))
+        after['player']['potions']=after['player']['potions'][:1]
+        move=plans.plan_decision(plan,after)
+        self.assertEqual((move['action'],json.loads(move['parameters_json'])),('play_card',{'card_index':0,'target':'BOSS_0'}))
+        gone=plans.start_plan(state,decision); gone['queue'][0]['name']='别的药水'
+        self.assertIsNone(plans.plan_decision(gone,after))  # The planned potion is no longer in that slot.
+
+    def test_frost_orbs_count_as_block(self):
+        state=self.combat(['打擊'],hp=20)
+        state['player']['orbs']=[{'id':'FROST_ORB','passive_val':2},{'id':'FROST_ORB','passive_val':2},{'id':'LIGHTNING_ORB','passive_val':3}]
+        result=facts.combat_facts(state)
+        self.assertEqual(result['end_of_turn_orbs'],{'block':4,'damage_to_random_enemy':3})
+        self.assertEqual(result['block_needed_for_no_damage'],20)  # 24 incoming minus 4 Frost block.
+        self.assertTrue(result['lethal_if_no_more_block'])
+
+    def test_pile_contents_are_name_counts(self):
+        player={'draw_pile':[{'name':'打擊'},{'name':'打擊'},{'name':'防禦'}],'discard_pile':[],'exhaust_pile':[{'name':'燃燒'}]}
+        self.assertEqual(facts.pile_contents(player),{'draw_pile':{'打擊':2,'防禦':1},'exhaust_pile':{'燃燒':1}})
+
     def test_plan_is_dropped_when_the_turn_surprises_it(self):
         first=self.combat(['快速檢索','打擊'])
         decision={'advice':'抽牌','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',

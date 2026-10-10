@@ -15,6 +15,7 @@ import spire_codex  # noqa: E402
 from vakuu_facts import BLOCK_TEXT, card_cost, deck_profile, enemy_ids, gives_energy_now  # noqa: E402
 from vakuu_rules import COMBAT  # noqa: E402
 
+BIG_LOSS = 0.2  # A turn costing this share of max HP is worth asking whether a potion should have been drunk.
 DECISIONS = ('event', 'card_reward', 'shop', 'rest_site', 'map', 'card_select', 'treasure', 'relic_select')
 
 
@@ -83,12 +84,17 @@ def review(path, since_floor=0):
             turn_state = step_state
             flags, blockers = turn_flags(turn_state)
             fight['warnings'] += [f"第 {turn_state['battle'].get('round')} 回合：{f}" for f in flags]
-            fight['pending_block'] = (turn_state['battle'].get('round'), turn_state['player'].get('hp'), blockers)
+            potions = [p['name'] for p in turn_state['player'].get('potions') or [] if p.get('can_use_in_combat')]
+            fight['pending_block'] = (turn_state['battle'].get('round'), turn_state['player'].get('hp'), blockers, potions,
+                                      turn_state['player'].get('max_hp') or 0)
+            fight['potions'] = potions
         if kind == 'state' and fight and fight.get('pending_block') and (last.get('battle') or {}).get('round') not in (None, fight['pending_block'][0]):
-            round_, hp_before, blockers = fight.pop('pending_block')
+            round_, hp_before, blockers, potions, max_hp = fight.pop('pending_block')
             lost = hp_before - ((last.get('player') or {}).get('hp') or hp_before)
             if lost > 0 and blockers:
                 fight['warnings'].append(f"第 {round_} 回合：吃了 {lost} 傷害，手上卻留著格擋牌 {'、'.join(c['name'] for c in blockers)}")
+            if potions and lost >= max(1, max_hp * BIG_LOSS):
+                fight['warnings'].append(f"第 {round_} 回合：吃了 {lost} 傷害，身上還有藥水 {'、'.join(potions)}")
         if kind == 'model' and last and last.get('state_type') in DECISIONS and (last.get('run') or {}).get('floor', 0) >= since_floor:
             decision = record['decision']; player = last.get('player') or {}
             profile = deck_profile(player.get('deck') or [])
@@ -96,6 +102,8 @@ def review(path, since_floor=0):
             lines.append(f"- 第 {(last.get('run') or {}).get('floor')} 層 {last['state_type']}（{(record.get('model') or '')[7:]}，血 {player.get('hp')}/{player.get('max_hp')}，"
                          f"金 {player.get('gold')}，牌 {profile['size']} 張、非防禦格擋 {profile['block_sources_besides_defend']}、打擊 {profile['starter_strikes']}）："
                          f"`{decision['action']} {decision['parameters_json']}` {advice}")
+    if fights and last and last.get('state_type') == 'game_over' and fights[-1].get('potions'):
+        fights[-1]['warnings'].append(f"帶著藥水死亡：{'、'.join(fights[-1]['potions'])}")
     out = [f'# 接手檢視：{Path(path).name}', '', '## 戰鬥', '',
            '| 層 | 類型 | 敵人 | 血量 | 掉血 | 社群平均掉血（同角色） | 回合（社群） | 警示 |', '|---|---|---|---|---|---|---|---|']
     for f in fights:

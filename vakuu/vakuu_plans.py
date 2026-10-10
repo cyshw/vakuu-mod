@@ -32,14 +32,20 @@ def shop_plan_decision(plan, state):
 
 def start_turn_plan(state, decision):
     """Remember the model's remaining moves for this turn, with the hand we expect afterwards."""
-    if state.get('state_type') not in COMBAT or decision['action'] not in ('play_card', 'end_turn') \
+    if state.get('state_type') not in COMBAT or decision['action'] not in ('play_card', 'end_turn', 'use_potion') \
             or not decision.get('next_cards'):
         return None
     # The model refers to cards by their index in the hand it was shown; store the game's exact names,
     # since the model rewrites names (e.g. simplified to traditional Chinese) and indices shift as cards are played.
     hand = (state.get('player') or {}).get('hand') or []
+    potions = {p.get('slot'): p for p in (state.get('player') or {}).get('potions') or []}
     queue = []
     for entry in decision.get('next_cards') or []:
+        slot = entry.get('potion_slot')
+        if isinstance(slot, int) and slot >= 0:
+            if slot not in potions: break
+            queue.append({'name': potions[slot].get('name'), 'potion': slot, 'target': entry.get('target') or ''})
+            continue
         index = entry.get('hand_index')
         if index == END_TURN: queue.append({'name': END_TURN, 'target': ''}); break
         if not isinstance(index, int) or not 0 <= index < len(hand): break
@@ -70,6 +76,16 @@ def plan_decision(plan, state):
     entry = plan['queue'].pop(0)
     if entry['name'] == END_TURN:
         return _auto('照方才的盤算，收手。\n建議：結束回合。', 'end_turn')
+    if 'potion' in entry:
+        potion = next((p for p in (state.get('player') or {}).get('potions') or []
+                       if p.get('slot') == entry['potion'] and p.get('name') == entry['name']), None)
+        if potion is None: return None
+        params = {'slot': entry['potion']}
+        if potion.get('target_type') == 'AnyEnemy':
+            alive = {e.get('entity_id') for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0}
+            if entry.get('target') not in alive: return None
+            params['target'] = entry['target']
+        return _auto('照方才的盤算，喝下它。\n建議：使用' + potion['name'] + '。', 'use_potion', **params)
     card = next((c for c in hand if c.get('name') == entry['name'] and c.get('can_play')), None)
     if card is None: return None
     if wastes_energy_card(state, card):

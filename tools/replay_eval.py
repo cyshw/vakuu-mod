@@ -88,6 +88,7 @@ def plan_cards(state, decision):
         indices.append(json.loads(decision['parameters_json']).get('card_index'))
     ends = decision['action'] == 'end_turn'
     for entry in decision.get('next_cards') or []:
+        if isinstance(entry.get('potion_slot'), int) and entry['potion_slot'] >= 0: continue  # A potion, not a card.
         if entry.get('hand_index') == END_TURN: ends = True; break
         indices.append(entry.get('hand_index'))
     cards = [hand[i] for i in indices if isinstance(i, int) and 0 <= i < len(hand)]
@@ -103,6 +104,9 @@ def score_combat(state, decision):
     cost = sum(card_cost(c) for c in cards)
     block = sum(int(m.group(1)) for c in cards for m in BLOCK.finditer(c.get('description') or ''))
     damage = sum(int(m.group(1)) * int(m.group(2) or 1) for c in cards for m in DAMAGE.finditer(c.get('description') or ''))
+    slots = set(drunk_potions(decision))
+    potions = [p for p in facts.get('usable_potions') or [] if p['slot'] in slots]
+    block += sum(p.get('block', 0) for p in potions)
     unblocked = max(0, facts['incoming_attack_damage'] - facts['current_block'] - block)
     played = {id(c) for c in cards}
     affordable_left = [c for c in player.get('hand') or [] if id(c) not in played and c.get('can_play')
@@ -112,7 +116,21 @@ def score_combat(state, decision):
             'left_affordable_cards': len(affordable_left) if ends else None,
             'block': block, 'damage': damage, 'unblocked': unblocked if ends else None,
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
-            'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0}
+            'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
+            # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
+            'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions,
+            'potion_drunk_when_safe': bool(potions) and state.get('state_type') == 'monster'
+                                      and not facts['lethal_if_no_more_block'] and not facts.get('potion_kills_an_enemy')}
+
+
+def drunk_potions(decision):
+    """Potion slots the decision drinks this turn, as the first action or inside next_cards."""
+    slots = []
+    if decision['action'] == 'use_potion':
+        slots.append(json.loads(decision['parameters_json']).get('slot'))
+    slots += [e['potion_slot'] for e in decision.get('next_cards') or []
+              if isinstance(e.get('potion_slot'), int) and e['potion_slot'] >= 0]
+    return slots
 
 
 def score(case, decision):
@@ -174,8 +192,8 @@ def report(results_path):
     rows = [json.loads(line) for line in open(results_path, encoding='utf-8')]
     configs = sorted({r['config'] for r in rows})
     lines = [f'# 離線重播評估：{results_path.parent.name}', '',
-             '| 設定 | 呼叫 | 錯誤 | 合法 | 平均秒數 | 戰鬥：會死 | 戰鬥：平均漏傷 | 戰鬥：能量超支 | 戰鬥：剩能量又有牌可打 | 浪費加能量牌 | 休息點照規則 | 選牌分數（最佳=1） | 低血時選了很快遇菁英的路 |',
-             '|' + '---|' * 13]
+             '| 設定 | 呼叫 | 錯誤 | 合法 | 平均秒數 | 戰鬥：會死 | 戰鬥：平均漏傷 | 戰鬥：能量超支 | 戰鬥：剩能量又有牌可打 | 浪費加能量牌 | 致命卻沒喝藥水 | 安全時喝藥水 | 休息點照規則 | 選牌分數（最佳=1） | 低血時選了很快遇菁英的路 |',
+             '|' + '---|' * 15]
     for config in configs:
         mine = [r for r in rows if r['config'] == config]
         ok = [r for r in mine if 'score' in r]
@@ -189,11 +207,13 @@ def report(results_path):
             f"{sum(bool(f['dies']) for f in fights)}/{len(fights)}", mean([f['unblocked'] for f in fights]),
             sum(f['overspend'] for f in fights), sum(bool(f['left_affordable_cards']) for f in fights),
             sum(f['wasted_energy_card'] for f in [r['score'] for r in ok if r['type'] == 'combat' and 'wasted_energy_card' in r['score']]),
+            sum(bool(f.get('potion_held_when_lethal')) for f in [r['score'] for r in ok if r['type'] == 'combat']),
+            sum(bool(f.get('potion_drunk_when_safe')) for f in [r['score'] for r in ok if r['type'] == 'combat']),
             f"{sum(r['rested'] == r['guide_says_rest'] for r in rests)}/{len(rests)}",
             mean([(p['picked_score'] or 0) / p['best_score'] for p in picks if not p['skipped']]),
             f"{sum(r['rooms_before_elite'] <= 2 and r['hp_ratio'] < 0.5 for r in routes)}/{len(routes)}",
         ]) + ' |')
-    lines += ['', '「會死」與「漏傷」只算排完整個回合的計畫，依卡牌說明估算格擋，未計充能球與能力。', '', '## 各設定判斷不同的局面', '']
+    lines += ['', '「會死」與「漏傷」只算排完整個回合的計畫，依卡牌說明估算格擋（含計畫中喝的藥水），未計充能球與能力。「安全時喝藥水」指普通戰鬥、不致命、藥水也打不死敵人時就喝。', '', '## 各設定判斷不同的局面', '']
     by_case = collections.defaultdict(dict)
     for r in rows:
         if 'decision' in r: by_case[(r['case'], r['type'])][r['config']] = r

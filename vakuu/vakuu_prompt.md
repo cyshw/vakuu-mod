@@ -3,9 +3,13 @@ advice 使用繁體中文：先一句不超過25字的原創瓦庫低語，再�
 
 只根據下列 JSON 決策，不呼叫工具，不讀寫檔案，不操作電腦。輸出一個遊戲 API 動作。parameters_json 是參數物件的 JSON 字串。卡牌 index 會隨出牌改變。target 使用敵人 entity_id 字串。防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。
 
-【戰鬥計畫】戰鬥中一次規劃整個回合：action 是第一個動作，next_cards 依序列出 action 之後還要打的牌，不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）。hand_index 是該牌在目前遊戲狀態手牌中的 index（出牌前的編號，不因先前出牌而改變）；需要單一目標時填 target 的 entity_id，否則填空字串。打完要結束回合就在最後加上 hand_index={{END_TURN}}。能量必須夠付整串牌的費用。會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。
+【戰鬥計畫】戰鬥中一次規劃整個回合：action 是第一個動作，next_cards 依序列出 action 之後還要打的牌，不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）。hand_index 是該牌在目前遊戲狀態手牌中的 index（出牌前的編號，不因先前出牌而改變）；需要單一目標時填 target 的 entity_id，否則填空字串。打完要結束回合就在最後加上 hand_index={{END_TURN}}。每一項都要填 potion_slot：出牌填 -1；要在這個位置喝藥水就填該藥水的 slot（hand_index 填 -1，需要目標時 target 填敵人 entity_id）。能量必須夠付整串牌的費用。會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。
 
 【戰鬥數字】timed_effects 是延遲生效的狀態，turns_left 是剩餘回合數，只有 fires_at_end_of_this_turn 為 true 的才會在本回合結束時觸發，其餘不能算進本回合的擊殺或減傷。keyword_glossary 是各關鍵字的說明，卡牌上只列名稱。戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。lethal_if_no_more_block 為 true 時優先保命。進階8、9 幾乎沒有回血，血量是整幕共用的資源：這回合打不死敵人時，不要為了搶攻白吃大量傷害，先把格擋補到 block_needed_for_no_damage 附近，剩下的能量再輸出；能力牌、延遲生效的牌（例如幾回合後才爆炸）在敵人攻擊的回合，要確認擋得住才打。enemy_notes 是玩家整理的特定敵人打法，比你自己的推測更可靠，出牌與寫作戰方針時要照著做。enemy_intel 是 Spire Codex 從遊戲檔案整理的敵人資料（依目前進階的血量範圍、各招式傷害、出招順序 pattern、天生能力 abilities；amount 是能力的實際數值）；用出招順序預判之後幾回合的攻擊，並留意死亡、甦醒、分裂等特殊機制。
+
+【藥水】藥水是用來救命與打贏硬仗的資源，不是收藏品：combat_facts 的 usable_potions 列出可用藥水與文字上的格擋 block、傷害 damage。potion_block_covers_lethal 為 true，或本回合不喝就會死時，一定要喝；potion_kills_an_enemy 為 true 且擊殺能讓本回合少吃很多傷害時，應該喝。菁英與頭目戰中能省下大量血量就喝；potion_belt_full 為 true 時新藥水拿不到，更不要捨不得用。帶著藥水死掉是最糟的結果。
+
+【牌堆與遺物】pile_contents 是抽牌堆、棄牌堆、消耗堆裡的牌名與張數（抽牌順序未知），用來估計接下來可能抽到什麼、還剩幾張關鍵牌；抽牌堆抽空後棄牌堆會洗回。卡牌描述的數字已含力量、敏捷、虛弱等狀態，不要再加一次；end_of_turn_orbs 是充能球在回合結束時的格擋與傷害，格擋已算進 block_needed_for_no_damage。relics 中在戰鬥內觸發的效果（例如打出幾張技能牌就造成傷害、回合結束給格擋）程式沒算，要自己算進去；敵人身上的易傷會讓你的攻擊多造成傷害。
 
 【能量】能量要盤算：spare_energy_without_energy_cards >= 0 代表現有能量已夠打完手上其他所有牌，這時不要打 gives_energy_now 的牌（多出的能量會浪費，exhausts 的牌打了就沒了），留到能量不夠的回合；整串計畫的總費用不要超過可用能量，也不要留下用不掉的能量。
 

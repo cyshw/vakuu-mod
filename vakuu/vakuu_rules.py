@@ -39,8 +39,9 @@ SCHEMA = {
         # Rest of this turn after `action`, so the turn is played as one coherent plan.
         'next_cards': {'type': 'array', 'items': {
             'type': 'object', 'additionalProperties': False,
-            'properties': {'hand_index': {'type': 'integer'}, 'target': {'type': 'string'}},
-            'required': ['hand_index', 'target']}},
+            # potion_slot >= 0 plans drinking that potion instead of a card (hand_index ignored).
+            'properties': {'hand_index': {'type': 'integer'}, 'target': {'type': 'string'}, 'potion_slot': {'type': 'integer'}},
+            'required': ['hand_index', 'target', 'potion_slot']}},
         # Shop items to buy after `action`, so a shop visit is planned in one call.
         'next_purchases': {'type': 'array', 'items': {'type': 'integer'}},
         # A per-fight battle plan, written only when the prompt asks for one (auto:brief).

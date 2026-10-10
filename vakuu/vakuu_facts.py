@@ -26,9 +26,11 @@ def combat_facts(state):
     incoming = sum(incoming_damage(i) for e in enemies for i in e.get('intents') or [])
     block = player.get('block') or 0
     hp = player.get('hp') or 0
-    loss = max(0, incoming - block)
+    orbs = orb_end_of_turn(player)
+    loss = max(0, incoming - block - orbs.get('block', 0))
     return {
         'incoming_attack_damage': incoming,
+        **({'end_of_turn_orbs': orbs} if orbs else {}),
         # Unusual intents carry their own rules (timing, conditions); the model must read them itself.
         'special_intents': [{'enemy': e.get('name'), 'type': i.get('type'), 'label': i.get('label'),
                              'description': i.get('description')}
@@ -45,8 +47,60 @@ def combat_facts(state):
         # >= 0: current energy already pays for every other card in hand, so energy cards would be wasted.
         'spare_energy_without_energy_cards': spare_energy(state),
         'timed_effects': timed_effects(player),
-        'note': '傷害已含意圖顯示的修正；未計回合結束時的被動格擋或傷害（如冰霜、閃電充能球）。',
+        **potion_facts(state, loss),
+        'note': '敵人傷害已含意圖顯示的修正，卡牌描述的數字已含力量、敏捷、虛弱等狀態；block_needed 與 hp_after 已扣掉 end_of_turn_orbs 的冰霜格擋，未計遺物的回合結束效果。',
     }
+
+def orb_end_of_turn(player):
+    """What channelled orbs do when the turn ends, before the enemies attack (passive_val includes Focus)."""
+    totals = {}
+    for orb in player.get('orbs') or []:
+        value = orb.get('passive_val') or 0
+        kind = {'FROST_ORB': 'block', 'LIGHTNING_ORB': 'damage_to_random_enemy', 'GLASS_ORB': 'damage_to_all_enemies'}.get(orb.get('id'))
+        if kind and value: totals[kind] = totals.get(kind, 0) + value
+    return totals
+
+POTION_BLOCK = re.compile(r'(\d+)\s*[点點]\s*格[挡擋]')
+POTION_DAMAGE = re.compile(r'(\d+)\s*[点點]\s*[伤傷]害')
+
+def potion_facts(state, loss):
+    """Combat potions with their block and damage read off the text, and whether they change this turn.
+
+    Run 27 died on floor 7 still holding a Fire Potion and Liquid Bronze: nothing told the model the
+    potions were there to be drunk, or that one of them covered the damage that killed it.
+    """
+    player = state.get('player') or {}
+    usable = []
+    for potion in player.get('potions') or []:
+        if not potion.get('can_use_in_combat'): continue
+        text = str(potion.get('description') or '')
+        entry = {'slot': potion.get('slot'), 'name': potion.get('name'), 'target_type': potion.get('target_type')}
+        block, damage = POTION_BLOCK.search(text), POTION_DAMAGE.search(text)
+        if block: entry['block'] = int(block.group(1))
+        if damage: entry['damage'] = int(damage.group(1))
+        usable.append(entry)
+    if not usable: return {}
+    enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
+    weakest = min(((e.get('hp') or 0) + (e.get('block') or 0) for e in enemies), default=None)
+    potion_block = sum(p.get('block', 0) for p in usable)
+    hp = player.get('hp') or 0
+    return {
+        'usable_potions': usable,
+        'potion_belt_full': len(player.get('potions') or []) >= (player.get('max_potion_slots') or 99),
+        'potion_block_covers_lethal': loss >= hp > 0 and potion_block > 0 and loss - potion_block < hp,
+        'potion_kills_an_enemy': weakest is not None and any(p.get('damage', 0) >= weakest for p in usable),
+    }
+
+def pile_contents(player):
+    """Card names and counts in each pile; draw order is hidden, so the draw pile is only what is left."""
+    piles = {}
+    for pile in ('draw_pile', 'discard_pile', 'exhaust_pile'):
+        cards = player.get(pile) or []
+        if cards:
+            counts = {}
+            for card in cards: counts[card.get('name')] = counts.get(card.get('name'), 0) + 1
+            piles[pile] = counts
+    return piles
 
 COUNTDOWN = re.compile(r'在第\s*(\d+)\s*回合[结結]束[时時]')
 

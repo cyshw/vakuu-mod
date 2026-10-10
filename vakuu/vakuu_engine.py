@@ -18,7 +18,7 @@ import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
 import spire_quota
-from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pull_keywords, rest_facts, route_facts, wastes_energy_card
+from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_facts, wastes_energy_card
 from spire_codex import monster_intel
 from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
@@ -150,6 +150,8 @@ class Controller:
         elif self.strategy and self.strategy['fight'] == fight_key(state): compact['fight_strategy'] = self.strategy['text']
         if state.get('state_type') in COMBAT:
             compact['combat_facts'] = combat_facts(state)
+            piles = pile_contents(state.get('player') or {})
+            if piles: compact['pile_contents'] = piles
             notes = enemy_notes(state)
             if notes: compact['enemy_notes'] = notes
             ascension = (state.get('run') or {}).get('ascension') or 0
