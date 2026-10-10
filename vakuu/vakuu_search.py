@@ -23,6 +23,11 @@ PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER
                  'ENERGY_NEXT_TURN_POWER',
                  # Search moves never play Power cards, so Storm cannot fire.
                  'STORM_POWER'}
+# Statuses that only add to this turn's damage or act on other turns (start of turn, end of turn,
+# damage taken). Ignoring them can miss a kill but never invent one, so a search holding them only
+# accepts a kill. Echo Form doubles the first card; Shrink and Tender cut damage and stay unknown.
+KILL_SAFE_STATUS = {'ECHO_FORM_POWER', 'MAYHEM_POWER', 'SUBROUTINE_POWER', 'THE_BOMB_POWER',
+                    'TORIC_TOUGHNESS_POWER', 'SURROUNDED_POWER', 'VULNERABLE_POWER'}
 # Supported moves do not apply debuffs, so Artifact cannot trigger here.
 ENEMY_STATUS = {'STRENGTH_POWER', 'WEAK_POWER', 'ARTIFACT_POWER', 'RITUAL_POWER'}
 INERT_HAND = {'ASCENDERS_BANE', 'CLUMSY', 'INJURY'}
@@ -119,7 +124,9 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     if any(key(r) not in PASSIVE_RELICS | {'TUNING_FORK'} for r in player.get('relics') or []): return decline('unknown_relic')
     try: fork_counter = tuning_fork_counter(player.get('relics') or [])
     except ValueError: return decline('unknown_relic')
-    if any(key(s) not in PLAYER_STATUS for s in player.get('status') or []): return decline('unknown_player_status')
+    unknown = {key(s) for s in player.get('status') or []} - PLAYER_STATUS
+    if unknown - KILL_SAFE_STATUS: return decline('unknown_player_status')
+    kill_only = bool(unknown)  # Statuses ignored below can only add damage, so only a found kill counts.
     enemies = [e for e in battle.get('enemies') or [] if (e.get('hp') or 0) > 0]
     if not enemies: return decline('no_enemies')
     if any(key(s) not in ENEMY_STATUS for e in enemies for s in e.get('status') or []):
@@ -279,6 +286,7 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
         return {**decline(reason, count), 'candidates': candidates}
     if best is None: return fallback('unsupported_hand')
     rank, sequence, loss, end_hp, direct_win = best
+    if kill_only and not direct_win: return fallback('unknown_player_status')
     if not direct_win:
         if loss >= player['hp']: return fallback('needs_survival_strategy')
         if loss > 0 and any(p.get('can_use_in_combat') for p in player.get('potions') or []):

@@ -75,7 +75,7 @@ class SearchTests(unittest.TestCase):
 
     def test_thorns_death_trigger_and_relics_require_model(self):
         for kind, effect in [('enemy', 'THORNS_POWER'), ('enemy', 'HARD_TO_KILL_POWER'),
-                             ('player', 'ECHO_FORM_POWER'), ('relic', 'KUNAI')]:
+                             ('player', 'SHRINK_POWER'), ('relic', 'KUNAI')]:
             s = state([card(0)], [enemy(hp=6)])
             if kind == 'enemy': s['battle']['enemies'][0]['status'] = [{'id': effect}]
             elif kind == 'player': s['player']['status'] = [{'id': effect}]
@@ -154,6 +154,15 @@ class SearchTests(unittest.TestCase):
             self.assertIsNone(search_turn(s)['decision'])
         s = state(); s['battle']['enemies'][0]['intents'][0]['type'] = 'DeathBlow'
         self.assertIsNone(search_turn(s)['decision'])
+
+    def test_damage_adding_statuses_allow_only_kills(self):
+        echo = {'id': 'ECHO_FORM_POWER', 'amount': 1}
+        kill = state([card(0, damage=40)], [enemy(hp=24)], energy=1); kill['player']['status'] = [echo]
+        self.assertEqual(search_turn(kill)['reason'], 'direct_win')
+        plain = state([card(0)], [enemy(hp=30)], energy=1); plain['player']['status'] = [echo]
+        self.assertIsNone(search_turn(plain)['decision'])
+        shrunk = state([card(0, damage=40)], [enemy(hp=24)], energy=1); shrunk['player']['status'] = [{'id': 'SHRINK_POWER'}]
+        self.assertEqual(search_turn(shrunk)['reason'], 'unknown_player_status')  # Cuts damage: never ignored.
 
     def test_controller_plays_found_kills_and_asks_the_model_otherwise(self):
         kill = state([card(9, damage=40)], [enemy(hp=24)], energy=1)
