@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
+from spire_session import CombatSession
 import spire_quota
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
@@ -31,11 +32,12 @@ from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_a
 ACTION_PAUSE = 0.5
 POLL_INTERVAL = 0.25
 
-def prune_runs(keep=40):
+def prune_runs(keep=40, exclude=()):
     # Each call leaves a schema/log folder; keep only recent ones for debugging.
     runs = sorted((p for p in (ROOT / 'button-runtime').glob('*-*-*-*-*') if p.is_dir()),
                   key=lambda p: p.stat().st_mtime)
-    for old in runs[:-keep]: shutil.rmtree(old, ignore_errors=True)
+    for old in runs[:-keep]:
+        if old not in exclude: shutil.rmtree(old, ignore_errors=True)
 
 PROMPT = ROOT / 'vakuu_prompt.md'
 
@@ -55,9 +57,33 @@ class Controller:
         self.route = None  # Planned map route; kept across takeovers until something calls for a re-plan.
         self.want_strategy = False
         self.local_search = None  # (state fingerprint, result), shared with the model prompt.
+        self.combat_session = None
+        self.combat_key = None
+        self.combat_round = None
+
+    def close_combat_session(self):
+        with self.lock:
+            session, self.combat_session = self.combat_session, None
+        if session: session.close()
+
+    def sync_combat(self, state):
+        key = fight_key(state)
+        # Exhaust/discard prompts are still part of the fight. The API supplies
+        # battle data on hand_select, even though ordinary combat actions pause.
+        if state.get('state_type') == 'hand_select' and state.get('battle'):
+            run = state.get('run') or {}
+            key = (run.get('act'), run.get('floor'))
+        round_number = (state.get('battle') or {}).get('round')
+        restarted = (key is not None and key == self.combat_key
+                     and type(round_number) is int and type(self.combat_round) is int
+                     and round_number < self.combat_round)
+        if key != self.combat_key or restarted: self.close_combat_session()
+        self.combat_key = key
+        self.combat_round = round_number if key is not None else None
 
     def stop(self):
         self.stop_event.set()
+        self.close_combat_session()
         with self.lock:
             if self.process and self.process.poll() is None:
                 self.process.terminate()
@@ -129,6 +155,7 @@ class Controller:
             self.report(f'{tier.title()} {reason}，改由 {stronger.title()} 判斷……')
 
     def decide(self, state, selection=None):
+        self.sync_combat(state)
         selection = selection or models.settings()
         cached = self.local_search
         result = cached[1] if cached and cached[0] == fingerprint(state) else None
@@ -191,12 +218,38 @@ class Controller:
 
     def call_model(self, prompt, schema, selection, candidate=False):
         started = time.perf_counter()
-        prune_runs()
+        persistent = self.combat_key is not None and selection['model_key'].startswith('codex:')
+        if self.combat_session and (not persistent or self.combat_session.selection != selection):
+            self.close_combat_session()
+        prune_runs(exclude=(self.combat_session.directory,) if self.combat_session else ())
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
         run_dir.mkdir(parents=True)
         schema_path = run_dir / 'schema.json'
         answer_path = run_dir / 'answer.json'
         schema_path.write_text(json.dumps(schema), encoding='utf-8')
+        if persistent:
+            with self.lock:
+                if self.stop_event.is_set(): raise InterruptedError('已停止')
+                if self.combat_session is None:
+                    self.combat_session = CombatSession(selection, run_dir, self.stop_event)
+                session = self.combat_session
+            try:
+                answer = session.ask(prompt, schema)
+            except ValueError:
+                # A malformed candidate may receive one full-state follow-up
+                # in this same conversation, just like an explicit rejection.
+                raise
+            except Exception:
+                self.close_combat_session()
+                raise
+            finally:
+                if session.last_metrics:
+                    self.last_call_metrics = {'stage': 'candidate_choice' if candidate else 'full_state',
+                        'model': selection, 'prompt_chars': len(prompt),
+                        'seconds': round(time.perf_counter() - started, 2), **session.last_metrics}
+                    (run_dir / 'call-metrics.json').write_text(json.dumps(self.last_call_metrics, ensure_ascii=False), encoding='utf-8')
+            answer_path.write_text(json.dumps(answer, ensure_ascii=False), encoding='utf-8')
+            return answer
         command,provider=models.build_command(selection,run_dir,schema)
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         with self.lock:
@@ -234,6 +287,7 @@ class Controller:
                 # Settle first: a room that is still loading would skip the play-phase wait, and a fight
                 # that just began has no hand yet.
                 if takeover: state = self.wait_until_settled(self.wait_for_play_phase(self.wait_until_settled(state)))
+                self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
@@ -265,10 +319,14 @@ class Controller:
                         decision = plan_decision(plan, state) or decision  # Skip the wasted energy card.
                 elif plan and not plan['queue']: plan = None
                 self.report(decision['advice'])
-                if not takeover or decision['stop'] or decision['action'] == 'none': break
+                if decision['stop'] or decision['action'] == 'none':
+                    self.close_combat_session()
+                    break
+                if not takeover: break
                 body = validate(state, decision['action'], json.loads(decision['parameters_json']))
                 current = api.request('/api/v1/singleplayer?format=json')
                 if not still_valid(state, current, body):
+                    self.close_combat_session()
                     self.report('看來你另有打算。控制權歸你了。\n局面已改變，已停止接手。'); break
                 with self.lock:
                     if self.stop_event.is_set(): break
@@ -276,11 +334,15 @@ class Controller:
                 if result.get('status') != 'ok': raise RuntimeError(str(result))
                 self.report(decision['advice'] + '\n〔已執行〕')
                 self.wait_for_change(current)
+                if self.combat_session:
+                    self.sync_combat(api.request('/api/v1/singleplayer?format=json'))
             else:
                 self.report(f'這份契約，暫且履行到此。\n已完成 {max_steps} 步並停止；需要時可再次呼叫。')
         except InterruptedError:
+            self.close_combat_session()
             self.report('也好，讓我看看你的本事。\n已停止接手，控制權歸你。')
         except Exception as exc:
+            self.close_combat_session()
             self.report('這份交易遇到了些阻礙。\n已停止：' + str(exc))
         finally:
             if self.stop_event.is_set(): self.report('也好，讓我看看你的本事。\n已停止接手，控制權歸你。')

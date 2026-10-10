@@ -94,19 +94,19 @@ class CandidateTests(unittest.TestCase):
         s['battle']['enemies'][0]['status'] = [{'id': 'THORNS_POWER'}]
         decision = {'advice': '候選不適用，先喝藥水。', 'action': 'use_potion', 'stop': False,
                     'parameters_json': '{"slot":0}'}
-        process = Mock(returncode=0)
-        process.communicate.return_value = ('{}', '')
+        session = Mock()
+        session.ask.return_value = decision
+        session.last_metrics = {'usage': None}
         c = engine.Controller(lambda m: None)
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, \
              patch.object(engine, 'ROOT', Path(directory)), \
              patch.object(engine, 'instructions', return_value='instructions'), \
              patch.object(engine, 'enemy_notes', return_value=None), \
              patch.object(engine, 'monster_intel', return_value=None), \
-             patch.object(engine.models, 'build_command', return_value=(['codex.exe'], 'codex')), \
-             patch.object(engine.models, 'parse_answer', return_value=decision), \
-             patch.object(engine.subprocess, 'Popen', return_value=process):
-            self.assertEqual(c.decide(s), decision)
-        prompt = process.communicate.call_args.args[0]
+             patch.object(engine, 'CombatSession', return_value=session):
+            self.assertEqual(c.decide(s, {'model_key': 'codex:gpt-6.1-sol', 'effort': 'low'}), decision)
+            c.close_combat_session()
+        prompt = session.ask.call_args.args[0]
         payload = json.loads(prompt.split('遊戲狀態：', 1)[1])
         self.assertTrue(payload['turn_candidates']['plans'])
         self.assertIn('拒絕', payload['turn_candidates']['instructions'])
