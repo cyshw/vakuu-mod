@@ -61,6 +61,20 @@ class ChoiceTests(unittest.TestCase):
             self.assertNotIn('predicted_hp_loss', plan)
             self.assertTrue(all(a['card_index'] in {0, 1} for a in plan['sequence']))
 
+    def test_mixed_orb_attack_prefix_does_not_require_wasting_energy_on_block(self):
+        s = sample()
+        s['player']['energy'] = 3
+        s['player']['hand'].append(dict(s['player']['hand'][0], index=3))
+        s['player']['hand'].append({'id': 'ZAP', 'index': 4, 'cost': '1', 'can_play': True,
+                                   'target_type': 'Self', 'type': 'Skill', 'description': '生成1个闪电充能球。'})
+        s['player']['orbs'] = [{'id': 'LIGHTNING_ORB', 'passive_val': 3, 'evoke_val': 8},
+                               {'id': 'FROST_ORB', 'passive_val': 2, 'evoke_val': 5}]
+        s['player']['orb_slots'] = 3
+        s['battle']['enemies'][0]['intents'][0]['label'] = '0'
+        offer = choice_offer(s)
+        self.assertTrue(any([a['card_index'] for a in p['sequence']] == [0, 3]
+                            and not p['end_turn'] for p in offer['menu']['plans']))
+
     def test_random_lightning_offers_unverified_prefixes_without_forecasts(self):
         s = sample()
         s['battle']['enemies'].append(enemy(hp=40, attack=4, name='b'))

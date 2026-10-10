@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "bober"))
 from python_app.reward_advisor import recommend
 from spire_codex import card_metrics as codex_metrics
+from vakuu_deck import deck_direction
 
 DATA = ROOT / "bober" / "data"
 CARDS = {row["id"]: row["name"] for row in json.loads((DATA / "spire_codex_cards.json").read_text(encoding="utf-8"))}
@@ -79,8 +80,6 @@ def advise(state):
     if not offered:
         return {"status": "no_offers"}
     metrics = codex_metrics(character)
-    if metrics:
-        return codex_advice(state, offered, metrics)
     unknown = []
     deck = names(player["deck"], CARDS, unknown, "deck")
     relics = names(player.get("relics", []), RELICS, unknown, "relic")
@@ -88,6 +87,7 @@ def advise(state):
     if not options:
         return {"status": "no_offers"}
     result = recommend(character, deck, relics, options)
+    direction, fits = deck_direction(state, offered, result.archetype)
     # Match by normalized English name while preserving actual UI indices,
     # including duplicate offers and upgraded copies.
     unused = list(zip(options, offered))
@@ -98,13 +98,24 @@ def advise(state):
         row = asdict(rec)
         row["english_name"] = row.pop("name")
         row.update({"index": card["index"], "id": card["id"], "name": card.get("name"),
-                    "is_upgraded": card.get("is_upgraded", False)})
+                    "is_upgraded": card.get("is_upgraded", False), "deck_fit": fits[card['index']]})
         ranked.append(row)
+    if metrics:
+        community = codex_advice(state, offered, metrics)
+        local = {row['index']: row for row in ranked}
+        for row in community['ranked_cards']:
+            row['deck_fit'] = fits[row['index']]
+            row['offline_fit'] = {k: v for k, v in local[row['index']].items()
+                                  if k not in {'index', 'id', 'name', 'is_upgraded', 'deck_fit'}}
+        community.update(archetype=result.archetype, deck_direction=direction,
+                         skip_evaluated=False, warnings=result.warnings)
+        return community
     tier_meta = json.loads((DATA / "tier_lists" / "mobalytics_cards.json").read_text(encoding="utf-8"))
     return {
         "status": "incomplete_data" if unknown else "ok",
         "engine": "BoberInSpire", "character": character,
         "deck_count": len(deck), "archetype": result.archetype,
+        "deck_direction": direction,
         "ranked_cards": ranked,
         "best_scored_index": None if unknown else ranked[0]["index"],
         "can_skip": state.get("card_reward", {}).get("can_skip", False),

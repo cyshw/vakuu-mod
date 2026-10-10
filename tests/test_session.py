@@ -130,6 +130,21 @@ class LifecycleTests(unittest.TestCase):
         session.close.assert_called_once()
         self.assertIsNone(c.combat_key)
 
+    def test_codex_keeps_battle_thread_after_eight_calls(self):
+        c = engine.Controller(lambda m: None)
+        c.combat_key = (1, 17)
+        session = Mock(selection=SELECTION, turns=engine.SESSION_MAX_TURNS,
+                       last_metrics={'usage': None})
+        session.ask.return_value = {'action': 'end_turn'}
+        c.combat_session = session
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, \
+             patch.object(engine, 'ROOT', Path(directory)), patch.object(engine, 'prune_runs'), \
+             patch.object(engine, 'CombatSession') as factory:
+            c.call_model('latest state', {}, SELECTION)
+        factory.assert_not_called()
+        session.close.assert_not_called()
+        session.ask.assert_called_once()
+
     def test_stop_model_change_and_failure_close_session(self):
         c = engine.Controller(lambda m: None)
         c.combat_session = Mock()

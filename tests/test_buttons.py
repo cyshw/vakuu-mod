@@ -516,7 +516,9 @@ class Tests(unittest.TestCase):
         reward=lambda top: {'state_type':'card_reward'}
         with patch.object(plans,'advise',return_value={'status':'ok','ranked_cards':[{'index':0,'name':'A','score':55},{'index':1,'name':'B','score':30}]}):
             self.assertIsNone(plans.auto_decision({'state_type':'card_reward'}))  # Clear winner, but only 55.
-        with patch.object(plans,'advise',return_value={'status':'ok','ranked_cards':[{'index':0,'name':'A','score':80},{'index':1,'name':'B','score':30}]}):
+        with patch.object(plans,'advise',return_value={'status':'ok','deck_direction':{'unknown_description_count':0},
+            'ranked_cards':[{'index':0,'name':'A','score':80,'deck_fit':{'effect_known':True,'fills_needs':['damage']}},
+                            {'index':1,'name':'B','score':30,'deck_fit':{'effect_known':True}}]}):
             self.assertEqual(plans.auto_decision({'state_type':'card_reward'})['action'],'select_card_reward')
 
     def test_enemy_notes_match_enemies_in_the_fight(self):

@@ -30,6 +30,21 @@ def state(hand=None, enemies=None, energy=2, hp=20):
 
 
 class SearchTests(unittest.TestCase):
+    def test_pickup_only_holster_and_known_held_cards_allow_basic_candidates(self):
+        for cid, description in (
+            ('COLD_SNAP', '造成6点伤害。 生成1个冰霜充能球。'),
+            ('UPROAR', '造成6点伤害两次。 随机打出你的抽牌堆中的1张攻击牌。'),
+            ('COMPILE_DRIVER', '造成7点伤害。 你每有一种不同的充能球，就抽一张牌。 （抽1张牌）'),
+        ):
+            s = state(enemies=[enemy(hp=99)])
+            s['player']['relics'] = [{'id': 'PHIAL_HOLSTER'}]
+            held = {'id': cid, 'index': 2, 'cost': '1', 'description': description, 'can_play': True}
+            s['player']['hand'].append(held)
+            with self.subTest(cid):
+                self.assertEqual(search_turn(s)['reason'], 'unsupported_hand')
+                held['description'] += '每当你打出一张牌时，失去1点生命。'
+                self.assertEqual(search_turn(s)['reason'], 'unknown_hand_trigger')
+
     def test_kill_prevents_attack_instead_of_wasting_energy_on_block(self):
         s = state([card(8), card(3, block=20)], [enemy(hp=6)], energy=1)
         result = search_turn(s)

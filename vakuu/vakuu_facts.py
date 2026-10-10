@@ -41,6 +41,7 @@ def combat_facts(state):
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
         'lethal_if_no_more_block': loss >= hp > 0,
         'energy': player.get('energy'),
+        'hand_end_of_turn_rule': '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。',
         'playable_cards': [{'index': c.get('index'), 'name': c.get('name'), 'cost': c.get('cost'),
                             'gives_energy_now': gives_energy_now(c), 'exhausts': '消耗' in str(c.get('description') or '')}
                            for c in player.get('hand') or [] if c.get('can_play')],

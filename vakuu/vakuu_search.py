@@ -16,7 +16,7 @@ from vakuu_relics import tuning_fork_counter
 # These only act on pickup, room entry, or turn start (already reflected in state).
 PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',
                   'FESTIVE_POPPER', 'MERCURY_HOURGLASS', 'PAELS_FLESH', 'MEAL_TICKET',
-                  'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF', 'BLACK_STAR'}
+                  'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF', 'BLACK_STAR', 'PHIAL_HOLSTER'}
 PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER', 'FOCUS_POWER',
                  # Supported moves never draw cards; these triggers cannot fire in the search.
                  'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER', 'LIGHTNING_ROD_POWER',
@@ -36,6 +36,9 @@ INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
 # These known descriptions have no trigger when another card is played. Their
 # own effects are unsupported, so they still prevent a non-winning turn plan.
 HELD_SAFE = {
+    'COLD_SNAP': r'造成\d+点伤害。生成1个冰霜充能球。',
+    'UPROAR': r'造成\d+点伤害两次。随机打出你的抽牌堆中的1张攻击牌。',
+    'COMPILE_DRIVER': r'造成\d+点伤害。你每有一种不同的充能球，就抽一张牌。(?:（抽\d+张牌）)?',
     # Its draw-time energy loss has already happened; playing another card does not trigger it.
     'VOID': r'不能被打出。虚无。每当你抽到这张牌时，失去\[defect_energy_icon.png\]。',
     'COMPACT': r'获得\d+点格挡。将你手牌中的全部状态牌变化为燃料。',

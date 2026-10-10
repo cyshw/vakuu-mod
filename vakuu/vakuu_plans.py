@@ -147,8 +147,22 @@ def auto_decision(state, opened=None):
     if kind == 'card_reward':
         rating = advise(state)
         rows = rating.get('ranked_cards', [])
+        fit = rows[0].get('deck_fit', {}) if rows else {}
+        direction = rating.get('deck_direction') or {}
+        supported = bool(direction and not direction.get('unknown_description_count') and
+                         fit.get('effect_known') and not fit.get('copies_owned') and
+                         (fit.get('fills_needs') or fit.get('synergies')))
+        # Different gaps are a strategic tradeoff even when population scores
+        # differ widely. Keep skip and alternative synergies available to the model.
+        if supported:
+            for other in rows[1:]:
+                alternative = other.get('deck_fit') or {}
+                if (not alternative.get('effect_known') or
+                        set(alternative.get('fills_needs') or []) - set(fit.get('fills_needs') or []) or
+                        set(alternative.get('synergies') or []) - set(fit.get('synergies') or [])):
+                    supported = False; break
         # A clear but mediocre winner is not worth a deck slot; let the model weigh skipping it.
-        if rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5 \
+        if supported and rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5 \
                 and rows[0]['score'] >= AUTO_PICK_MIN_SCORE:
             return _auto(f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 {rating.get('engine', '規則')} 評分）。",
                          'select_card_reward', card_index=rows[0]['index'])

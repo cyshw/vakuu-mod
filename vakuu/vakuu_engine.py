@@ -25,6 +25,7 @@ from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decisio
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_search import search_turn, turn_candidates
 from vakuu_choices import choice_offer, chosen_decision
+from vakuu_deck import deck_direction
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
                          transitional, validate)
 
@@ -231,6 +232,7 @@ class Controller:
         if state.get('state_type') in ('card_reward', 'shop', 'card_select', 'event'):
             compact['deck_size'] = len((state.get('player') or {}).get('deck') or [])
             compact['deck_profile'] = deck_profile((state.get('player') or {}).get('deck') or [], (state.get('run') or {}).get('act'))
+            compact['deck_direction'] = deck_direction(state)[0]
         if self.want_strategy: compact['request_strategy'] = True
         elif self.strategy and self.strategy['fight'] == fight_key(state): compact['fight_strategy'] = self.strategy['text']
         if state.get('state_type') in COMBAT:
@@ -259,8 +261,8 @@ class Controller:
         persistent = self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))
         if self.combat_session and (not persistent or self.combat_session.selection != selection
                                     or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
-                                    or self.combat_session.turns >= SESSION_MAX_TURNS):
-            # Long fights (bosses run 10+ turns) would carry an ever longer conversation; start afresh.
+                                    or (claude and self.combat_session.turns >= SESSION_MAX_TURNS)):
+            # Claude's CLI keeps its bounded sessions; Codex retains one thread per battle.
             self.close_combat_session()
         prune_runs(exclude=(self.combat_session.directory,) if self.combat_session else ())
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())

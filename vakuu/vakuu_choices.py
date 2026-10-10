@@ -35,7 +35,8 @@ def choice_offer(state, search_result=None):
         enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
         target = min(enemies, key=lambda e: (e.get('hp') or 0) + (e.get('block') or 0), default=None)
         proposals = []
-        for style, cards in (('已知格擋起手', defenses + attacks), ('已知攻擊起手', attacks + defenses)):
+        for style, cards in (('已知格擋起手', defenses + attacks), ('已知攻擊起手', attacks + defenses),
+                             ('只打已知攻擊並保留餘能', attacks)):
             energy = (state.get('player') or {}).get('energy', 0)
             sequence = []
             for card, move in cards:
