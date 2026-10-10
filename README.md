@@ -12,6 +12,7 @@
   - `vakuu_rules.py`：各畫面允許的動作、檢查模型動作、比對局面、過渡畫面判斷。
   - `vakuu_facts.py`：替模型先算好的數字：戰鬥、能量、牌組摘要、路線。
   - `vakuu_plans.py`：不問模型的步驟：固定規則、出牌計畫、購物計畫。
+  - `vakuu_search.py`：有限範圍的回合搜尋；先由程式找擊殺與減傷方案，未知機制交給所選模型。
   - `vakuu_router.py`：自動調度：哪些畫面交給強模型、何時換更強的模型。
   - `spire_models.py`、`spire_quota.py`、`spire_codex.py`、`sts2_advisor.py`、`sts2_control.py`：模型命令列、額度、Spire Codex 評分、抓牌評分、遊戲 API。
 - `vakuu/vakuu_prompt.md`：給模型的指示（角色語氣與各畫面規則）。每次呼叫都重新讀取，修改後不必重開遊戲；`{{END_TURN}}`、`{{LEAVE_SHOP}}` 由程式代入。
@@ -21,6 +22,30 @@
 - `docs/DEPENDENCIES.md`：外部來源、固定版本與重建需求。
 
 這裡是後續維護的原始碼倉庫，遊戲目前也使用這裡的 Python 程式；上層原本的 outputs 資料夾是舊部署副本，不再使用。Python 修改在遊戲重開後載入，C# 修改需要重建與安裝，再重開遊戲。
+
+## 減少模型呼叫
+
+接手時先執行固定規則，再嘗試戰鬥搜尋，最後才延續模型計畫或詢問模型。
+搜尋器每次只執行第一步，重新讀取局面後再計算；不靠舊手牌索引執行整串動作。
+目前支援基本打擊／防禦、單一敵人的閃電與冰霜球、電擊、雙重釋放與球狀閃電。
+適應打擊、趁勢打擊只用於可直接結束戰鬥的組合；未知手牌效果、特殊能力、隨機球目標、
+混合充能球順序、需要藥水的掉血局面，以及超過 20,000 個局面或 50ms 的搜尋都會交給模型。
+這是當回合的搜尋與評估，不是整局勝率的最佳解，也尚未支援抽牌結果的機率搜尋。
+
+不呼叫 AI 的接手模式（程式無法可靠決策時停下）：
+
+```powershell
+python -X utf8 tools/takeover_log.py --no-ai --steps 50
+```
+
+離線量測搜尋器可處理多少已記錄的模型呼叫，不操作遊戲、不呼叫模型：
+
+```powershell
+python -X utf8 tools/search_eval.py vakuu/button-runtime/logs/run28-full.jsonl --report vakuu/button-runtime/eval/search-run28.json
+```
+
+run28 的第一版結果：166 次模型呼叫中可處理 4 次（2.4%），全部為確定擊殺的局面。
+這只是舊紀錄的覆蓋率估計；改變動作會改變後續局面，不能當作實測勝率或實際省額度比例。
 
 ## 重建與安裝
 

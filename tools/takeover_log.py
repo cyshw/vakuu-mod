@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--model', help='Model key for this run only, e.g. auto:, auto:brief, claude:sonnet')
     parser.add_argument('--effort', choices=['low', 'medium', 'high'])
     parser.add_argument('--one-fight', action='store_true', help='Stop as soon as the current fight ends')
+    parser.add_argument('--no-ai', action='store_true', help='Use local decisions only; stop when a model would be needed')
     args = parser.parse_args()
 
     engine = load_engine()
@@ -45,7 +46,14 @@ def main():
         override = {k: v for k, v in (('model_key', args.model), ('effort', args.effort)) if v}
         engine.models.settings = lambda: {**saved(), **override}
 
-    controller = engine.Controller(lambda m: (write('report', message=m), print(m.replace('\n', ' | '), flush=True)))
+    controller = engine.Controller(lambda m: (write('report', message=m), print(m.replace('\n', ' | '), flush=True)),
+                                   allow_model=not args.no_ai)
+    raw_search = engine.search_turn
+    def logged_search(state):
+        result = raw_search(state)
+        write('search', result=result)
+        return result
+    engine.search_turn = logged_search
     raw_request = engine.api.request
 
     def request(path, body=None):

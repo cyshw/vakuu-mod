@@ -22,6 +22,7 @@ from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, ene
 from spire_codex import event_advice, monster_intel
 from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
+from vakuu_search import search_turn
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
                          transitional, validate)
 
@@ -43,8 +44,9 @@ def instructions():
     return text.replace('{{END_TURN}}', str(END_TURN)).replace('{{LEAVE_SHOP}}', str(LEAVE_SHOP)).strip()
 
 class Controller:
-    def __init__(self, report):
+    def __init__(self, report, allow_model=True):
         self.report = report
+        self.allow_model = allow_model
         self.stop_event = threading.Event()
         self.process = None
         self.lock = threading.Lock()
@@ -203,9 +205,16 @@ class Controller:
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
-                decision = (auto_decision(state, opened_cards) or route_decision(self.route, state)
-                            or plan_decision(plan, state)) if takeover else None
+                decision = auto_decision(state, opened_cards) if takeover else None
+                if takeover and decision is None and state.get('state_type') in COMBAT:
+                    decision = search_turn(state)['decision']
+                    if decision is not None: plan = None  # Re-read and search after each executed move.
+                if takeover and decision is None:
+                    decision = route_decision(self.route, state) or plan_decision(plan, state)
                 if decision is None:
+                    if not self.allow_model:
+                        self.report('程式無法可靠處理目前局面，已停止接手。\n此模式不會呼叫 AI，請手動選擇。')
+                        break
                     decision = self.decide_routed(state)
                     if state.get('state_type') == 'map': self.route = start_route(state, decision)
                     # Buying card removal opens a selection screen; keep the shopping list for afterwards.
