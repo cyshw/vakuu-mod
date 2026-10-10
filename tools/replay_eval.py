@@ -76,8 +76,11 @@ def decide(config, state):
         saved = engine.models.settings
         engine.models.settings = lambda: selection  # Routing reads settings; not thread-safe across auto configs.
         try: return controller.decide_routed(state)
-        finally: engine.models.settings = saved
-    return controller.decide(state, selection)
+        finally:
+            engine.models.settings = saved
+            controller.close_combat_session()
+    try: return controller.decide(state, selection)
+    finally: controller.close_combat_session()  # One-off case: never leave a combat session process behind.
 
 
 def plan_cards(state, decision):

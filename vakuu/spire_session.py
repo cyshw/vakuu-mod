@@ -158,3 +158,92 @@ def normalize_usage(value):
     result = {name: value[key] for key, name in names.items()
               if type(value.get(key)) is int and value[key] >= 0}
     return result or None
+
+
+class ClaudeCombatSession:
+    """One Claude CLI process per combat, kept open in stream-json mode.
+
+    A fresh `claude -p` per decision paid ~2.4s of startup and wrote ~7.4k prompt tokens to the
+    cache that no later call read. Kept open, the CLI starts once per fight and each turn reads the
+    earlier turns from the cache. The JSON schema is fixed when the process starts, so a call with
+    another schema needs a new session.
+    """
+
+    def __init__(self, selection, directory, stop_event, schema):
+        self.selection = dict(selection)
+        self.directory = directory
+        self.stop_event = stop_event
+        self.schema = schema
+        self.turns = 0
+        self.last_metrics = None
+        self.messages = queue.Queue()
+        self.closed = threading.Event()
+        command, _ = models.build_command(selection, directory, schema)
+        at = command.index('--output-format')
+        command[at:at + 2] = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose']
+        self.process = subprocess.Popen(
+            command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding='utf-8', errors='replace', cwd=directory,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        self.readers = [threading.Thread(target=self._read_stdout, daemon=True),
+                        threading.Thread(target=self._read_stderr, daemon=True)]
+        for reader in self.readers: reader.start()
+
+    def _read_stdout(self):
+        try:
+            with (self.directory / 'session-events.jsonl').open('w', encoding='utf-8') as log:
+                for line in self.process.stdout:
+                    log.write(line)
+                    log.flush()
+                    try: message = json.loads(line)
+                    except ValueError: continue
+                    if isinstance(message, dict) and message.get('type') == 'result': self.messages.put(message)
+        finally:
+            self.messages.put({'closed': True})
+
+    def _read_stderr(self):
+        with (self.directory / 'session-stderr.log').open('w', encoding='utf-8') as log:
+            for line in self.process.stderr:
+                log.write(line)
+                log.flush()
+
+    def close(self):
+        self.closed.set()
+        if self.process.poll() is None:
+            self.process.terminate()
+            try: self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait(timeout=2)
+        for reader in self.readers: reader.join(timeout=1)
+        for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
+            if stream: stream.close()
+
+    def ask(self, prompt, schema, timeout=180):
+        self.last_metrics = None
+        if schema != self.schema: raise RuntimeError('Claude 戰鬥對話的輸出格式不同，需要新對話')
+        if self.stop_event.is_set(): raise InterruptedError('已停止')
+        if self.closed.is_set(): raise RuntimeError('戰鬥對話已關閉')
+        text = '本次局面是最新狀態；忽略舊局面的手牌索引與敵人意圖。只依本次提供的格式回覆。\n' + prompt
+        try:
+            self.process.stdin.write(json.dumps({'type': 'user', 'message': {'role': 'user', 'content': text}},
+                                                ensure_ascii=False) + '\n')
+            self.process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            raise RuntimeError('Claude 戰鬥對話已中斷') from exc
+        deadline = time.monotonic() + timeout
+        while True:
+            if self.stop_event.is_set(): raise InterruptedError('已停止')
+            remaining = deadline - time.monotonic()
+            if remaining <= 0: raise RuntimeError('模型回覆逾時，請稍後重試')
+            try: message = self.messages.get(timeout=min(.25, remaining))
+            except queue.Empty: continue
+            if message.get('closed'): raise RuntimeError('Claude 戰鬥對話已中斷；請檢查 session-stderr.log')
+            break
+        self.turns += 1
+        usage = message.get('usage') or {}
+        self.last_metrics = {'transport': 'claude_session', 'session_turn': self.turns,
+                             'api_ms': message.get('duration_api_ms'), 'duration_ms': message.get('duration_ms'),
+                             'usage': {k: usage.get(k) for k in ('input_tokens', 'cache_read_input_tokens',
+                                                                 'cache_creation_input_tokens', 'output_tokens')}}
+        return models.parse_answer('claude', json.dumps(message, ensure_ascii=False), None)

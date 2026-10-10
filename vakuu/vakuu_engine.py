@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
-from spire_session import CombatSession
+from spire_session import ClaudeCombatSession, CombatSession
 import spire_quota
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
@@ -42,6 +42,7 @@ def prune_runs(keep=40, exclude=()):
         if old not in exclude: shutil.rmtree(old, ignore_errors=True)
 
 PROMPT = ROOT / 'vakuu_prompt.md'
+REPEATED_RULES = '（遊戲指示與這場戰鬥第一則訊息相同，不再重複，照那份指示判斷。）'
 
 def instructions():
     """Model instructions, read on every call so edits apply without restarting the game."""
@@ -248,8 +249,10 @@ class Controller:
 
     def call_model(self, prompt, schema, selection, candidate=False):
         started = time.perf_counter()
-        persistent = self.combat_key is not None and selection['model_key'].startswith('codex:')
-        if self.combat_session and (not persistent or self.combat_session.selection != selection):
+        claude = selection['model_key'].startswith('claude:')
+        persistent = self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))
+        if self.combat_session and (not persistent or self.combat_session.selection != selection
+                                    or (claude and self.combat_session.schema != schema)):  # Claude fixes it at start.
             self.close_combat_session()
         prune_runs(exclude=(self.combat_session.directory,) if self.combat_session else ())
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
@@ -261,25 +264,36 @@ class Controller:
             with self.lock:
                 if self.stop_event.is_set(): raise InterruptedError('已停止')
                 if self.combat_session is None:
-                    self.combat_session = CombatSession(selection, run_dir, self.stop_event)
+                    self.combat_session = (ClaudeCombatSession(selection, run_dir, self.stop_event, schema) if claude
+                                           else CombatSession(selection, run_dir, self.stop_event))
                 session = self.combat_session
+            rules, sent = instructions(), prompt
+            if session.turns and prompt.startswith(rules):
+                # The conversation already holds the instructions; resending ~6k characters every turn
+                # would only grow the context. A fallback call below still gets the whole prompt.
+                sent = REPEATED_RULES + prompt[len(rules):]
             try:
-                answer = session.ask(prompt, schema)
+                answer = session.ask(sent, schema)
             except ValueError:
                 # A malformed candidate may receive one full-state follow-up
                 # in this same conversation, just like an explicit rejection.
                 raise
-            except Exception:
+            except InterruptedError:
                 self.close_combat_session()
                 raise
+            except Exception:
+                self.close_combat_session()
+                if not claude: raise
+                session = None  # A broken Claude session falls back to a one-off call below.
             finally:
-                if session.last_metrics:
+                if session and session.last_metrics:
                     self.last_call_metrics = {'stage': 'candidate_choice' if candidate else 'full_state',
-                        'model': selection, 'prompt_chars': len(prompt),
+                        'model': selection, 'prompt_chars': len(sent),
                         'seconds': round(time.perf_counter() - started, 2), **session.last_metrics}
                     (run_dir / 'call-metrics.json').write_text(json.dumps(self.last_call_metrics, ensure_ascii=False), encoding='utf-8')
-            answer_path.write_text(json.dumps(answer, ensure_ascii=False), encoding='utf-8')
-            return answer
+            if session:
+                answer_path.write_text(json.dumps(answer, ensure_ascii=False), encoding='utf-8')
+                return answer
         command,provider=models.build_command(selection,run_dir,schema)
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         with self.lock:

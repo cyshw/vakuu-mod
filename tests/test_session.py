@@ -161,3 +161,60 @@ class LifecycleTests(unittest.TestCase):
             c.run(True, 1)
         session.close.assert_called_once()
         self.assertIsNone(c.combat_session)
+
+
+CLAUDE = {'model_key': 'claude:sonnet', 'effort': 'low'}
+ANSWER = {'advice': '打', 'stop': False, 'action': 'end_turn', 'parameters_json': '{}', 'next_cards': []}
+
+
+class FakeClaudeSession:
+    made = []
+
+    def __init__(self, selection, directory, stop_event, schema, fail=False):
+        self.selection, self.directory, self.schema = dict(selection), directory, schema
+        self.turns, self.last_metrics, self.sent, self.closed = 0, None, [], False
+        FakeClaudeSession.made.append(self)
+
+    def ask(self, prompt, schema):
+        self.sent.append(prompt); self.turns += 1
+        self.last_metrics = {'transport': 'claude_session', 'session_turn': self.turns}
+        return ANSWER
+
+    def close(self): self.closed = True
+
+
+class ClaudeSessionTests(unittest.TestCase):
+    def setUp(self): FakeClaudeSession.made = []
+
+    def test_one_claude_process_per_fight_and_rules_sent_once(self):
+        c = engine.Controller(lambda m: None); c.combat_key = (1, 5)
+        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+            c.call_model(engine.instructions() + '\n狀態一', engine.SCHEMA, CLAUDE)
+            c.call_model(engine.instructions() + '\n狀態二', engine.SCHEMA, CLAUDE)
+        self.assertEqual(len(FakeClaudeSession.made), 1)
+        first, second = FakeClaudeSession.made[0].sent
+        self.assertTrue(first.startswith(engine.instructions()))
+        self.assertEqual(second, engine.REPEATED_RULES + '\n狀態二')
+        c.combat_key = (1, 6); c.close_combat_session()
+        self.assertTrue(FakeClaudeSession.made[0].closed)
+
+    def test_broken_claude_session_falls_back_to_a_full_one_off_call(self):
+        class Broken(FakeClaudeSession):
+            def ask(self, prompt, schema): raise RuntimeError('pipe closed')
+        c = engine.Controller(lambda m: None); c.combat_key = (1, 5)
+        process = Mock(returncode=0); process.communicate.return_value = ('{}', '')
+        with patch.object(engine, 'ClaudeCombatSession', Broken), patch.object(engine, 'prune_runs'), \
+             patch.object(engine.subprocess, 'Popen', return_value=process), \
+             patch.object(engine.models, 'parse_answer', return_value=ANSWER):
+            self.assertEqual(c.call_model(engine.instructions() + '\n狀態', engine.SCHEMA, CLAUDE), ANSWER)
+        self.assertIsNone(c.combat_session)
+        self.assertTrue(process.communicate.call_args.args[0].startswith(engine.instructions()))
+
+    def test_claude_outside_combat_stays_one_off(self):
+        c = engine.Controller(lambda m: None); c.combat_key = None
+        process = Mock(returncode=0); process.communicate.return_value = ('{}', '')
+        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'), \
+             patch.object(engine.subprocess, 'Popen', return_value=process), \
+             patch.object(engine.models, 'parse_answer', return_value=ANSWER):
+            c.call_model('prompt', engine.SCHEMA, CLAUDE)
+        self.assertEqual(FakeClaudeSession.made, [])
