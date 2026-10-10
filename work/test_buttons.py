@@ -315,4 +315,15 @@ class Tests(unittest.TestCase):
         self.assertFalse(b.still_valid(before,self.combat(['黏液','打擊'],enemies=[]),body))  # Target died.
         self.assertFalse(b.still_valid({'state_type':'map','map':{'a':1}},{'state_type':'map','map':{'a':2}},{'action':'choose_map_node','index':0}))
 
+    def test_death_blow_counts_as_incoming_damage(self):
+        # Waterfall Giant: after "dying" it becomes unkillable and hits for 53; this once read as 0 and lost the run.
+        dying={'entity_id':'WATERFALL_GIANT_0','name':'瀑布巨兽','hp':999999990,'block':0,
+               'intents':[{'type':'DeathBlow','label':'53','title':'濒死一击','description':'它会在被摧毁前攻击你造成53点伤害。'}]}
+        facts=b.combat_facts(self.combat(['防禦'],enemies=[dying],hp=17))
+        self.assertEqual(facts['incoming_attack_damage'],53)
+        self.assertTrue(facts['lethal_if_no_more_block'])
+        self.assertEqual(facts['special_intents'][0]['type'],'DeathBlow')
+        self.assertEqual(b.incoming_damage({'type':'Debuff','label':'','description':'这个敌人将要对你施加一个负面效果。'}),0)
+        self.assertEqual(b.combat_facts(self.combat(['防禦']))['special_intents'],[])
+
 if __name__=='__main__': unittest.main()

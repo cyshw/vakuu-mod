@@ -78,8 +78,17 @@ COMBAT = {'monster', 'elite', 'boss'}
 END_TURN = -1  # hand_index that means "end the turn" in next_cards.
 LEAVE_SHOP = -1  # Item index that means "leave the shop" in next_purchases.
 
+COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
+
+def deals_damage(intent):
+    # Not only "Attack": the Waterfall Giant's DeathBlow ("濒死一击") hits for 53 when it dies, and
+    # counting it as 0 told the model no block was needed, which killed the run.
+    kind = str(intent.get('type'))
+    text = str(intent.get('description') or '')
+    return 'Attack' in kind or 'DeathBlow' in kind or '伤害' in text or '傷害' in text
+
 def incoming_damage(intent):
-    if 'Attack' not in str(intent.get('type')): return 0
+    if not deals_damage(intent): return 0
     numbers = [int(n) for n in re.findall(r'\d+', str(intent.get('label') or ''))]
     if not numbers: return 0
     return numbers[0] * (numbers[1] if len(numbers) > 1 else 1)  # "12×2" means two hits of 12.
@@ -94,6 +103,11 @@ def combat_facts(state):
     loss = max(0, incoming - block)
     return {
         'incoming_attack_damage': incoming,
+        # Unusual intents carry their own rules (timing, conditions); the model must read them itself.
+        'special_intents': [{'enemy': e.get('name'), 'type': i.get('type'), 'label': i.get('label'),
+                             'description': i.get('description')}
+                            for e in enemies for i in e.get('intents') or []
+                            if not any(kind in str(i.get('type')) for kind in COMMON_INTENTS)],
         'current_block': block,
         'block_needed_for_no_damage': loss,
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
@@ -289,7 +303,7 @@ def auto_decision(state, opened=None):
         rating = advise(state)
         rows = rating.get('ranked_cards', [])
         if rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5:
-            return _auto(f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 BoberInSpire 評分）。",
+            return _auto(f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 {rating.get('engine', '規則')} 評分）。",
                          'select_card_reward', card_index=rows[0]['index'])
     if kind == 'rewards':
         rewards = state.get('rewards') or {}
@@ -347,7 +361,9 @@ def hard_screen(state):
         facts = combat_facts(state)
         return facts['lethal_if_no_more_block'] or (player.get('hp') or 0) < 0.3 * (player.get('max_hp') or 1)
     if kind == 'card_reward':
-        rows = advise(state).get('ranked_cards', [])
+        rating = advise(state)
+        rows = rating.get('ranked_cards', [])
+        if rating.get('status') != 'ok': return True  # Unrated offers: let the stronger model judge.
         return len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] <= 5
     return False
 
@@ -463,17 +479,20 @@ class Controller:
             '會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。'
             '商店中 action 是第一筆購買，next_purchases 依序列出之後要買的商品 index，買完要離開就在最後加上 '
             + str(LEAVE_SHOP) + '；金幣必須夠付整串商品。買刪牌服務後會先選要刪的牌，之後照清單繼續。'
-            'shop_card_advice 是 BoberInSpire 依牌組對商店卡牌的評分。非商店畫面 next_purchases 為空陣列。'
+            'shop_card_advice 是商店卡牌的評分，格式同 card_advice。非商店畫面 next_purchases 為空陣列。'
             'player.deck 已合併相同的牌（count 為張數）並附效果說明。'
-            '戰鬥數字以 combat_facts 為準，不要自行重算傷害與格擋；lethal_if_no_more_block 為 true 時優先保命。'
+            '戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，'
+            'special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。'
+            'lethal_if_no_more_block 為 true 時優先保命。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
             '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
             'cards 的 selected 表示已選取，selected_count、min_select、max_select 是已選與可選張數；'
             '附魔畫面的 enchantment 說明附魔效果，依效果選最能發揮的牌（例如每段傷害加成適合多段攻擊）。'
             '商店沒有想買或買不起的商品時用 proceed 離開；proceed 會自動先關閉商品欄。'
             '防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。'
-            '抓牌採用 BoberInSpire 評分；前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；'
-            '資料未知或不完整時自行判斷。分數是規則分數，不是勝率。'
+            'card_advice 的 engine 為 Spire Codex 時，score 是社群進階10以上對局依勝率算出的 Codex Score（0-100），'
+            'lift 是拿了該牌的玩家勝率高出自身平均的百分點，data_through 是資料日期；engine 為 BoberInSpire 時是離線規則分數。'
+            '前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；資料未知或不完整時自行判斷。'
             '優先減少失血、完成目前遊戲。不要放棄遊戲或重開。若無有效動作、在主選單、或需要人工協助，'
             '輸出 action=none、stop=true。你看不到這個按鈕以外的聊天。'
             # Only this screen's actions: the full list let the model pick look-alikes from other screens.
