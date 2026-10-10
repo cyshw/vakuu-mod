@@ -1,9 +1,8 @@
-"""Floating buttons that invoke the installed Codex CLI on live STS2 state."""
+"""Vakuu takeover engine and the HTTP bridge used by the in-game panel."""
 import argparse
 import hashlib
 import json
 import os
-import queue
 import re
 import shutil
 import subprocess
@@ -14,8 +13,6 @@ import uuid
 from collections import Counter
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
-import tkinter as tk
-from tkinter import ttk
 import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -764,53 +761,15 @@ def bridge_server(port):
     finally: controller.stop(); server.server_close()
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--check', action='store_true')
-    parser.add_argument('--test-advice', action='store_true')
-    parser.add_argument('--bridge-server',type=int)
+    parser = argparse.ArgumentParser(description='Bridge between the in-game Vakuu panel and the model CLIs.')
+    parser.add_argument('--bridge-server', type=int, help='Serve the panel on this localhost port')
+    parser.add_argument('--check', action='store_true', help='Print the game API health check')
     args = parser.parse_args()
     if args.bridge_server:
-        bridge_server(args.bridge_server); return
-    if args.check:
-        print(json.dumps(api.request('/'), ensure_ascii=False)); return
-    if args.test_advice:
-        state = api.request('/api/v1/singleplayer?format=json')
-        print(json.dumps(Controller(print).decide(state), ensure_ascii=False)); return
-    window = tk.Tk()
-    window.title('尖塔 · Codex')
-    window.geometry('430x320+40+120')
-    window.attributes('-topmost', True)
-    events = queue.Queue()
-    controller = Controller(events.put)
-    ttk.Label(window, text='需要時再呼叫 Codex', font=('Microsoft JhengHei',13)).pack(pady=(12,4))
-    ttk.Label(window, text='本機 Codex 回覆 · 仍會使用帳號額度').pack()
-    bar = ttk.Frame(window); bar.pack(pady=12)
-    busy = [False]
-    def start(takeover):
-        if busy[0]: return
-        busy[0]=True
-        controller.stop_event.clear()
-        for button in buttons: button.config(state='disabled')
-        threading.Thread(target=controller.run,args=(takeover,),daemon=True).start()
-    buttons = [ttk.Button(bar,text='只給建議',command=lambda:start(False)),
-               ttk.Button(bar,text='接手遊玩',command=lambda:start(True))]
-    for button in buttons: button.pack(side='left',padx=5)
-    ttk.Button(bar,text='停止',command=controller.stop).pack(side='left',padx=5)
-    text=tk.Text(window,wrap='word',font=('Microsoft JhengHei',10),height=9)
-    text.pack(fill='both',expand=True,padx=12,pady=(0,8))
-    text.insert('end','只給建議：讀取目前局面，顯示下一步。\n接手遊玩：每次最多30步，可隨時停止。\n接手期間請暫停手動操作。\n')
-    def poll():
-        while not events.empty():
-            message=events.get()
-            if message=='__DONE__':
-                busy[0]=False
-                for button in buttons: button.config(state='normal')
-            else:
-                text.insert('end',message+'\n'); text.see('end')
-        window.after(150,poll)
-    def close():
-        controller.stop(); window.destroy()
-    window.protocol('WM_DELETE_WINDOW',close)
-    poll(); window.mainloop()
+        bridge_server(args.bridge_server)
+    elif args.check:
+        print(json.dumps(api.request('/'), ensure_ascii=False))
+    else:
+        parser.print_help()
 
 if __name__=='__main__': main()
