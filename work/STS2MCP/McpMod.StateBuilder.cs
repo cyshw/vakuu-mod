@@ -1665,8 +1665,13 @@ public static partial class McpMod
 
         state["items"] = items;
 
-        var proceedButton = NMerchantRoom.Instance?.ProceedButton;
-        state["can_proceed"] = proceedButton?.IsEnabled ?? false;
+        // The open inventory disables the room's proceed button, but the proceed action closes the
+        // inventory first, so leaving is still possible whenever the back button works.
+        var merchRoom = NMerchantRoom.Instance;
+        bool inventoryOpen = merchRoom?.Inventory?.IsOpen == true;
+        state["inventory_open"] = inventoryOpen;
+        state["can_proceed"] = (merchRoom?.ProceedButton?.IsEnabled ?? false)
+            || (inventoryOpen && FindFirst<NBackButton>(merchRoom!) is { IsEnabled: true });
 
         return state;
     }

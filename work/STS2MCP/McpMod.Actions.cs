@@ -561,17 +561,24 @@ public static partial class McpMod
         // Try merchant - close inventory first if open, then proceed
         if (NMerchantRoom.Instance is { } merchRoom)
         {
+            bool closedInventory = false;
             if (merchRoom.Inventory?.IsOpen == true)
             {
                 var backBtn = FindFirst<NBackButton>(merchRoom);
                 if (backBtn is { IsEnabled: true })
+                {
                     backBtn.ForceClick();
+                    closedInventory = true;
+                }
             }
             if (merchRoom.ProceedButton.IsEnabled)
             {
                 merchRoom.ProceedButton.ForceClick();
                 return new Dictionary<string, object?> { ["status"] = "ok", ["message"] = "Proceeding from shop" };
             }
+            // The proceed button re-enables after the close animation; the next proceed leaves.
+            if (closedInventory)
+                return new Dictionary<string, object?> { ["status"] = "ok", ["message"] = "Closed shop inventory; proceed again to leave" };
         }
 
         // Try fake merchant - close inventory first if open, then proceed

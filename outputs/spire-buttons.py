@@ -141,6 +141,7 @@ class Controller:
             '卡牌 index 會隨出牌改變，只決定當前的一個動作。target 使用敵人 entity_id 字串。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
             '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
+            '商店沒有想買或買不起的商品時用 proceed 離開；proceed 會自動先關閉商品欄。'
             '防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。'
             '抓牌採用 BoberInSpire 評分；前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；'
             '資料未知或不完整時自行判斷。分數是規則分數，不是勝率。'
