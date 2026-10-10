@@ -42,10 +42,29 @@ def combat_facts(state):
                            for c in player.get('hand') or [] if c.get('can_play')],
         # >= 0: current energy already pays for every other card in hand, so energy cards would be wasted.
         'spare_energy_without_energy_cards': spare_energy(state),
-        'enemies': [{'entity_id': e.get('entity_id'), 'name': e.get('name'), 'hp': e.get('hp'), 'block': e.get('block')}
-                    for e in enemies],
+        'timed_effects': timed_effects(player),
         'note': '傷害已含意圖顯示的修正；未計回合結束時的被動格擋或傷害（如冰霜、閃電充能球）。',
     }
+
+COUNTDOWN = re.compile(r'在第\s*(\d+)\s*回合[结結]束[时時]')
+
+def timed_effects(player):
+    """Player statuses that fire later, with turns left spelled out.
+
+    The Bomb shows as a status "在第3回合结束时..." whose amount counts down; Sonnet once took that
+    as exploding this turn, raced instead of blocking 20 damage, and the run died.
+    """
+    effects = []
+    for status in player.get('status') or []:
+        text = str(status.get('description') or '')
+        if '回合' not in text: continue
+        effect = {'name': status.get('name'), 'description': text}
+        countdown = COUNTDOWN.search(text)
+        if countdown:
+            left = int(countdown.group(1))
+            effect.update(turns_left=left, fires_at_end_of_this_turn=left == 1)
+        effects.append(effect)
+    return effects
 
 def deck_summary(deck):
     """One entry per distinct card with a count, so the model knows what each card does without repeats."""
@@ -236,4 +255,20 @@ def deck_profile(deck):
         'starter_defends': count(lambda c: str(c.get('id', '')).startswith('DEFEND')),
         'unplayable': count(lambda c: '不能被打出' in text(c)),
     }
+
+def pull_keywords(value, glossary=None):
+    """Replace every card/orb/potion keyword list with names, collecting each definition once.
+
+    The same keyword text (Exhaust, Channel, orb rules...) was repeated on every card in hand and deck.
+    """
+    glossary = {} if glossary is None else glossary
+    if isinstance(value, dict):
+        for key, item in list(value.items()):
+            if key == 'keywords' and isinstance(item, list):
+                value[key] = [k.get('name') for k in item if isinstance(k, dict)]
+                glossary.update({k.get('name'): k.get('description') for k in item if isinstance(k, dict) and k.get('name')})
+            else: pull_keywords(item, glossary)
+    elif isinstance(value, list):
+        for item in value: pull_keywords(item, glossary)
+    return glossary
 

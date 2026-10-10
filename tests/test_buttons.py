@@ -476,4 +476,14 @@ class Tests(unittest.TestCase):
         self.assertTrue(router.hard_screen({'state_type':'event','event':{'options':[{'index':0},{'index':1}]}}))
         self.assertFalse(router.hard_screen({'state_type':'event','event':{'options':[{'index':0}]}}))
 
+    def test_timed_effects_and_keyword_glossary(self):
+        player={'status':[{'name':'炸弹','description':'在第3回合结束时，对所有敌人造成40点伤害。'},
+                          {'name':'炸弹','description':'在第1回合结束时，对所有敌人造成40点伤害。'},
+                          {'name':'集中','description':'提升充能球的效力1点。'}]}
+        effects=facts.timed_effects(player)
+        self.assertEqual([(e['turns_left'],e['fires_at_end_of_this_turn']) for e in effects],[(3,False),(1,True)])
+        data={'hand':[{'name':'A','keywords':[{'name':'消耗','description':'移除'}]},{'name':'B','keywords':[{'name':'消耗','description':'移除'}]}]}
+        self.assertEqual(facts.pull_keywords(data),{'消耗':'移除'})
+        self.assertEqual(data['hand'][1]['keywords'],['消耗'])
+
 if __name__=='__main__': unittest.main()
