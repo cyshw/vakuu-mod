@@ -147,3 +147,34 @@ def auto_decision(state, opened=None):
         if isinstance(hand, list) and not any(card.get('can_play') for card in hand) and not potions:
             return _auto('手上已無可出之牌。\n建議：結束回合。', 'end_turn')
     return None
+
+# Re-plan the route when HP fell this much (fraction of max HP) since it was drawn.
+ROUTE_HP_DROP = 0.2
+
+def hp_ratio(state):
+    player = state.get('player') or {}
+    return (player.get('hp') or 0) / (player.get('max_hp') or 1)
+
+def start_route(state, decision):
+    """Remember the route the model drew, like a player planning the act once instead of per node."""
+    if state.get('state_type') != 'map' or decision.get('action') != 'choose_map_node': return None
+    path = [(node['col'], node['row']) for node in decision.get('next_nodes') or []
+            if isinstance(node, dict) and isinstance(node.get('col'), int) and isinstance(node.get('row'), int)]
+    if not path: return None
+    return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path}
+
+def route_decision(route, state):
+    """Next node of the planned route; None asks the model to re-plan (route left, big HP loss, new act)."""
+    if not route or state.get('state_type') != 'map': return None
+    if (state.get('run') or {}).get('act') != route['act']: return None
+    if route['hp_ratio'] - hp_ratio(state) >= ROUTE_HP_DROP: return None
+    world = state.get('map') or {}
+    row = (world.get('current_position') or {}).get('row', -1)
+    route['path'] = [node for node in route['path'] if node[1] > row]  # Drop rooms already passed.
+    if not route['path']: return None
+    col, next_row = route['path'][0]
+    option = next((o for o in world.get('next_options') or [] if (o.get('col'), o.get('row')) == (col, next_row)), None)
+    if option is None: return None
+    route['path'].pop(0)
+    return _auto('照既定路線前進。\n建議：前往路線上的下一個地點。', 'choose_map_node', index=option['index'])
+

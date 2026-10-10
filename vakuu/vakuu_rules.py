@@ -44,7 +44,13 @@ SCHEMA = {
         'next_purchases': {'type': 'array', 'items': {'type': 'integer'}},
         # A per-fight battle plan, written only when the prompt asks for one (auto:brief).
         'strategy': {'type': 'string'},
-    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards', 'next_purchases', 'strategy']
+        # The rest of the route after the chosen map node, walked without asking again.
+        'next_nodes': {'type': 'array', 'items': {
+            'type': 'object', 'additionalProperties': False,
+            'properties': {'col': {'type': 'integer'}, 'row': {'type': 'integer'}},
+            'required': ['col', 'row']}},
+    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards', 'next_purchases', 'strategy',
+                    'next_nodes']
 }
 COMBAT = {'monster', 'elite', 'boss'}
 END_TURN = -1  # hand_index that means "end the turn" in next_cards.

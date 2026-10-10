@@ -395,4 +395,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(rest['to_act_end_min_max']['elites'],[1,1])
         self.assertEqual(facts.route_facts(state)['hp_ratio'],0.33)
 
+    def test_route_is_planned_once_and_followed(self):
+        def at(row, options, hp=60, act=1):
+            return {'state_type':'map','run':{'act':act},'player':{'hp':hp,'max_hp':75},
+                    'map':{'current_position':{'row':row},'next_options':[{'index':i,'col':c,'row':row+1} for i,c in enumerate(options)]}}
+        drawn={'action':'choose_map_node','parameters_json':'{"index":0}',
+               'next_nodes':[{'col':2,'row':2},{'col':3,'row':3},{'col':3,'row':4}]}
+        route=plans.start_route(at(0,[1,4]),drawn)
+        self.assertEqual(route['path'],[(2,2),(3,3),(3,4)])
+        self.assertEqual(json.loads(plans.route_decision(route,at(1,[0,2]))['parameters_json']),{'index':1})
+        # Row 3 had a single path, taken by the forced-move rule; the route skips it and continues.
+        self.assertEqual(json.loads(plans.route_decision(route,at(3,[1,3]))['parameters_json']),{'index':1})
+        self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[0,1])))  # Left the route.
+        self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],hp=40)))  # Lost 20 of 75 HP.
+        self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],act=2)))  # New act.
+        self.assertIsNone(plans.start_route({'state_type':'shop'},drawn))
+
 if __name__=='__main__': unittest.main()

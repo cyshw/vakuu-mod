@@ -19,7 +19,7 @@ from sts2_advisor import advise
 import spire_models as models
 import spire_quota
 from vakuu_facts import combat_facts, deck_summary, route_facts, wastes_energy_card
-from vakuu_plans import auto_decision, first_card, plan_decision, start_plan
+from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
                          transitional, validate)
@@ -48,6 +48,7 @@ class Controller:
         self.process = None
         self.lock = threading.Lock()
         self.strategy = None  # {'fight': fight_key, 'text': battle plan} in auto:brief mode.
+        self.route = None  # Planned map route; kept across takeovers until something calls for a re-plan.
         self.want_strategy = False
 
     def stop(self):
@@ -177,9 +178,11 @@ class Controller:
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
-                decision = (auto_decision(state, opened_cards) or plan_decision(plan, state)) if takeover else None
+                decision = (auto_decision(state, opened_cards) or route_decision(self.route, state)
+                            or plan_decision(plan, state)) if takeover else None
                 if decision is None:
                     decision = self.decide_routed(state)
+                    if state.get('state_type') == 'map': self.route = start_route(state, decision)
                     # Buying card removal opens a selection screen; keep the shopping list for afterwards.
                     keep = plan and plan['kind'] == 'shop' and state.get('state_type') == 'card_select'
                     plan = start_plan(state, decision) or (plan if keep else None)
