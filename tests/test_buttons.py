@@ -419,6 +419,8 @@ class Tests(unittest.TestCase):
         self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],hp=40)))  # Lost 20 of 75 HP.
         self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],act=2)))  # New act.
         self.assertIsNone(plans.start_route({'state_type':'shop'},drawn))
+        elite_route=plans.start_route(at(0,[1,4]),drawn); elite_route['types'][(2,2)]='Elite'
+        self.assertIsNone(plans.route_decision(elite_route,at(1,[0,2])))  # Always re-asked before an elite.
 
     def test_guide_rules_rest_balanced_routes_and_pick_threshold(self):
         node=lambda col,row,kind,*kids: {'col':col,'row':row,'type':kind,'children':[list(k) for k in kids]}

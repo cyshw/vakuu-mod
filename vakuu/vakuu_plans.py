@@ -183,6 +183,9 @@ def route_decision(route, state):
     route['path'] = [node for node in route['path'] if node[1] > row]  # Drop rooms already passed.
     if not route['path']: return None
     col, next_row = route['path'][0]
+    # Entering an elite is decided with the HP and deck of that moment, not the plan's: a route drawn
+    # at 5 HP ("rest, then decide on the elite") walked into the elite at 36% HP after resting and died.
+    if (route.get('types') or {}).get((col, next_row)) == 'Elite': return None
     option = next((o for o in world.get('next_options') or [] if (o.get('col'), o.get('row')) == (col, next_row)), None)
     if option is None: return None
     route['path'].pop(0)
