@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][string]$GameDir,
     [string]$Dotnet = 'dotnet'
 )

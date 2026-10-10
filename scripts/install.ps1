@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][string]$GameDir,
     [Parameter(Mandatory=$true)][string]$Pythonw
 )

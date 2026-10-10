@@ -1,4 +1,4 @@
-param([string]$Python = 'python')
+﻿param([string]$Python = 'python')
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
