@@ -21,7 +21,7 @@ SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 import vakuu_engine as engine  # noqa: E402
 from sts2_advisor import advise  # noqa: E402
-from vakuu_facts import card_cost, combat_facts, gives_energy_now, route_facts  # noqa: E402
+from vakuu_facts import card_cost, combat_facts, gives_energy_now, incoming_damage, route_facts  # noqa: E402
 from vakuu_rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
 LOGS = SOURCE / 'button-runtime' / 'logs'
@@ -42,7 +42,7 @@ def build_cases(paths=None):
     """Every state a model decided on, deduplicated, skipping screens caught mid-animation."""
     cases, seen = [], set()
     for path in paths or sorted(LOGS.glob('*.jsonl')):
-        last = None
+        last, start = None, len(cases)  # Ids count within each log, so they stay put as other logs come and go.
         for line in open(path, encoding='utf-8'):
             record = json.loads(line)
             if record['kind'] == 'state': last = record['state']
@@ -53,7 +53,7 @@ def build_cases(paths=None):
                     if kind == 'combat' and not (last.get('player') or {}).get('hand'): continue
                     if kind == 'map' and len((last.get('map') or {}).get('next_options') or []) < 2: continue
                     seen.add(key)
-                    cases.append({'id': f'{path.stem}#{len(cases)}', 'type': kind, 'state': last,
+                    cases.append({'id': f'{path.stem}#{len(cases) - start}', 'type': kind, 'state': last,
                                   'original': record['decision'], 'original_model': record.get('model')})
     return cases
 
@@ -107,7 +107,9 @@ def score_combat(state, decision):
     slots = set(drunk_potions(decision))
     potions = [p for p in facts.get('usable_potions') or [] if p['slot'] in slots]
     block += sum(p.get('block', 0) for p in potions)
-    unblocked = max(0, facts['incoming_attack_damage'] - facts['current_block'] - block)
+    killed = planned_kills(state, decision, facts)
+    incoming = sum(incoming_damage(i) for e in killed for i in e.get('intents') or [])
+    unblocked = max(0, facts['incoming_attack_damage'] - incoming - facts['current_block'] - block)
     played = {id(c) for c in cards}
     affordable_left = [c for c in player.get('hand') or [] if id(c) not in played and c.get('can_play')
                        and not gives_energy_now(c) and card_cost(c) <= budget - cost]
@@ -118,9 +120,39 @@ def score_combat(state, decision):
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
             'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
-            'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions,
+            # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
+            'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions
+                                       and not (ends and unblocked < (player.get('hp') or 0)),
             'potion_drunk_when_safe': bool(potions) and state.get('state_type') == 'monster'
                                       and not facts['lethal_if_no_more_block'] and not facts.get('potion_kills_an_enemy')}
+
+
+def planned_kills(state, decision, facts):
+    """Enemies the plan's targeted damage (cards and potions) is enough to kill; their attacks never land."""
+    hand = (state.get('player') or {}).get('hand') or []
+    potions = {p['slot']: p for p in facts.get('usable_potions') or []}
+    moves = []
+    params = json.loads(decision['parameters_json'] or '{}')
+    if decision['action'] == 'play_card': moves.append(('card', params.get('card_index'), params.get('target')))
+    if decision['action'] == 'use_potion': moves.append(('potion', params.get('slot'), params.get('target')))
+    for entry in decision.get('next_cards') or []:
+        if isinstance(entry.get('potion_slot'), int) and entry['potion_slot'] >= 0:
+            moves.append(('potion', entry['potion_slot'], entry.get('target')))
+        elif entry.get('hand_index') == END_TURN: break
+        else: moves.append(('card', entry.get('hand_index'), entry.get('target')))
+    enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
+    dealt = collections.Counter()
+    for kind, key, target in moves:
+        if kind == 'potion':
+            amount = (potions.get(key) or {}).get('damage', 0)
+            text = ''
+        else:
+            if not isinstance(key, int) or not 0 <= key < len(hand): continue
+            text = hand[key].get('description') or ''
+            amount = sum(int(m.group(1)) * int(m.group(2) or 1) for m in DAMAGE.finditer(text))
+        for enemy in enemies:
+            if '所有敌人' in text or enemy.get('entity_id') == target: dealt[enemy.get('entity_id')] += amount
+    return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)]
 
 
 def drunk_potions(decision):
@@ -213,7 +245,7 @@ def report(results_path):
             mean([(p['picked_score'] or 0) / p['best_score'] for p in picks if not p['skipped']]),
             f"{sum(r['rooms_before_elite'] <= 2 and r['hp_ratio'] < 0.5 for r in routes)}/{len(routes)}",
         ]) + ' |')
-    lines += ['', '「會死」與「漏傷」只算排完整個回合的計畫，依卡牌說明估算格擋（含計畫中喝的藥水），未計充能球與能力。「安全時喝藥水」指普通戰鬥、不致命、藥水也打不死敵人時就喝。', '', '## 各設定判斷不同的局面', '']
+    lines += ['', '「會死」與「漏傷」只算排完整個回合的計畫，依卡牌說明估算格擋（含計畫中喝的藥水）、計畫打得死的敵人不算它的攻擊，未計充能球與能力。「安全時喝藥水」指普通戰鬥、不致命、藥水也打不死敵人時就喝。', '', '## 各設定判斷不同的局面', '']
     by_case = collections.defaultdict(dict)
     for r in rows:
         if 'decision' in r: by_case[(r['case'], r['type'])][r['config']] = r

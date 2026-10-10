@@ -84,10 +84,14 @@ def potion_facts(state, loss):
     weakest = min(((e.get('hp') or 0) + (e.get('block') or 0) for e in enemies), default=None)
     potion_block = sum(p.get('block', 0) for p in usable)
     hp = player.get('hp') or 0
+    lethal = loss >= hp > 0
     return {
         'usable_potions': usable,
+        # Sonnet once wrote "this turn cannot be survived" with a Fire Potion in hand and never mentioned it.
+        **({'lethal_with_potions_in_hand': '不喝藥水這回合會死：先算 ' + '、'.join(p['name'] for p in usable) + ' 能不能救命'}
+           if lethal else {}),
         'potion_belt_full': len(player.get('potions') or []) >= (player.get('max_potion_slots') or 99),
-        'potion_block_covers_lethal': loss >= hp > 0 and potion_block > 0 and loss - potion_block < hp,
+        'potion_block_covers_lethal': lethal and potion_block > 0 and loss - potion_block < hp,
         'potion_kills_an_enemy': weakest is not None and any(p.get('damage', 0) >= weakest for p in usable),
     }
 

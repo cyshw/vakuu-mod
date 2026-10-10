@@ -4,7 +4,7 @@ replay_eval samples cases at random from logs that are not kept; this suite stor
 the repo (tests/regression/) so every prompt or model change is judged on the same questions. Models
 answer differently each time, so each case can be asked several times and reported as a pass rate.
 
-    python tools/regression.py add run27-full#30 --expect potion_held_when_lethal=false --note "火焰藥水能救命"
+    python tools/regression.py add run9#4 --expect "unblocked<=10" --note "火焰藥水能救命"
     python tools/regression.py list
     python tools/regression.py run --config claude:sonnet@low --repeat 2
 """
@@ -20,9 +20,15 @@ import replay_eval  # noqa: E402
 SUITE = Path(__file__).resolve().parent.parent / 'tests' / 'regression'
 
 
+CHECKS = {'<=': lambda a, b: a is not None and a <= b, '>=': lambda a, b: a is not None and a >= b,
+          '!=': lambda a, b: a != b, '=': lambda a, b: a == b}
+
+
 def parse_expect(text):
-    key, _, value = text.partition('=')
-    return key, json.loads(value)
+    """'dies=false', 'unblocked<=10' or 'dies!=true' -> ('dies', ['=', False])."""
+    op = next(op for op in CHECKS if op in text)
+    key, _, value = text.partition(op)
+    return key, [op, json.loads(value)]
 
 
 def add(args):
@@ -44,7 +50,11 @@ def load():
 
 def failures(case, decision):
     result = replay_eval.score(case, decision)
-    return [f'{k}={result.get(k)!r}（應為 {v!r}）' for k, v in case['expect'].items() if result.get(k) != v]
+    wrong = []
+    for key, check in case['expect'].items():
+        op, value = check if isinstance(check, list) else ['=', check]
+        if not CHECKS[op](result.get(key), value): wrong.append(f'{key}={result.get(key)!r}（應 {op} {value!r}）')
+    return wrong
 
 
 def run(args):
