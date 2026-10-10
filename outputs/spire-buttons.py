@@ -95,6 +95,14 @@ def prune_runs(keep=40):
                   key=lambda p: p.stat().st_mtime)
     for old in runs[:-keep]: shutil.rmtree(old, ignore_errors=True)
 
+def transitional(state):
+    screen = state.get(state.get('state_type')) or {}
+    if state.get('state_type') == 'rest_site':
+        return not screen.get('options') and not screen.get('can_proceed')
+    if state.get('state_type') == 'rewards':
+        return not screen.get('items') and not screen.get('can_proceed')
+    return False
+
 def _auto(advice, action, **params):
     return {'advice': advice, 'stop': False, 'action': action, 'parameters_json': json.dumps(params)}
 
@@ -127,6 +135,10 @@ def auto_decision(state, opened=None):
                 return _auto('看看命運端上了什麼。\n建議：打開卡牌獎勵。', 'claim_reward', index=cards[0]['index'])
         if not rewards.get('items') and rewards.get('can_proceed'):
             return _auto('戰利品已盡，繼續前行。\n建議：離開獎勵畫面。', 'proceed')
+    if kind == 'rest_site':
+        rest = state.get('rest_site') or {}
+        if rest.get('can_proceed') and not any(o.get('is_enabled', True) for o in rest.get('options') or []):
+            return _auto('篝火已盡其用，該上路了。\n建議：離開休息點。', 'proceed')
     if kind == 'map':
         options = (state.get('map') or {}).get('next_options') or []
         if len(options) == 1:
@@ -170,6 +182,15 @@ class Controller:
                 announced = True
             if time.monotonic() >= deadline:
                 raise RuntimeError('等待出牌階段超過 45 秒，已停止；請確認遊戲是否需要手動處理。')
+            if self.stop_event.wait(0.5): raise InterruptedError('已停止')
+            state = api.request('/api/v1/singleplayer?format=json')
+        return state
+
+    def wait_until_settled(self, state, timeout=10):
+        # Right after resting or claiming the last reward, the screen has nothing to choose and the
+        # proceed button is still animating in; asking the model then makes it give up.
+        deadline = time.monotonic() + timeout
+        while transitional(state) and time.monotonic() < deadline:
             if self.stop_event.wait(0.5): raise InterruptedError('已停止')
             state = api.request('/api/v1/singleplayer?format=json')
         return state
@@ -235,7 +256,7 @@ class Controller:
             for step in range(max_steps if takeover else 1):
                 if self.stop_event.is_set(): break
                 state = api.request('/api/v1/singleplayer?format=json')
-                if takeover: state = self.wait_for_play_phase(state)
+                if takeover: state = self.wait_until_settled(self.wait_for_play_phase(state))
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')

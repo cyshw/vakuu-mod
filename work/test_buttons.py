@@ -122,4 +122,14 @@ class Tests(unittest.TestCase):
         self.assertIsNone(b.auto_decision(state(1),opened))  # Skipped and still listed: let the model decide.
         self.assertIsNone(b.auto_decision(state(1)))  # Advice mode never auto-opens.
 
+    def test_rest_site_waits_for_proceed_then_leaves(self):
+        resting={'state_type':'rest_site','rest_site':{'options':[],'can_proceed':False}}
+        ready={'state_type':'rest_site','rest_site':{'options':[],'can_proceed':True}}
+        c=b.Controller(lambda message: None)
+        with patch.object(b.api,'request',side_effect=[resting,ready]), patch.object(c.stop_event,'wait',return_value=False):
+            self.assertEqual(c.wait_until_settled(resting),ready)
+        self.assertEqual(b.auto_decision(ready)['action'],'proceed')
+        self.assertIsNone(b.auto_decision({'state_type':'rest_site','rest_site':{'options':[{'index':0,'is_enabled':True}],'can_proceed':True}}))
+        b.validate(ready,'proceed',{})
+
 if __name__=='__main__': unittest.main()
