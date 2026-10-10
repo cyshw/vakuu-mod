@@ -1434,6 +1434,10 @@ public static partial class McpMod
         return state;
     }
 
+    // Event instance whose inventory was already auto-opened. Reopening on every state read
+    // would undo the proceed action's close and trap takeover in the event.
+    private static object? _fakeMerchantAutoOpened;
+
     private static Dictionary<string, object?> BuildFakeMerchantState(EventRoom eventRoom, RunState runState)
     {
         var state = new Dictionary<string, object?>();
@@ -1463,17 +1467,23 @@ public static partial class McpMod
             return state;
         }
 
-        // Auto-open the inventory if the merchant button is still available
-        if (fakeMerchantNode != null)
+        // Auto-open the inventory once per visit if the merchant button is still available
+        if (fakeMerchantNode != null && !ReferenceEquals(_fakeMerchantAutoOpened, fakeMerchant))
         {
             var inventoryUI = FindFirst<NMerchantInventory>(fakeMerchantNode);
-            if (inventoryUI != null && !inventoryUI.IsOpen)
+            if (inventoryUI?.IsOpen == true)
+                _fakeMerchantAutoOpened = fakeMerchant;
+            else if (inventoryUI != null)
             {
                 // ForceClick the merchant button to go through the proper signal chain
                 // (disables proceed button, wires InventoryClosed callback, etc.)
+                // Only mark the visit once the click happened, so an early read still opens it later.
                 var merchantButton = fakeMerchantNode.MerchantButton;
                 if (merchantButton != null && merchantButton.Visible && merchantButton.IsEnabled)
+                {
                     merchantButton.ForceClick();
+                    _fakeMerchantAutoOpened = fakeMerchant;
+                }
             }
         }
 
@@ -1483,8 +1493,12 @@ public static partial class McpMod
         // Proceed button
         if (fakeMerchantNode != null)
         {
+            // Same as the regular shop: proceed closes an open inventory first.
             var proceedButton = FindFirst<NProceedButton>(fakeMerchantNode);
-            shopState["can_proceed"] = proceedButton?.IsEnabled ?? false;
+            bool inventoryOpen = FindFirst<NMerchantInventory>(fakeMerchantNode)?.IsOpen == true;
+            shopState["inventory_open"] = inventoryOpen;
+            shopState["can_proceed"] = (proceedButton?.IsEnabled ?? false)
+                || (inventoryOpen && FindFirst<NBackButton>(fakeMerchantNode) is { IsEnabled: true });
         }
         else
         {

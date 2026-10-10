@@ -587,12 +587,16 @@ public static partial class McpMod
             var fmNode = FindFirst<NFakeMerchant>(evtRoom);
             if (fmNode != null)
             {
+                bool closedInventory = false;
                 var fmInventory = FindFirst<NMerchantInventory>(fmNode);
                 if (fmInventory is { IsOpen: true })
                 {
                     var backBtn = FindFirst<NBackButton>(fmNode);
                     if (backBtn is { IsEnabled: true })
+                    {
                         backBtn.ForceClick();
+                        closedInventory = true;
+                    }
                 }
                 var proceedBtn = FindFirst<NProceedButton>(fmNode);
                 if (proceedBtn is { IsEnabled: true })
@@ -600,6 +604,8 @@ public static partial class McpMod
                     proceedBtn.ForceClick();
                     return new Dictionary<string, object?> { ["status"] = "ok", ["message"] = "Proceeding from fake merchant" };
                 }
+                if (closedInventory)
+                    return new Dictionary<string, object?> { ["status"] = "ok", ["message"] = "Closed fake merchant inventory; proceed again to leave" };
             }
         }
 
