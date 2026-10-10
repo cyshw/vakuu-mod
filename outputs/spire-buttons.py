@@ -64,8 +64,14 @@ SCHEMA = {
 def fingerprint(state):
     return hashlib.sha256(json.dumps(state, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
+def selection_complete(state):
+    # select_card toggles a card; once the preview opens the choice is made and only confirm/cancel are safe.
+    select = state.get('card_select') or {}
+    return state.get('state_type') == 'card_select' and bool(select.get('preview_showing'))
+
 def validate(state, action, params):
     allowed = ALLOWED.get(state.get('state_type'), set()) | {'use_potion', 'discard_potion'}
+    if selection_complete(state): allowed = {'confirm_selection', 'cancel_selection'}
     if action not in allowed or action not in FIELDS:
         raise ValueError('不允許在目前畫面執行這個操作：' + action)
     if not isinstance(params, dict) or set(params) - FIELDS[action]:
@@ -133,6 +139,8 @@ class Controller:
             '只根據下列 JSON 決策，不呼叫工具，不讀寫檔案，不操作電腦。'
             '輸出一個遊戲 API 動作。parameters_json 是參數物件的 JSON 字串。'
             '卡牌 index 會隨出牌改變，只決定當前的一個動作。target 使用敵人 entity_id 字串。'
+            'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
+            '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
             '防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。'
             '抓牌採用 BoberInSpire 評分；前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；'
             '資料未知或不完整時自行判斷。分數是規則分數，不是勝率。'
@@ -173,7 +181,10 @@ class Controller:
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
                 rating = advise(state) if state.get('state_type') == 'card_reward' else None
                 rows = rating.get('ranked_cards', []) if rating else []
-                if takeover and rating and rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5:
+                if takeover and selection_complete(state) and state['card_select'].get('can_confirm'):
+                    decision = {'advice':'契約已定，落筆為證。\n建議：確認剛才的選擇。', 'stop':False,
+                                'action':'confirm_selection', 'parameters_json':'{}'}
+                elif takeover and rating and rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5:
                     decision = {'advice':f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 BoberInSpire 評分）。", 'stop':False,
                                 'action':'select_card_reward', 'parameters_json':json.dumps({'card_index':rows[0]['index']})}
                 else:

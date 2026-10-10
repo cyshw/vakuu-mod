@@ -68,4 +68,18 @@ class Tests(unittest.TestCase):
             c.run(True,1)
         self.assertTrue(all(len(call.args)==1 for call in api.call_args_list))
 
+    def test_completed_card_selection_confirms_without_model(self):
+        picking={'state_type':'card_select','card_select':{'preview_showing':False,'can_confirm':False,'cards':[{'index':0}]}}
+        chosen={'state_type':'card_select','card_select':{'preview_showing':True,'can_confirm':True,'cards':[{'index':0}]}}
+        decision={'advice':'移除打擊','stop':False,'action':'select_card','parameters_json':'{"index":0}'}
+        c=b.Controller(lambda message: None)
+        responses=[picking,picking,{'status':'ok'},chosen,chosen,{'status':'ok'}]
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False):
+            c.run(True,2)
+        self.assertEqual(decide.call_count,1)
+        posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
+        self.assertEqual(posts,[{'action':'select_card','index':0},{'action':'confirm_selection'}])
+        with self.assertRaises(ValueError):
+            b.validate(chosen,'select_card',{'index':1})
+
 if __name__=='__main__': unittest.main()
