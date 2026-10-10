@@ -24,6 +24,43 @@ def sample():
 
 
 class ChoiceTests(unittest.TestCase):
+    def test_empty_partial_choices_are_not_advertised(self):
+        menu = {'search_reason': 'unsupported_hand', 'plans': [
+            {'id': 'P1', 'sequence': [], 'confidence': 'partial', 'end_turn': True},
+            {'id': 'P2', 'sequence': [{'card_index': 1}], 'confidence': 'partial', 'end_turn': False}]}
+        with patch('vakuu_choices.turn_candidates', return_value=menu):
+            offer = choice_offer(sample())
+        self.assertEqual(offer['schema']['properties']['choice']['enum'], ['P2', 'reject'])
+        self.assertEqual(len(offer['payload']['plans']), 1)
+        menu['plans'] = menu['plans'][:1]
+        with patch('vakuu_choices.turn_candidates', return_value=menu):
+            self.assertIsNone(choice_offer(sample()))
+
+    def test_held_void_is_known_but_changed_description_still_blocks(self):
+        s = sample()
+        void = {'id': 'VOID', 'index': 3, 'type': 'Status', 'cost': '0', 'can_play': False,
+                'description': '不能被打出。 虚无。 每当你抽到这张牌时，失去[defect_energy_icon.png]。'}
+        s['player']['hand'].append(void)
+        self.assertIsNotNone(choice_offer(s))
+        void['description'] += '每当你打出一张牌时失去1点生命。'
+        self.assertIsNone(choice_offer(s))
+
+    def test_mixed_orbs_only_offer_non_orb_supported_prefixes(self):
+        s = sample()
+        s['player']['hand'].append({'id': 'ZAP', 'index': 3, 'name': '電擊', 'cost': '1', 'can_play': True,
+                                   'target_type': 'Self', 'type': 'Skill', 'description': '生成1个闪电充能球。'})
+        s['player'].update(orb_slots=3, orbs=[{'id': 'LIGHTNING_ORB', 'passive_val': 3, 'evoke_val': 8},
+                                            {'id': 'FROST_ORB', 'passive_val': 2, 'evoke_val': 5}])
+        offer = choice_offer(s)
+        self.assertIsNotNone(offer)
+        self.assertEqual(offer['menu']['search_reason'], 'mixed_orb_order')
+        self.assertTrue(any(len(p['sequence']) >= 2 for p in offer['menu']['plans']))
+        for plan in offer['menu']['plans']:
+            self.assertFalse(plan['end_turn'])
+            self.assertEqual(plan['confidence'], 'unverified')
+            self.assertNotIn('predicted_hp_loss', plan)
+            self.assertTrue(all(a['card_index'] in {0, 1} for a in plan['sequence']))
+
     def test_random_lightning_offers_unverified_prefixes_without_forecasts(self):
         s = sample()
         s['battle']['enemies'].append(enemy(hp=40, attack=4, name='b'))

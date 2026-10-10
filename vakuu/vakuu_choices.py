@@ -3,7 +3,7 @@ import json
 
 from vakuu_facts import combat_facts
 from vakuu_rules import COMBAT, END_TURN, validate
-from vakuu_search import turn_candidates
+from vakuu_search import turn_candidates, card_move
 
 CHOICE_INSTRUCTIONS = '''你是殺戮尖塔2的戰鬥顧問。比較提供的候選，回傳 choice 的候選編號或 reject。
 你看不到完整手牌；不要假設沒有其他選擇，也不要編造缺少的機制。
@@ -12,19 +12,66 @@ simulated 只計支援範圍內的當回合效果，partial 有未計效果，un
 有足夠資訊但方案不合適回 reject、reject_reason=no_suitable_plan。拒絕後會提供完整手牌。
 選用時 reject_reason 留空；reason 用繁體中文簡述理由（60字內）。不需要重寫出牌順序。
 考慮血量與敵人意圖；不要為普通戰鬥的小傷浪費藥水，菁英與頭目則可早用藥水。
-end_turn=false 只有起手，抽牌後會重新決策。長期收益或未知效果無法比較時拒絕。'''
+end_turn=false 只有起手，抽牌後會重新決策。判斷起手是否合理，不要求證明全手牌最優。
+不要只因隱藏手牌可能更好而拒絕。若缺少資訊會影響候選的合法性、存活或關鍵機制，
+或所有候選都明顯不合理，才拒絕；需要保留能量比較未知牌的效果時也可拒絕。'''
 
 
 def choice_offer(state, search_result=None):
     if state.get('state_type') not in COMBAT: return None
     menu = turn_candidates(state, search_result)
     if not menu: return None
+    if menu['search_reason'] == 'mixed_orb_order':
+        # The API does not establish mixed orb order. Keep only the prefix of
+        # known damage/block cards before any orb or unsupported effect.
+        hand = {c.get('index'): c for c in (state.get('player') or {}).get('hand') or []}
+        # A cheap unsupported card can sit first in every heuristic ordering.
+        # Also propose pure supported cards directly, so it does not hide valid
+        # multi-card defense/attack prefixes from the menu.
+        known = [(c, card_move(c)) for c in hand.values() if c.get('can_play') is True]
+        known = [(c, m) for c, m in known if m and not (m.channel or m.evokes or m.kill_only)]
+        defenses = [(c, m) for c, m in known if m.block]
+        attacks = [(c, m) for c, m in known if m.damage]
+        enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
+        target = min(enemies, key=lambda e: (e.get('hp') or 0) + (e.get('block') or 0), default=None)
+        proposals = []
+        for style, cards in (('已知格擋起手', defenses + attacks), ('已知攻擊起手', attacks + defenses)):
+            energy = (state.get('player') or {}).get('energy', 0)
+            sequence = []
+            for card, move in cards:
+                if move.cost > energy or (move.damage and not target): continue
+                action = {'card_index': card['index']}
+                if move.damage: action['target'] = target['entity_id']
+                sequence.append(action); energy -= move.cost
+                if len(sequence) == 3: break
+            if sequence: proposals.append({'style': style, 'sequence': sequence})
+        plans, seen = [], set()
+        for plan in proposals + menu['plans']:
+            prefix = []
+            for action in plan['sequence']:
+                move = card_move(hand.get(action['card_index'], {}))
+                if move is None or move.channel or move.evokes or move.kill_only: break
+                prefix.append(action)
+            signature = json.dumps(prefix, sort_keys=True)
+            if not prefix or signature in seen: continue
+            seen.add(signature)
+            plans.append({'id': f'P{len(plans) + 1}', 'style': plan['style'], 'sequence': prefix,
+                          'cards': [hand[a['card_index']].get('name') or hand[a['card_index']].get('id') for a in prefix],
+                          'confidence': 'unverified', 'end_turn': False, 'requires_replan': True,
+                          'unmodeled_effects': ['只含不生成或激發充能球的起手；未評估混合充能球順序及後續回合。']})
+        if not plans: return None
+        menu = {**menu, 'plans': plans}
     # Missing/unknown rules need the full state. Random lightning targets are a
     # known uncertainty exposed by the orb/enemy payload; offer unverified
     # prefixes without inventing a damage forecast or auto-ending the turn.
     if menu['search_reason'] not in {'supported_turn', 'unsupported_hand', 'no_supported_moves',
-                                     'needs_potion_evaluation', 'random_orb_targets'}:
+                                     'needs_potion_evaluation', 'random_orb_targets', 'mixed_orb_order'}:
         return None
+    # Only advertise choices the translator can execute. Partial empty plans
+    # cannot authorize ending a turn while unsupported cards remain.
+    menu = {**menu, 'plans': [p for p in menu['plans'] if p['sequence'] or
+                            (p.get('confidence') == 'simulated' and p.get('end_turn'))][:5]}
+    if not menu['plans']: return None
     player = state.get('player') or {}
     facts = combat_facts(state)
     hp, max_hp = player.get('hp'), player.get('max_hp')

@@ -31,6 +31,9 @@ INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
 # These known descriptions have no trigger when another card is played. Their
 # own effects are unsupported, so they still prevent a non-winning turn plan.
 HELD_SAFE = {
+    # Its draw-time energy loss has already happened; playing another card does not trigger it.
+    'VOID': r'不能被打出。虚无。每当你抽到这张牌时，失去\[defect_energy_icon.png\]。',
+    'COMPACT': r'获得\d+点格挡。将你手牌中的全部状态牌变化为燃料。',
     # Spending energy changes this held card's damage display, not other cards'
     # effects. It remains unsupported to play; the queue's exact-hand guard will
     # stop if its displayed description changes during a selected prefix.

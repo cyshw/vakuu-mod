@@ -24,7 +24,7 @@ def audit(paths):
             offer = choice_offer(state, result)
             player = state['player']
             if offer: reason = 'candidate_eligible'
-            elif result['reason'] not in {'supported_turn', 'unsupported_hand', 'no_supported_moves', 'needs_potion_evaluation', 'random_orb_targets'}:
+            elif result['reason'] not in {'supported_turn', 'unsupported_hand', 'no_supported_moves', 'needs_potion_evaluation', 'random_orb_targets', 'mixed_orb_order'}:
                 reason = result['reason']
             elif player['hp'] < .3 * player['max_hp']: reason = 'low_hp'
             elif combat_facts(state)['lethal_if_no_more_block']: reason = 'lethal_intent'

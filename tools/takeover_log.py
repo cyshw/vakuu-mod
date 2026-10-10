@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--one-fight', action='store_true', help='Stop as soon as the current fight ends')
     parser.add_argument('--no-ai', action='store_true', help='Use local decisions only; stop when a model would be needed')
     parser.add_argument('--stop-after-candidate', action='store_true', help='Stop after executing one accepted candidate prefix; stop if its queue is invalidated')
+    parser.add_argument('--candidate-min-cards', type=int, default=1, help='Only stop on accepted prefixes with at least this many cards')
     args = parser.parse_args()
 
     engine = load_engine()
@@ -83,7 +84,8 @@ def main():
         start = time.time()
         decision = decide(self, state, selection)
         write('model', seconds=round(time.time() - start, 1), model=(selection or {}).get('model_key'), decision=decision)
-        if args.stop_after_candidate and decision.get('candidate_id'):
+        card_count = int(decision.get('action') == 'play_card') + sum(c.get('hand_index', -1) >= 0 for c in decision.get('next_cards') or [])
+        if args.stop_after_candidate and decision.get('candidate_id') and card_count >= args.candidate_min_cards:
             candidate_remaining = 1 + len(decision.get('next_cards') or [])
         return decision
     engine.Controller.decide = logged_decide
