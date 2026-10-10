@@ -246,6 +246,9 @@ def allowed_actions(state):
     return ALLOWED.get(state.get('state_type'), set()) | {'use_potion', 'discard_potion'}
 
 def validate(state, action, params):
+    # The plan's next_cards uses hand_index, and models sometimes reuse that name for play_card itself.
+    if action == 'play_card' and isinstance(params, dict) and 'hand_index' in params and 'card_index' not in params:
+        params = {('card_index' if key == 'hand_index' else key): value for key, value in params.items()}
     alias = ALIASES.get((state.get('state_type'), action))
     if alias and isinstance(params, dict):
         action, renames = alias

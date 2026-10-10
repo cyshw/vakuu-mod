@@ -276,6 +276,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(b.validate({'state_type':'hand_select'},'select_card',{'index':2}),{'action':'combat_select_card','card_index':2})
         self.assertNotIn('play_card',b.allowed_actions(grid))
         with self.assertRaises(ValueError): b.validate({'state_type':'map'},'combat_select_card',{'card_index':1})
+        self.assertEqual(b.validate({'state_type':'monster'},'play_card',{'hand_index':4}),{'action':'play_card','card_index':4})
 
     def test_deck_summary_merges_copies(self):
         deck=[{'id':'STRIKE','name':'打擊','is_upgraded':False,'cost':'1','description':'造成6點傷害。'}]*4+[
