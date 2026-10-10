@@ -493,6 +493,8 @@ class Tests(unittest.TestCase):
         projected=facts.project_route(rooms,60,75,facts.DEFAULT_DAMAGE)
         self.assertEqual(projected['hp_by_room'][:5],[46,32,18,4,-10])  # Five normal fights of 14 with no rest.
         self.assertEqual(projected['below_25pct_at_room'],3)
+        self.assertEqual(projected['lowest_before_first_rest'],-10)
+        self.assertEqual(facts.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5},{'type':'Elite','row':6}],60,75,facts.DEFAULT_DAMAGE)['lowest_before_first_rest'],46)
         rested=facts.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5}],25,75,facts.DEFAULT_DAMAGE)
         self.assertEqual(rested['hp_by_room'],[11,34])  # Below 40% the rest site heals 22.
         def at(col,row,kind,hp,options):

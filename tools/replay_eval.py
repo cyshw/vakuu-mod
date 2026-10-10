@@ -220,9 +220,10 @@ def main():
     parser.add_argument('--report', type=Path, help='only write the report for an existing results.jsonl')
     parser.add_argument('--logs', type=Path, nargs='+', help='take cases only from these log files')
     parser.add_argument('--all', action='store_true', help='use every case instead of sampling per type')
+    parser.add_argument('--types', nargs='+', help='only these case types, e.g. map combat')
     args = parser.parse_args()
     if args.report: return report(args.report)
-    pool = build_cases(args.logs)
+    pool = [c for c in build_cases(args.logs) if not args.types or c['type'] in args.types]
     cases = pool if args.all else pick(pool, args.per_type, args.seed)
     out = OUT / time.strftime('%Y%m%d-%H%M%S') / 'results.jsonl'
     run(cases, args.configs, args.workers, out)

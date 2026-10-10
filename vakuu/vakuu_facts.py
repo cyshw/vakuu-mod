@@ -131,18 +131,24 @@ def project_route(rooms, hp, max_hp, damage):
     A route with six fights before its first rest site looked fine by room counts and lost a run;
     projecting HP shows where it bottoms out.
     """
-    curve = []
+    curve, first_rest = [], None
     for room in rooms:
         kind, row = room['type'], room['row']
         if kind == 'Boss': break
         if kind == 'Monster': hp -= damage['monster_weak'] if row <= WEAK_ROWS else damage['monster']
         elif kind == 'Elite': hp -= damage['elite']
         elif kind == 'Unknown': hp -= UNKNOWN_FIGHT_CHANCE * damage['monster']
-        elif kind == 'RestSite' and hp < 0.4 * max_hp: hp = min(max_hp, hp + REST_HEAL * max_hp)
+        elif kind == 'RestSite':
+            if first_rest is None: first_rest = len(curve)
+            if hp < 0.4 * max_hp: hp = min(max_hp, hp + REST_HEAL * max_hp)
         curve.append(round(hp))
     lowest = min(curve) if curve else round(hp)
     danger = next((i + 1 for i, value in enumerate(curve) if value < 0.25 * max_hp), None)
-    return {'hp_by_room': curve, 'lowest_hp': lowest, 'lowest_at_room': curve.index(lowest) + 1 if curve else None,
+    # Averages ignore the deck improving, events and potions, so whole-act projections run low on
+    # every route; the stretch before the first rest site (re-planned there) compares routes best.
+    before_rest = curve[:first_rest] if first_rest is not None else curve
+    return {'lowest_before_first_rest': min(before_rest) if before_rest else round(hp),
+            'hp_by_room': curve, 'lowest_hp': lowest, 'lowest_at_room': curve.index(lowest) + 1 if curve else None,
             'hp_before_boss': curve[-1] if curve else round(hp), 'below_25pct_at_room': danger}
 
 def route_damage(state):
