@@ -240,5 +240,7 @@ class Tests(unittest.TestCase):
             c.wait_for_change(old)
         self.assertEqual(api.call_count,3)
         self.assertTrue(b.transitional(moved))
+        self.assertTrue(b.transitional({'state_type':'map','map':{'next_options':[]}}))
+        self.assertFalse(b.transitional({'state_type':'map','map':{'next_options':[{'index':0}]}}))
 
 if __name__=='__main__': unittest.main()
