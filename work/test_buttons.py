@@ -175,7 +175,7 @@ class Tests(unittest.TestCase):
     def test_turn_plan_plays_without_asking_again(self):
         first=self.combat(['防禦','打擊','打擊+'])
         decision={'advice':'先防後攻','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',
-                  'next_cards':[{'name':'打擊+','target':'BOSS_0'},{'name':'打擊','target':'BOSS_0'},{'name':b.END_TURN,'target':''}]}
+                  'next_cards':[{'hand_index':2,'target':'BOSS_0'},{'hand_index':1,'target':'BOSS_0'},{'hand_index':b.END_TURN,'target':''}]}
         second=self.combat(['打擊','打擊+'],energy=2)
         third=self.combat(['打擊'],energy=1)
         fourth=self.combat([],energy=0)
@@ -191,7 +191,7 @@ class Tests(unittest.TestCase):
     def test_plan_is_dropped_when_the_turn_surprises_it(self):
         first=self.combat(['快速檢索','打擊'])
         decision={'advice':'抽牌','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',
-                  'next_cards':[{'name':'打擊','target':'BOSS_0'}]}
+                  'next_cards':[{'hand_index':1,'target':'BOSS_0'}]}
         self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊','防禦'])))  # Drew a card.
         self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'],round_=2)))  # New turn.
         self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'],enemies=[])))  # Target died.
@@ -242,5 +242,16 @@ class Tests(unittest.TestCase):
         self.assertTrue(b.transitional(moved))
         self.assertTrue(b.transitional({'state_type':'map','map':{'next_options':[]}}))
         self.assertFalse(b.transitional({'state_type':'map','map':{'next_options':[{'index':0}]}}))
+
+    def test_plan_uses_game_names_and_piles_do_not_abort(self):
+        hand=self.combat(['引雷针','防禦'])
+        decision={'advice':'','stop':False,'action':'play_card','parameters_json':'{"card_index":1}',
+                  'next_cards':[{'hand_index':0,'target':''},{'hand_index':9,'target':''}]}
+        plan=b.start_plan(hand,decision)
+        self.assertEqual([e['name'] for e in plan['queue']],['引雷针'])  # Out-of-range index ends the plan.
+        before=dict(hand,player=dict(hand['player'],discard_pile=[],discard_pile_count=0))
+        after=dict(hand,player=dict(hand['player'],discard_pile=[{'name':'黏液'}],discard_pile_count=1))
+        self.assertEqual(b.fingerprint(before),b.fingerprint(after))
+        self.assertNotEqual(b.fingerprint(hand),b.fingerprint(self.combat(['引雷针'])))
 
 if __name__=='__main__': unittest.main()

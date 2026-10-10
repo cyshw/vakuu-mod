@@ -68,12 +68,12 @@ SCHEMA = {
         # Rest of this turn after `action`, so the turn is played as one coherent plan.
         'next_cards': {'type': 'array', 'items': {
             'type': 'object', 'additionalProperties': False,
-            'properties': {'name': {'type': 'string'}, 'target': {'type': 'string'}},
-            'required': ['name', 'target']}},
+            'properties': {'hand_index': {'type': 'integer'}, 'target': {'type': 'string'}},
+            'required': ['hand_index', 'target']}},
     }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards']
 }
 COMBAT = {'monster', 'elite', 'boss'}
-END_TURN = 'END_TURN'
+END_TURN = -1  # hand_index that means "end the turn" in next_cards.
 
 def incoming_damage(intent):
     if 'Attack' not in str(intent.get('type')): return 0
@@ -108,13 +108,22 @@ def hand_names(state):
 
 def start_plan(state, decision):
     """Remember the model's remaining moves for this turn, with the hand we expect afterwards."""
-    queue = [dict(entry) for entry in decision.get('next_cards') or [] if entry.get('name')]
-    if state.get('state_type') not in COMBAT or not queue or decision['action'] not in ('play_card', 'end_turn'):
+    if state.get('state_type') not in COMBAT or decision['action'] not in ('play_card', 'end_turn') \
+            or not decision.get('next_cards'):
         return None
+    # The model refers to cards by their index in the hand it was shown; store the game's exact names,
+    # since the model rewrites names (e.g. simplified to traditional Chinese) and indices shift as cards are played.
+    hand = (state.get('player') or {}).get('hand') or []
+    queue = []
+    for entry in decision.get('next_cards') or []:
+        index = entry.get('hand_index')
+        if index == END_TURN: queue.append({'name': END_TURN, 'target': ''}); break
+        if not isinstance(index, int) or not 0 <= index < len(hand): break
+        queue.append({'name': hand[index].get('name'), 'target': entry.get('target') or ''})
+    if not queue: return None
     expected = hand_names(state)
     if decision['action'] == 'play_card':
         index = json.loads(decision['parameters_json']).get('card_index')
-        hand = state['player'].get('hand') or []
         if not isinstance(index, int) or not 0 <= index < len(hand): return None
         expected[hand[index].get('name')] -= 1
     return {'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
@@ -138,7 +147,13 @@ def plan_decision(plan, state):
     plan['expected'][card.get('name')] -= 1
     return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
+PILES = ('draw_pile', 'discard_pile', 'exhaust_pile', 'draw_pile_count', 'discard_pile_count', 'exhaust_pile_count')
+
 def fingerprint(state):
+    # Piles change from delayed effects (e.g. a Slime added to the discard pile) without affecting
+    # whether the chosen move is still valid, so they must not abort takeover.
+    player = state.get('player')
+    if isinstance(player, dict): state = {**state, 'player': {k: v for k, v in player.items() if k not in PILES}}
     return hashlib.sha256(json.dumps(state, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 def selection_complete(state):
@@ -362,9 +377,10 @@ class Controller:
             '輸出一個遊戲 API 動作。parameters_json 是參數物件的 JSON 字串。'
             '卡牌 index 會隨出牌改變。target 使用敵人 entity_id 字串。'
             '戰鬥中一次規劃整個回合：action 是第一個動作，next_cards 依序列出 action 之後還要打的牌，'
-            '不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）'
-            '（name 必須與手牌名稱完全一致，含「+」；需要單一目標時填 target 的 entity_id，否則填空字串），'
-            '打完要結束回合就在最後加上 name="' + END_TURN + '"。能量必須夠付整串牌的費用。'
+            '不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）。'
+            'hand_index 是該牌在目前遊戲狀態手牌中的 index（出牌前的編號，不因先前出牌而改變）；'
+            '需要單一目標時填 target 的 entity_id，否則填空字串。'
+            '打完要結束回合就在最後加上 hand_index=' + str(END_TURN) + '。能量必須夠付整串牌的費用。'
             '會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。'
             '戰鬥數字以 combat_facts 為準，不要自行重算傷害與格擋；lethal_if_no_more_block 為 true 時優先保命。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
