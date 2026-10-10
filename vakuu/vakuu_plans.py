@@ -82,6 +82,10 @@ def plan_decision(plan, state):
     plan['expected'][card.get('name')] -= 1
     return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
+# Auto-pick a card reward only when its Codex Score is at least this; guides warn that taking every
+# decent card bloats the deck, so weaker winners go to the model, which may skip.
+AUTO_PICK_MIN_SCORE = 60
+
 def _auto(advice, action, **params):
     return {'advice': advice, 'stop': False, 'action': action, 'parameters_json': json.dumps(params)}
 
@@ -94,7 +98,9 @@ def auto_decision(state, opened=None):
     if kind == 'card_reward':
         rating = advise(state)
         rows = rating.get('ranked_cards', [])
-        if rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5:
+        # A clear but mediocre winner is not worth a deck slot; let the model weigh skipping it.
+        if rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5 \
+                and rows[0]['score'] >= AUTO_PICK_MIN_SCORE:
             return _auto(f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 {rating.get('engine', '規則')} 評分）。",
                          'select_card_reward', card_index=rows[0]['index'])
     if kind == 'rewards':
@@ -161,7 +167,9 @@ def start_route(state, decision):
     path = [(node['col'], node['row']) for node in decision.get('next_nodes') or []
             if isinstance(node, dict) and isinstance(node.get('col'), int) and isinstance(node.get('row'), int)]
     if not path: return None
-    return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path}
+    kinds = {(n.get('col'), n.get('row')): n.get('type') for n in (state.get('map') or {}).get('nodes') or []}
+    return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path,
+            'types': {node: kinds.get(node) for node in path}}
 
 def route_decision(route, state):
     """Next node of the planned route; None asks the model to re-plan (route left, big HP loss, new act)."""

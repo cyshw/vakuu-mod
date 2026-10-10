@@ -12,6 +12,8 @@ def hard_screen(state):
     # Route choice decides which fights happen at all (an elite at 43% HP lost a run), so it gets
     # the stronger model; single-path maps never reach the model.
     if kind == 'map': return len((state.get('map') or {}).get('next_options') or []) > 1
+    # Rest or upgrade is one of the run's biggest choices; Haiku nearly always rested.
+    if kind == 'rest_site': return sum(1 for o in (state.get('rest_site') or {}).get('options') or [] if o.get('is_enabled', True)) > 1
     if kind in COMBAT:
         player = state.get('player') or {}
         facts = combat_facts(state)

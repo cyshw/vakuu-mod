@@ -11,12 +11,14 @@ advice 使用繁體中文：先一句不超過25字的原創瓦庫低語，再�
 
 【作戰方針】request_strategy 為 true 時，在 strategy 寫本場作戰方針（120字內：敵人機制與危險回合、集火順序、何時全力防禦、關鍵牌與藥水留到何時），後續回合會交給較弱的模型照著執行；否則 strategy 為空字串。有 fight_strategy 時照方針執行，除非局面明顯改變。
 
-【選路】選路以 route_facts 為準：until_next_rest_site 是到下一個休息點的最少步數與途中菁英、戰鬥數 [最少,最多]，to_act_end_min_max 是到本幕結束各類房間數 [最少,最多]，max_rooms_before_first_elite 是走這條最多能撐幾個房間才必須打菁英。血量偏低（hp_ratio 低於約0.6）或牌組仍以基礎牌為主時避開菁英，優先能較快到休息點的路線；血量充足、牌組成形時才主動挑戰菁英換遺物。candidate_routes 是程式列出的幾條完整路線（到本幕頭目）：safest 菁英最少、most_rest 休息點最多、most_shops 商店最多、elite_hunt 菁英最多，counts 是各類房間數，first_elite_at_room 是第幾個房間遇到第一個菁英（null 表示不會遇到）。通常從中選一條，依血量與牌組強度決定。選路時像玩家一樣先畫好整條路線：action 是這一步（選定路線的第一個房間），next_nodes 照抄該路線其餘 rooms 的 col、row，一路到頭目前；之後會照這條路線走，只有偏離路線、血量大幅下降或進入新的一幕時才會再問你。非地圖畫面 next_nodes 為空陣列。
+【選路】選路以 route_facts 為準：until_next_rest_site 是到下一個休息點的最少步數與途中菁英、戰鬥數 [最少,最多]，to_act_end_min_max 是到本幕結束各類房間數 [最少,最多]，max_rooms_before_first_elite 是走這條最多能撐幾個房間才必須打菁英。菁英掉落的遺物是贏下整局的關鍵，完全不打菁英是偏弱的策略、不是安全的策略：第1幕打1到2個、第2幕2到3個。血量約六成以上，或菁英之後1到2個房間內就有休息點時，就該打；counts.elites_rest_after 是有休息點接在後面的菁英數，balanced 路線就是照這個原則挑的。血量很低（約四成以下）且菁英後面沒有休息點時才避開。進階6以上第一次刪牌100金，盡量在第3到6層經過商店並帶著100金以上。candidate_routes 是程式列出的幾條完整路線（到本幕頭目）：balanced 打1到2個菁英且後面有休息點、safest 菁英最少、most_rest 休息點最多、most_shops 商店最多、elite_hunt 菁英最多，counts 是各類房間數，first_elite_at_room 是第幾個房間遇到第一個菁英（null 表示不會遇到）。通常從中選一條，依血量與牌組強度決定。選路時像玩家一樣先畫好整條路線：action 是這一步（選定路線的第一個房間），next_nodes 照抄該路線其餘 rooms 的 col、row，一路到頭目前；之後會照這條路線走，只有偏離路線、血量大幅下降或進入新的一幕時才會再問你。非地圖畫面 next_nodes 為空陣列。
 
 【商店】商店中 action 是第一筆購買，next_purchases 依序列出之後要買的商品 index，買完要離開就在最後加上 {{LEAVE_SHOP}}；金幣必須夠付整串商品。買刪牌服務後會先選要刪的牌，之後照清單繼續。shop_card_advice 是商店卡牌的評分，格式同 card_advice。非商店畫面 next_purchases 為空陣列。商店沒有想買或買不起的商品時用 proceed 離開；proceed 會自動先關閉商品欄。
 
-【抓牌評分】player.deck 已合併相同的牌（count 為張數）並附效果說明。card_advice 的 engine 為 Spire Codex 時，score 是社群進階10以上對局依勝率算出的 Codex Score（0-100），lift 是拿了該牌的玩家勝率高出自身平均的百分點，data_through 是資料日期；engine 為 BoberInSpire 時是離線規則分數。前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；資料未知或不完整時自行判斷。
+【抓牌評分】player.deck 已合併相同的牌（count 為張數）並附效果說明。card_advice 的 engine 為 Spire Codex 時，score 是社群進階10以上對局依勝率算出的 Codex Score（0-100），lift 是拿了該牌的玩家勝率高出自身平均的百分點，data_through 是資料日期；engine 為 BoberInSpire 時是離線規則分數。跳過是很強的選擇：牌組越肥，好牌越難抽到。進階6以上牌組約24到26張算正常（deck_size 是目前張數），只拿能明顯補強牌組的牌，普通的牌就跳過。進階8、9 敵人血更厚、傷害更高，優先拿第1、2回合就能打出傷害或格擋的牌，少拿要很多回合才發揮的牌。資料未知或不完整時自行判斷。
 
 【選牌畫面】card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。cards 的 selected 表示已選取，selected_count、min_select、max_select 是已選與可選張數；附魔畫面的 enchantment 說明附魔效果，依效果選最能發揮的牌（例如每段傷害加成適合多段攻擊）。
 
 優先減少失血、完成目前遊戲。不要放棄遊戲或重開。若無有效動作、在主選單、或需要人工協助，輸出 action=none、stop=true。你看不到這個按鈕以外的聊天。
+
+【休息點】休息點預設選升級，把關鍵牌升級通常比回血更有價值；rest_facts 有血量比例、休息能回的血量與路線上接下來的房間。血量低於約四成、而且接下來有菁英、頭目或其他危險戰鬥時才休息；高於四成時，只有下一場戰鬥可能直接讓這局結束才休息。頭目前的休息點，升級對付該頭目最關鍵的牌。

@@ -400,8 +400,9 @@ class Tests(unittest.TestCase):
         routes={r['style']:r for r in facts.route_facts(state)['candidate_routes']}
         self.assertEqual(routes['safest']['first_elite_at_room'],None)
         self.assertEqual([(x['col'],x['row']) for x in routes['safest']['rooms']],[(2,6),(2,7),(2,8),(2,9)])
-        self.assertEqual(routes['elite_hunt']['first_elite_at_room'],3)
-        self.assertEqual(routes['elite_hunt']['option_index'],1)
+        elite=routes.get('elite_hunt') or routes['balanced']  # Identical routes are listed once.
+        self.assertEqual(elite['first_elite_at_room'],3)
+        self.assertEqual(elite['option_index'],1)
 
     def test_route_is_planned_once_and_followed(self):
         def at(row, options, hp=60, act=1):
@@ -418,5 +419,26 @@ class Tests(unittest.TestCase):
         self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],hp=40)))  # Lost 20 of 75 HP.
         self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],act=2)))  # New act.
         self.assertIsNone(plans.start_route({'state_type':'shop'},drawn))
+
+    def test_guide_rules_rest_balanced_routes_and_pick_threshold(self):
+        node=lambda col,row,kind,*kids: {'col':col,'row':row,'type':kind,'children':[list(k) for k in kids]}
+        nodes=[node(0,1,'Monster',(0,2)), node(0,2,'Elite',(0,3)), node(0,3,'RestSite',(0,4)), node(0,4,'Monster'),
+               node(1,1,'Monster',(1,2)), node(1,2,'Monster',(1,3)), node(1,3,'Unknown',(1,4)), node(1,4,'Monster'),
+               node(2,1,'Elite',(2,2)), node(2,2,'Monster',(2,3)), node(2,3,'Monster',(2,4)), node(2,4,'Monster')]
+        state={'state_type':'map','player':{'hp':60,'max_hp':75},'map':{'nodes':nodes,'next_options':[
+            {'index':i,'col':c,'row':1,'type':'?'} for i,c in enumerate((0,1,2))]}}
+        routes={r['style']:r for r in facts.route_facts(state)['candidate_routes']}
+        self.assertEqual(routes['balanced']['option_index'],0)  # The elite followed by a rest site.
+        self.assertEqual(routes['balanced']['counts']['elites_rest_after'],1)
+        self.assertEqual(routes['safest']['option_index'],1)
+        rest={'state_type':'rest_site','player':{'hp':20,'max_hp':75},'rest_site':{'options':[{'index':0},{'index':1}]}}
+        route={'path':[(0,5),(0,6)],'types':{(0,5):'Elite',(0,6):'Boss'}}
+        self.assertEqual(facts.rest_facts(rest,route),{'hp_ratio':0.27,'rest_heals':22,'hp_after_rest':42,'planned_next_rooms':['Elite','Boss']})
+        self.assertTrue(router.hard_screen(rest))
+        reward=lambda top: {'state_type':'card_reward'}
+        with patch.object(plans,'advise',return_value={'status':'ok','ranked_cards':[{'index':0,'name':'A','score':55},{'index':1,'name':'B','score':30}]}):
+            self.assertIsNone(plans.auto_decision({'state_type':'card_reward'}))  # Clear winner, but only 55.
+        with patch.object(plans,'advise',return_value={'status':'ok','ranked_cards':[{'index':0,'name':'A','score':80},{'index':1,'name':'B','score':30}]}):
+            self.assertEqual(plans.auto_decision({'state_type':'card_reward'})['action'],'select_card_reward')
 
 if __name__=='__main__': unittest.main()

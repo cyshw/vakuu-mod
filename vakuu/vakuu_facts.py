@@ -89,6 +89,9 @@ ROUTE_COUNTS = {'elites': ('Elite',), 'fights': ('Monster', 'Elite'), 'rests': (
 MAX_PATHS = 20000  # Act maps have hundreds to a few thousand paths; stop enumerating beyond this.
 ROUTE_STYLES = {
     # name: sort key over a path's counts (smaller is better)
+    # Guides call skipping every elite weak (elites give the relics that win runs): take 1-2 per act
+    # when a rest site follows within two rooms.
+    'balanced': lambda c: (not 1 <= c['elites'] <= 2, c['elites'] - c['elites_rest_after'], -c['rests'], c['fights']),
     'safest': lambda c: (c['elites'], c['fights'], -c['rests']),
     'most_rest': lambda c: (-c['rests'], c['elites'], c['fights']),
     'most_shops': lambda c: (-c['shops'], c['elites'], -c['rests']),
@@ -114,7 +117,10 @@ def candidate_routes(world, nodes, children):
     summaries = []
     for path in paths:
         kinds = [nodes[k].get('type') for k in path]
-        summaries.append((path, kinds, {name: sum(kind in types for kind in kinds) for name, types in ROUTE_COUNTS.items()}))
+        counts = {name: sum(kind in types for kind in kinds) for name, types in ROUTE_COUNTS.items()}
+        counts['elites_rest_after'] = sum(1 for i, kind in enumerate(kinds)
+                                          if kind == 'Elite' and 'RestSite' in kinds[i + 1:i + 3])
+        summaries.append((path, kinds, counts))
     routes, seen = [], set()
     for style, key in ROUTE_STYLES.items():
         if not summaries: break
@@ -177,3 +183,15 @@ def route_facts(state):
                                  # An elite can be forced several rooms later (a single path after a rest site).
                                  'max_rooms_before_first_elite': elite_free(key)})
     return facts
+
+REST_HEAL = 0.3  # Resting heals 30% of max HP.
+
+def rest_facts(state, route):
+    """Numbers for rest-or-upgrade: guides default to upgrading and rest below ~40% HP before danger."""
+    player = state.get('player') or {}
+    hp, max_hp = player.get('hp') or 0, player.get('max_hp') or 1
+    heal = min(int(max_hp * REST_HEAL), max_hp - hp)
+    upcoming = [route['types'].get(node) for node in route['path'][:4]] if route and route.get('types') else None
+    return {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal,
+            'planned_next_rooms': upcoming}
+
