@@ -441,4 +441,15 @@ class Tests(unittest.TestCase):
         with patch.object(plans,'advise',return_value={'status':'ok','ranked_cards':[{'index':0,'name':'A','score':80},{'index':1,'name':'B','score':30}]}):
             self.assertEqual(plans.auto_decision({'state_type':'card_reward'})['action'],'select_card_reward')
 
+    def test_enemy_notes_match_enemies_in_the_fight(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory:
+            notes=Path(directory)/'notes.md'
+            notes.write_text('# 筆記\n- CORPSE_SLUG：先打死一隻\n- TOADPOLE: 集火\n不是筆記的行\n',encoding='utf-8')
+            with patch.object(facts,'ENEMY_NOTES',notes):
+                fight={'battle':{'enemies':[{'entity_id':'CORPSE_SLUG_0'},{'entity_id':'CORPSE_SLUG_1'},{'entity_id':'NIBBIT_0'}]}}
+                self.assertEqual(facts.enemy_notes(fight),{'CORPSE_SLUG':'先打死一隻'})
+            with patch.object(facts,'ENEMY_NOTES',Path(directory)/'missing.md'):
+                self.assertEqual(facts.enemy_notes(fight),{})
+
 if __name__=='__main__': unittest.main()

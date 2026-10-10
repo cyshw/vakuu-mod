@@ -1,5 +1,6 @@
 """Numbers computed for the model so it does not have to: combat, energy, deck and route facts."""
 import re
+from pathlib import Path
 
 COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
 
@@ -194,4 +195,18 @@ def rest_facts(state, route):
     upcoming = [route['types'].get(node) for node in route['path'][:4]] if route and route.get('types') else None
     return {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal,
             'planned_next_rooms': upcoming}
+
+ENEMY_NOTES = Path(__file__).resolve().parent / 'enemy_notes.md'
+NOTE_LINE = re.compile(r'^-\s*([A-Z0-9_]+)\s*[：:]\s*(.+)$')
+
+def enemy_notes(state):
+    """Player-written tactics for the enemies in this fight (models misjudged some, e.g. Corpse Slugs).
+
+    Read on every call from enemy_notes.md, so a note added mid-run applies to the next decision.
+    """
+    try: lines = ENEMY_NOTES.read_text(encoding='utf-8').splitlines()
+    except OSError: return {}
+    notes = dict(m.groups() for m in map(NOTE_LINE.match, lines) if m)
+    present = {re.sub(r'_\d+$', '', str(e.get('entity_id') or '')) for e in (state.get('battle') or {}).get('enemies') or []}
+    return {enemy: notes[enemy] for enemy in sorted(present) if enemy in notes}
 
