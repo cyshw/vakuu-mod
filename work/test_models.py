@@ -14,6 +14,12 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError): m.save_settings({'model_key':'arbitrary:command'})
             self.assertEqual(m.settings(), expected)
 
+    def test_stale_settings_file_falls_back_to_default(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, patch.object(m, 'PREFS', Path(directory)/'settings.json'):
+            for content in ('{"model_key":"codex:removed-model","effort":""}', '[]', 'not json'):
+                m.PREFS.write_text(content, encoding='utf-8')
+                self.assertEqual(m.settings(), m.DEFAULT_SETTINGS)
+
     def test_claude_has_no_tools_or_mcp(self):
         with patch.object(m,'find_cli',return_value='claude.exe'):
             args,provider=m.build_command({'model_key':'claude:opus','effort':'high'},Path('run'),{'type':'object'})

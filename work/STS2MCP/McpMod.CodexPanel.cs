@@ -260,20 +260,25 @@ public static partial class McpMod
     {
         if (_quotaPolling) return;
         _quotaPolling = true;
-        bool retry = false;
+        string key = "";
+        bool stale = false;
         try {
-            using var doc = JsonDocument.Parse(await _quotaHttp.GetStringAsync(_bridgeUrl + "/quota"));
-            string message = doc.RootElement.GetProperty("message").GetString()!;
-            bool claude = doc.RootElement.GetProperty("provider").GetString() == "claude";
             await RunOnMainThread(() => {
-                bool selectedClaude = _modelPicker!.Selected >= 0 && _modelKeys[_modelPicker.Selected].StartsWith("claude:");
-                if (selectedClaude != claude) { retry = true; return; }
-                _quotaLabel!.Text = message;
+                if (_modelPicker!.Selected >= 0 && _modelPicker.Selected < _modelKeys.Count) key = _modelKeys[_modelPicker.Selected];
+            });
+            if (key == "") return;
+            // Ask for the picker's model directly so the answer never depends on whether saving has finished.
+            using var doc = JsonDocument.Parse(await _quotaHttp.GetStringAsync(_bridgeUrl + "/quota?model=" + Uri.EscapeDataString(key)));
+            string message = doc.RootElement.GetProperty("message").GetString()!;
+            await RunOnMainThread(() => {
+                stale = _modelPicker!.Selected < 0 || _modelKeys[_modelPicker.Selected] != key;
+                if (!stale) _quotaLabel!.Text = message;
             });
         }
         catch { await RunOnMainThread(() => { _quotaLabel!.Text = "額度：暫時無法讀取，稍後再展開面板重試。"; }); }
         finally { _quotaPolling = false; }
-        if (retry) await RefreshQuota();
+        // The picker changed mid-request; its own refresh was skipped while this one ran.
+        if (stale) await RefreshQuota();
     }
 
     private static async Task SendCodexCommand(string command)

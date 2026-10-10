@@ -27,10 +27,12 @@ MODELS=[{'key':'codex:','label':'Codex · 預設模型'}]+[
     ['gpt-6.1-sol','gpt-6-astra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna']
 ]+[{'key':'claude:'+m,'label':'Claude · '+m.title()+' 5.5'} for m in CLAUDE_MODEL_IDS]
 
+DEFAULT_SETTINGS={'model_key':'codex:','effort':''}
+
 def settings():
-    try: result=json.loads(PREFS.read_text(encoding='utf-8'))
-    except (OSError,ValueError): result={'model_key':'codex:','effort':''}
-    return validate_settings(result)
+    # A stale file (e.g. a model removed from MODELS) must not break every bridge endpoint.
+    try: return validate_settings(json.loads(PREFS.read_text(encoding='utf-8')))
+    except (OSError,ValueError,AttributeError): return dict(DEFAULT_SETTINGS)
 
 def validate_settings(value):
     if value.get('model_key') not in {m['key'] for m in MODELS}: raise ValueError('未知模型')

@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 import tkinter as tk
 from tkinter import ttk
 import importlib.util
@@ -88,6 +89,12 @@ def validate(state, action, params):
             raise ValueError('卡牌或選項索引格式錯誤')
     return {'action': action, **params}
 
+def prune_runs(keep=40):
+    # Each call leaves a schema/log folder; keep only recent ones for debugging.
+    runs = sorted((p for p in (ROOT / 'button-runtime').glob('*-*-*-*-*') if p.is_dir()),
+                  key=lambda p: p.stat().st_mtime)
+    for old in runs[:-keep]: shutil.rmtree(old, ignore_errors=True)
+
 class Controller:
     def __init__(self, report):
         self.report = report
@@ -118,6 +125,7 @@ class Controller:
         return state
 
     def decide(self, state):
+        prune_runs()
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
         run_dir.mkdir(parents=True)
         schema_path = run_dir / 'schema.json'
@@ -228,8 +236,11 @@ def bridge_server(port):
             self.send_response(code); self.send_header('Content-Type','application/json; charset=utf-8')
             self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
         def do_GET(self):
-            if self.path=='/quota':
-                self.respond(spire_quota.quota(models.settings()['model_key'])); return
+            url=urlsplit(self.path)
+            if url.path=='/quota':
+                key=parse_qs(url.query).get('model',[models.settings()['model_key']])[0]
+                if key not in {m['key'] for m in models.MODELS}: self.respond({'error':'unknown model'},400); return
+                self.respond(spire_quota.quota(key)); return
             if self.path=='/claude-auth':
                 self.respond(models.claude_auth_status()); return
             if self.path=='/models':
