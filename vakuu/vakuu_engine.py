@@ -42,6 +42,7 @@ def prune_runs(keep=40, exclude=()):
         if old not in exclude: shutil.rmtree(old, ignore_errors=True)
 
 PROMPT = ROOT / 'vakuu_prompt.md'
+SESSION_MAX_TURNS = 8  # Model calls one combat conversation answers before a fresh one starts.
 REPEATED_RULES = '（遊戲指示與這場戰鬥第一則訊息相同，不再重複，照那份指示判斷。）'
 
 def instructions():
@@ -252,7 +253,9 @@ class Controller:
         claude = selection['model_key'].startswith('claude:')
         persistent = self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))
         if self.combat_session and (not persistent or self.combat_session.selection != selection
-                                    or (claude and self.combat_session.schema != schema)):  # Claude fixes it at start.
+                                    or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
+                                    or self.combat_session.turns >= SESSION_MAX_TURNS):
+            # Long fights (bosses run 10+ turns) would carry an ever longer conversation; start afresh.
             self.close_combat_session()
         prune_runs(exclude=(self.combat_session.directory,) if self.combat_session else ())
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())

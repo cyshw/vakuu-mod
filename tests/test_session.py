@@ -97,6 +97,7 @@ class LifecycleTests(unittest.TestCase):
             session.selection = SELECTION
             session.directory = Path(directory)
             session.last_metrics = {'usage': None}
+            session.turns = 0
             session.ask.side_effect = [answer, full, answer, full]
             self.assertEqual(c.decide(state, SELECTION), full)
             state['battle']['round'] = 2
@@ -197,6 +198,16 @@ class ClaudeSessionTests(unittest.TestCase):
         self.assertEqual(second, engine.REPEATED_RULES + '\n狀態二')
         c.combat_key = (1, 6); c.close_combat_session()
         self.assertTrue(FakeClaudeSession.made[0].closed)
+
+    def test_long_fights_start_a_fresh_conversation_every_eight_calls(self):
+        c = engine.Controller(lambda m: None); c.combat_key = (1, 17)
+        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+            for turn in range(engine.SESSION_MAX_TURNS + 1):
+                c.call_model(engine.instructions() + f'\n回合{turn}', engine.SCHEMA, CLAUDE)
+        first, second = FakeClaudeSession.made
+        self.assertEqual(len(first.sent), engine.SESSION_MAX_TURNS)
+        self.assertTrue(first.closed)
+        self.assertTrue(second.sent[0].startswith(engine.instructions()))  # The new conversation gets the rules again.
 
     def test_broken_claude_session_falls_back_to_a_full_one_off_call(self):
         class Broken(FakeClaudeSession):
