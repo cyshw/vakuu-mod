@@ -96,11 +96,17 @@ def prune_runs(keep=40):
     for old in runs[:-keep]: shutil.rmtree(old, ignore_errors=True)
 
 def transitional(state):
-    screen = state.get(state.get('state_type')) or {}
-    if state.get('state_type') == 'rest_site':
-        return not screen.get('options') and not screen.get('can_proceed')
-    if state.get('state_type') == 'rewards':
-        return not screen.get('items') and not screen.get('can_proceed')
+    """Screens caught mid-animation: nothing to choose yet, so asking the model only makes it give up."""
+    kind = state.get('state_type')
+    screen = state.get(kind) or {}
+    if kind in ('rest_site', 'rewards'):
+        return not screen.get('options' if kind == 'rest_site' else 'items') and not screen.get('can_proceed')
+    if kind == 'treasure':  # "Opening chest..." / "Treasure room loading..." carry no relic list yet,
+        return 'message' in screen and 'relics' not in screen  # even though Skip is already enabled.
+    if kind in ('monster', 'elite', 'boss'):  # "Combat ended. Waiting for rewards..."
+        return 'battle' not in state
+    if kind == 'shop':  # Inventory not ready right after entering.
+        return 'error' in screen and not screen.get('items')
     return False
 
 def _auto(advice, action, **params):
@@ -139,6 +145,14 @@ def auto_decision(state, opened=None):
         rest = state.get('rest_site') or {}
         if rest.get('can_proceed') and not any(o.get('is_enabled', True) for o in rest.get('options') or []):
             return _auto('篝火已盡其用，該上路了。\n建議：離開休息點。', 'proceed')
+    if kind == 'treasure':
+        treasure = state.get('treasure') or {}
+        relics = treasure.get('relics')
+        if isinstance(relics, list) and len(relics) == 1:
+            return _auto('寶箱裡的東西，自然歸你。\n建議：拿取' + (relics[0].get('name') or '遺物') + '。',
+                         'claim_treasure_relic', index=relics[0]['index'])
+        if not relics and 'message' not in treasure and treasure.get('can_proceed'):
+            return _auto('箱子空了，繼續前行。\n建議：離開寶箱房。', 'proceed')
     if kind == 'map':
         options = (state.get('map') or {}).get('next_options') or []
         if len(options) == 1:

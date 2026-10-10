@@ -132,4 +132,24 @@ class Tests(unittest.TestCase):
         self.assertIsNone(b.auto_decision({'state_type':'rest_site','rest_site':{'options':[{'index':0,'is_enabled':True}],'can_proceed':True}}))
         b.validate(ready,'proceed',{})
 
+    def test_mid_animation_screens_are_waited_out(self):
+        for state in ({'state_type':'treasure','treasure':{'message':'Opening chest...','can_proceed':True}},
+                      {'state_type':'monster','message':'Combat ended. Waiting for rewards...'},
+                      {'state_type':'shop','shop':{'items':[],'can_proceed':False,'error':'not ready'}}):
+            self.assertTrue(b.transitional(state),state)
+        for state in ({'state_type':'treasure','treasure':{'relics':[{'index':0}],'can_proceed':True}},
+                      {'state_type':'monster','battle':{}},
+                      {'state_type':'shop','shop':{'items':[{'index':0}],'can_proceed':True}}):
+            self.assertFalse(b.transitional(state),state)
+
+    def test_treasure_claims_single_relic_then_leaves(self):
+        chest={'state_type':'treasure','treasure':{'relics':[{'index':0,'name':'磨刀石'}],'can_proceed':True}}
+        decision=b.auto_decision(chest)
+        self.assertEqual(decision['action'],'claim_treasure_relic')
+        b.validate(chest,decision['action'],b.json.loads(decision['parameters_json']))
+        self.assertEqual(b.auto_decision({'state_type':'treasure','treasure':{'relics':[],'can_proceed':True}})['action'],'proceed')
+        self.assertIsNone(b.auto_decision({'state_type':'treasure','treasure':{'relics':[{'index':0},{'index':1}],'can_proceed':True}}))
+        self.assertEqual(b.auto_decision({'state_type':'treasure','treasure':{'can_proceed':True}})['action'],'proceed')
+        self.assertIsNone(b.auto_decision({'state_type':'treasure','treasure':{'message':'Opening chest...','can_proceed':True}}))
+
 if __name__=='__main__': unittest.main()
