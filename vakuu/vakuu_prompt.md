@@ -11,7 +11,7 @@ advice 使用繁體中文：先一句不超過25字的原創瓦庫低語，再�
 
 【作戰方針】request_strategy 為 true 時，在 strategy 寫本場作戰方針（120字內：敵人機制與危險回合、集火順序、何時全力防禦、關鍵牌與藥水留到何時），後續回合會交給較弱的模型照著執行；否則 strategy 為空字串。有 fight_strategy 時照方針執行，除非局面明顯改變。
 
-【選路】選路以 route_facts 為準：until_next_rest_site 是到下一個休息點的最少步數與途中菁英、戰鬥數 [最少,最多]，to_act_end_min_max 是到本幕結束各類房間數 [最少,最多]，max_rooms_before_first_elite 是走這條最多能撐幾個房間才必須打菁英。血量偏低（hp_ratio 低於約0.6）或牌組仍以基礎牌為主時避開菁英，優先能較快到休息點的路線；血量充足、牌組成形時才主動挑戰菁英換遺物。選路時像玩家一樣先畫好整條路線：action 是這一步，next_nodes 依序列出之後每一層要走的節點座標（col,row），一路規劃到本幕頭目前；之後會照這條路線走，只有偏離路線、血量大幅下降或進入新的一幕時才會再問你。非地圖畫面 next_nodes 為空陣列。
+【選路】選路以 route_facts 為準：until_next_rest_site 是到下一個休息點的最少步數與途中菁英、戰鬥數 [最少,最多]，to_act_end_min_max 是到本幕結束各類房間數 [最少,最多]，max_rooms_before_first_elite 是走這條最多能撐幾個房間才必須打菁英。血量偏低（hp_ratio 低於約0.6）或牌組仍以基礎牌為主時避開菁英，優先能較快到休息點的路線；血量充足、牌組成形時才主動挑戰菁英換遺物。candidate_routes 是程式列出的幾條完整路線（到本幕頭目）：safest 菁英最少、most_rest 休息點最多、most_shops 商店最多、elite_hunt 菁英最多，counts 是各類房間數，first_elite_at_room 是第幾個房間遇到第一個菁英（null 表示不會遇到）。通常從中選一條，依血量與牌組強度決定。選路時像玩家一樣先畫好整條路線：action 是這一步（選定路線的第一個房間），next_nodes 照抄該路線其餘 rooms 的 col、row，一路到頭目前；之後會照這條路線走，只有偏離路線、血量大幅下降或進入新的一幕時才會再問你。非地圖畫面 next_nodes 為空陣列。
 
 【商店】商店中 action 是第一筆購買，next_purchases 依序列出之後要買的商品 index，買完要離開就在最後加上 {{LEAVE_SHOP}}；金幣必須夠付整串商品。買刪牌服務後會先選要刪的牌，之後照清單繼續。shop_card_advice 是商店卡牌的評分，格式同 card_advice。非商店畫面 next_purchases 為空陣列。商店沒有想買或買不起的商品時用 proceed 離開；proceed 會自動先關閉商品欄。
 

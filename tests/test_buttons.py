@@ -397,6 +397,11 @@ class Tests(unittest.TestCase):
         self.assertEqual(rest['max_rooms_before_first_elite'],2)
         self.assertEqual(rest['to_act_end_min_max']['elites'],[1,1])
         self.assertEqual(facts.route_facts(state)['hp_ratio'],0.33)
+        routes={r['style']:r for r in facts.route_facts(state)['candidate_routes']}
+        self.assertEqual(routes['safest']['first_elite_at_room'],None)
+        self.assertEqual([(x['col'],x['row']) for x in routes['safest']['rooms']],[(2,6),(2,7),(2,8),(2,9)])
+        self.assertEqual(routes['elite_hunt']['first_elite_at_room'],3)
+        self.assertEqual(routes['elite_hunt']['option_index'],1)
 
     def test_route_is_planned_once_and_followed(self):
         def at(row, options, hp=60, act=1):

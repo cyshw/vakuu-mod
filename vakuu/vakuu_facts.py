@@ -86,6 +86,46 @@ def wastes_energy_card(state, card):
 ROUTE_COUNTS = {'elites': ('Elite',), 'fights': ('Monster', 'Elite'), 'rests': ('RestSite',),
                 'shops': ('Shop',), 'unknowns': ('Unknown',), 'treasures': ('Treasure',)}
 
+MAX_PATHS = 20000  # Act maps have hundreds to a few thousand paths; stop enumerating beyond this.
+ROUTE_STYLES = {
+    # name: sort key over a path's counts (smaller is better)
+    'safest': lambda c: (c['elites'], c['fights'], -c['rests']),
+    'most_rest': lambda c: (-c['rests'], c['elites'], c['fights']),
+    'most_shops': lambda c: (-c['shops'], c['elites'], -c['rests']),
+    'elite_hunt': lambda c: (-c['elites'], -c['rests'], c['fights']),
+}
+
+def candidate_routes(world, nodes, children):
+    """Whole routes to the act's end, one per style, so the model picks a full path.
+
+    Per-option counts hid that a chosen path ran into a forced elite right after its rest site:
+    the option's best path stayed elite-free for 11 rooms, the path actually taken for only 4.
+    """
+    paths = []
+    def walk(key, path):
+        if len(paths) >= MAX_PATHS: return
+        path = path + [key]
+        below = children(key)
+        if not below: paths.append(path)
+        for child in below: walk(child, path)
+    starts = {(o.get('col'), o.get('row')): o.get('index') for o in world.get('next_options') or []}
+    for start in starts:
+        if start in nodes: walk(start, [])
+    summaries = []
+    for path in paths:
+        kinds = [nodes[k].get('type') for k in path]
+        summaries.append((path, kinds, {name: sum(kind in types for kind in kinds) for name, types in ROUTE_COUNTS.items()}))
+    routes, seen = [], set()
+    for style, key in ROUTE_STYLES.items():
+        if not summaries: break
+        path, kinds, counts = min(summaries, key=lambda item: key(item[2]))
+        if tuple(path) in seen: continue
+        seen.add(tuple(path))
+        routes.append({'style': style, 'option_index': starts[path[0]], 'counts': counts,
+                       'first_elite_at_room': next((i + 1 for i, kind in enumerate(kinds) if kind == 'Elite'), None),
+                       'rooms': [{'col': c, 'row': r, 'type': t} for (c, r), t in zip(path, kinds)]})
+    return routes
+
 def route_facts(state):
     """Per route option: what every path from it holds, so the model need not trace the node graph.
 
@@ -127,7 +167,8 @@ def route_facts(state):
         return rests[key]
 
     player = state.get('player') or {}
-    facts = {'hp_ratio': round((player.get('hp') or 0) / (player.get('max_hp') or 1), 2), 'options': []}
+    facts = {'hp_ratio': round((player.get('hp') or 0) / (player.get('max_hp') or 1), 2), 'options': [],
+             'candidate_routes': candidate_routes(world, nodes, children)}
     for option in world.get('next_options') or []:
         key = (option.get('col'), option.get('row'))
         if key not in nodes: continue
