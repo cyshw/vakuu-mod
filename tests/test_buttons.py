@@ -359,6 +359,12 @@ class Tests(unittest.TestCase):
         self.assertFalse(rules.still_valid(before,self.combat(['打擊','黏液']),body))  # Hand reordered or played by hand.
         self.assertFalse(rules.still_valid(before,self.combat(['黏液']),body))
         self.assertFalse(rules.still_valid(before,self.combat(['黏液','打擊'],enemies=[]),body))  # Target died.
+        potion={'slot':1,'name':'格挡药水'}
+        for state in (before,drew): state['player']['potions']=[potion]
+        drink={'action':'use_potion','slot':1}
+        self.assertTrue(rules.still_valid(before,drew,drink))
+        drank=self.combat(['黏液','打擊','集中打擊']); drank['player']['potions']=[]
+        self.assertFalse(rules.still_valid(before,drank,drink))  # Drunk by hand meanwhile.
         self.assertFalse(rules.still_valid({'state_type':'map','map':{'a':1}},{'state_type':'map','map':{'a':2}},{'action':'choose_map_node','index':0}))
 
     def test_death_blow_counts_as_incoming_damage(self):

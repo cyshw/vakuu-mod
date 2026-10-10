@@ -62,17 +62,21 @@ def still_valid(before, now, body):
     """Whether the chosen move still means the same thing on the current screen.
 
     Late effects (a draw from Skim landing a second after the card resolves) add cards to the end of the
-    hand while the model thinks; the chosen card keeps its index, so the play is still what was meant.
+    hand while the model thinks; the chosen card keeps its index (and a potion its slot), so the move is
+    still what was meant.
     Anything else must match exactly, so a player acting by hand still stops takeover.
     """
     if fingerprint(before) == fingerprint(now): return True
-    if body.get('action') != 'play_card' or now.get('state_type') != before.get('state_type'): return False
+    if body.get('action') not in ('play_card', 'use_potion') or now.get('state_type') != before.get('state_type'): return False
     old_hand = (before.get('player') or {}).get('hand') or []
     new_hand = (now.get('player') or {}).get('hand') or []
-    index = body['card_index']
     if len(new_hand) < len(old_hand) or [c.get('name') for c in new_hand[:len(old_hand)]] != [c.get('name') for c in old_hand]:
         return False
-    if not new_hand[index].get('can_play'): return False
+    if body['action'] == 'use_potion':
+        # Run 28: Cool Head's draw landed while the model chose a Block Potion, which stopped takeover.
+        potions = lambda state: [(p.get('slot'), p.get('name')) for p in (state.get('player') or {}).get('potions') or []]
+        if potions(before) != potions(now): return False
+    elif not new_hand[body['card_index']].get('can_play'): return False
     alive = {e.get('entity_id') for e in (now.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0}
     return 'target' not in body or body['target'] in alive
 
