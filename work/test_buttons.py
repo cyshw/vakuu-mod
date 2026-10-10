@@ -305,4 +305,14 @@ class Tests(unittest.TestCase):
         plan=b.start_plan(shop(),dict(buy,parameters_json='{"index":0}',next_purchases=[13]))
         self.assertIsNone(b.plan_decision(plan,shop(removal_stocked=False)))  # Sold out: ask again.
 
+    def test_late_draw_keeps_the_chosen_play(self):
+        before=self.combat(['黏液','打擊'])
+        drew=self.combat(['黏液','打擊','集中打擊'])
+        body={'action':'play_card','card_index':1,'target':'BOSS_0'}
+        self.assertTrue(b.still_valid(before,drew,body))
+        self.assertFalse(b.still_valid(before,self.combat(['打擊','黏液']),body))  # Hand reordered or played by hand.
+        self.assertFalse(b.still_valid(before,self.combat(['黏液']),body))
+        self.assertFalse(b.still_valid(before,self.combat(['黏液','打擊'],enemies=[]),body))  # Target died.
+        self.assertFalse(b.still_valid({'state_type':'map','map':{'a':1}},{'state_type':'map','map':{'a':2}},{'action':'choose_map_node','index':0}))
+
 if __name__=='__main__': unittest.main()

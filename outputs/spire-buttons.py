@@ -183,6 +183,24 @@ def plan_decision(plan, state):
     plan['expected'][card.get('name')] -= 1
     return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
+def still_valid(before, now, body):
+    """Whether the chosen move still means the same thing on the current screen.
+
+    Late effects (a draw from Skim landing a second after the card resolves) add cards to the end of the
+    hand while the model thinks; the chosen card keeps its index, so the play is still what was meant.
+    Anything else must match exactly, so a player acting by hand still stops takeover.
+    """
+    if fingerprint(before) == fingerprint(now): return True
+    if body.get('action') != 'play_card' or now.get('state_type') != before.get('state_type'): return False
+    old_hand = (before.get('player') or {}).get('hand') or []
+    new_hand = (now.get('player') or {}).get('hand') or []
+    index = body['card_index']
+    if len(new_hand) < len(old_hand) or [c.get('name') for c in new_hand[:len(old_hand)]] != [c.get('name') for c in old_hand]:
+        return False
+    if not new_hand[index].get('can_play'): return False
+    alive = {e.get('entity_id') for e in (now.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0}
+    return 'target' not in body or body['target'] in alive
+
 PILES = ('draw_pile', 'discard_pile', 'exhaust_pile', 'draw_pile_count', 'discard_pile_count', 'exhaust_pile_count')
 
 def fingerprint(state):
@@ -507,7 +525,7 @@ class Controller:
                 if not takeover or decision['stop'] or decision['action'] == 'none': break
                 body = validate(state, decision['action'], json.loads(decision['parameters_json']))
                 current = api.request('/api/v1/singleplayer?format=json')
-                if fingerprint(state) != fingerprint(current):
+                if not still_valid(state, current, body):
                     self.report('看來你另有打算。控制權歸你了。\n局面已改變，已停止接手。'); break
                 with self.lock:
                     if self.stop_event.is_set(): break
