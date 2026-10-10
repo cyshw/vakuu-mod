@@ -7,7 +7,13 @@
 ## 資料夾
 
 - `work/STS2MCP`：修改後的 C# 模組原始碼與原作者授權。
-- `outputs`：Python 控制器、模型設定、Bober 抓牌轉接器、資料及使用說明。
+- `outputs`：Python 程式、資料及使用說明。
+  - `spire-buttons.py`：接手主流程（讀局面、等待畫面穩定、執行動作）與遊戲內面板的 HTTP 背景程式。
+  - `vakuu_rules.py`：各畫面允許的動作、檢查模型動作、比對局面、過渡畫面判斷。
+  - `vakuu_facts.py`：替模型先算好的數字：戰鬥、能量、牌組摘要、路線。
+  - `vakuu_plans.py`：不問模型的步驟：固定規則、出牌計畫、購物計畫。
+  - `vakuu_router.py`：自動調度：哪些畫面交給強模型、何時換更強的模型。
+  - `spire_models.py`、`spire_quota.py`、`spire_codex.py`、`sts2_advisor.py`、`sts2-control.py`：模型命令列、額度、Spire Codex 評分、抓牌評分、遊戲 API。
 - `outputs/vakuu_prompt.md`：給模型的指示（角色語氣與各畫面規則）。每次呼叫都重新讀取，修改後不必重開遊戲；`{{END_TURN}}`、`{{LEAVE_SHOP}}` 由程式代入。
 - `work/test_*.py`：控制器、模型與抓牌轉接器測試。
 - `scripts`：建置、測試與安裝工具。

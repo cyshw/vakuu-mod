@@ -1,21 +1,26 @@
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
 path=Path(__file__).resolve().parent.parent/'outputs'/'spire-buttons.py'
 spec=importlib.util.spec_from_file_location('buttons',path)
 b=importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+import vakuu_facts as facts
+import vakuu_plans as plans
+import vakuu_router as router
+import vakuu_rules as rules
 
 class Tests(unittest.TestCase):
     def test_optional_null_target_is_omitted(self):
         params={'card_index':1,'target':None}
-        self.assertEqual(b.validate({'state_type':'monster'},'play_card',params),
+        self.assertEqual(rules.validate({'state_type':'monster'},'play_card',params),
                          {'action':'play_card','card_index':1})
         self.assertIn('target',params)  # Validation does not mutate model output.
-        self.assertEqual(b.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':''}),
+        self.assertEqual(rules.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':''}),
                          {'action':'play_card','card_index':1})
         with self.assertRaises(ValueError):
-            b.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':0})
+            rules.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':0})
 
     def test_takeover_continues_into_next_player_turn(self):
         player1={'state_type':'monster','battle':{'round':1,'turn':'player','is_play_phase':True}}
@@ -56,10 +61,10 @@ class Tests(unittest.TestCase):
 
     def test_dangerous_or_wrong_screen_actions_rejected(self):
         for action,params in [('menu_select',{'option':'abandon_run'}),('play_card',{'card_index':0}),('choose_event_option',{'index':True}),('choose_event_option',{'index':-1}),('choose_event_option',{'index':1,'extra':'x'})]:
-            with self.assertRaises(ValueError): b.validate({'state_type':'event'},action,params)
+            with self.assertRaises(ValueError): rules.validate({'state_type':'event'},action,params)
 
     def test_valid_action_uses_actual_index(self):
-        self.assertEqual(b.validate({'state_type':'card_reward'},'select_card_reward',{'card_index':9}),{'action':'select_card_reward','card_index':9})
+        self.assertEqual(rules.validate({'state_type':'card_reward'},'select_card_reward',{'card_index':9}),{'action':'select_card_reward','card_index':9})
 
     def test_stop_after_model_prevents_post(self):
         c=b.Controller(lambda message: None)
@@ -82,7 +87,7 @@ class Tests(unittest.TestCase):
         posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
         self.assertEqual(posts,[{'action':'select_card','index':0},{'action':'confirm_selection'}])
         with self.assertRaises(ValueError):
-            b.validate(chosen,'select_card',{'index':1})
+            rules.validate(chosen,'select_card',{'index':1})
 
     def test_prune_keeps_recent_runs_and_settings(self):
         import os, tempfile
@@ -96,7 +101,7 @@ class Tests(unittest.TestCase):
             self.assertTrue((runtime/'model-settings.json').exists())
 
     def test_auto_decisions_for_single_choice_screens(self):
-        act=lambda state: (lambda d: d and (d['action'], b.json.loads(d['parameters_json'])))(b.auto_decision(state))
+        act=lambda state: (lambda d: d and (d['action'], json.loads(d['parameters_json'])))(plans.auto_decision(state))
         player={'potions':[{'can_use_in_combat':True}],'max_potion_slots':2}
         rewards={'state_type':'rewards','player':player,'rewards':{'items':[{'index':0,'type':'card'},{'index':1,'type':'gold'}],'can_proceed':True}}
         self.assertEqual(act(rewards),('claim_reward',{'index':1}))
@@ -113,18 +118,18 @@ class Tests(unittest.TestCase):
         self.assertIsNone(act({**stuck,'player':{'hand':[{'can_play':False}],'potions':[{'can_use_in_combat':True}]}}))
         self.assertIsNone(act({**stuck,'player':{'hand':[{'can_play':True}],'potions':[]}}))
         for state in (rewards,{'state_type':'map','map':{'next_options':[{'index':0}]}}):
-            action,params=act(state); b.validate(state,action,params)
+            action,params=act(state); rules.validate(state,action,params)
 
     def test_card_rewards_open_once_each(self):
         state=lambda n: {'state_type':'rewards','run':{'floor':3},'rewards':{'can_proceed':True,
                          'items':[{'index':i,'type':'card'} for i in range(n)]}}
         opened=set()
-        self.assertEqual(b.auto_decision(state(2),opened)['action'],'claim_reward')
-        self.assertEqual(b.auto_decision(state(1),opened)['action'],'claim_reward')  # First was taken.
-        self.assertEqual(b.auto_decision(state(1),opened)['action'],'proceed')  # Skipped: leave instead of reopening it.
+        self.assertEqual(plans.auto_decision(state(2),opened)['action'],'claim_reward')
+        self.assertEqual(plans.auto_decision(state(1),opened)['action'],'claim_reward')  # First was taken.
+        self.assertEqual(plans.auto_decision(state(1),opened)['action'],'proceed')  # Skipped: leave instead of reopening it.
         mixed=state(1); mixed['rewards']['items'].append({'index':1,'type':'potion'}); mixed['player']={'potions':[{}],'max_potion_slots':1}
-        self.assertIsNone(b.auto_decision(mixed,opened))  # Something else still needs a decision.
-        self.assertIsNone(b.auto_decision(state(1)))  # Advice mode never auto-opens.
+        self.assertIsNone(plans.auto_decision(mixed,opened))  # Something else still needs a decision.
+        self.assertIsNone(plans.auto_decision(state(1)))  # Advice mode never auto-opens.
 
     def test_rest_site_waits_for_proceed_then_leaves(self):
         resting={'state_type':'rest_site','rest_site':{'options':[],'can_proceed':False}}
@@ -132,29 +137,29 @@ class Tests(unittest.TestCase):
         c=b.Controller(lambda message: None)
         with patch.object(b.api,'request',side_effect=[resting,ready]), patch.object(c.stop_event,'wait',return_value=False):
             self.assertEqual(c.wait_until_settled(resting),ready)
-        self.assertEqual(b.auto_decision(ready)['action'],'proceed')
-        self.assertIsNone(b.auto_decision({'state_type':'rest_site','rest_site':{'options':[{'index':0,'is_enabled':True}],'can_proceed':True}}))
-        b.validate(ready,'proceed',{})
+        self.assertEqual(plans.auto_decision(ready)['action'],'proceed')
+        self.assertIsNone(plans.auto_decision({'state_type':'rest_site','rest_site':{'options':[{'index':0,'is_enabled':True}],'can_proceed':True}}))
+        rules.validate(ready,'proceed',{})
 
     def test_mid_animation_screens_are_waited_out(self):
         for state in ({'state_type':'treasure','treasure':{'message':'Opening chest...','can_proceed':True}},
                       {'state_type':'monster','message':'Combat ended. Waiting for rewards...'},
                       {'state_type':'shop','shop':{'items':[],'can_proceed':False,'error':'not ready'}}):
-            self.assertTrue(b.transitional(state),state)
+            self.assertTrue(rules.transitional(state),state)
         for state in ({'state_type':'treasure','treasure':{'relics':[{'index':0}],'can_proceed':True}},
                       {'state_type':'monster','battle':{}},
                       {'state_type':'shop','shop':{'items':[{'index':0}],'can_proceed':True}}):
-            self.assertFalse(b.transitional(state),state)
+            self.assertFalse(rules.transitional(state),state)
 
     def test_treasure_claims_single_relic_then_leaves(self):
         chest={'state_type':'treasure','treasure':{'relics':[{'index':0,'name':'磨刀石'}],'can_proceed':True}}
-        decision=b.auto_decision(chest)
+        decision=plans.auto_decision(chest)
         self.assertEqual(decision['action'],'claim_treasure_relic')
-        b.validate(chest,decision['action'],b.json.loads(decision['parameters_json']))
-        self.assertEqual(b.auto_decision({'state_type':'treasure','treasure':{'relics':[],'can_proceed':True}})['action'],'proceed')
-        self.assertIsNone(b.auto_decision({'state_type':'treasure','treasure':{'relics':[{'index':0},{'index':1}],'can_proceed':True}}))
-        self.assertEqual(b.auto_decision({'state_type':'treasure','treasure':{'can_proceed':True}})['action'],'proceed')
-        self.assertIsNone(b.auto_decision({'state_type':'treasure','treasure':{'message':'Opening chest...','can_proceed':True}}))
+        rules.validate(chest,decision['action'],json.loads(decision['parameters_json']))
+        self.assertEqual(plans.auto_decision({'state_type':'treasure','treasure':{'relics':[],'can_proceed':True}})['action'],'proceed')
+        self.assertIsNone(plans.auto_decision({'state_type':'treasure','treasure':{'relics':[{'index':0},{'index':1}],'can_proceed':True}}))
+        self.assertEqual(plans.auto_decision({'state_type':'treasure','treasure':{'can_proceed':True}})['action'],'proceed')
+        self.assertIsNone(plans.auto_decision({'state_type':'treasure','treasure':{'message':'Opening chest...','can_proceed':True}}))
 
     @staticmethod
     def combat(hand, energy=3, round_=1, enemies=None, block=0, hp=40):
@@ -166,18 +171,18 @@ class Tests(unittest.TestCase):
                                   for i,n in enumerate(hand)]}}
 
     def test_combat_facts_do_the_arithmetic(self):
-        facts=b.combat_facts(self.combat(['打擊','防禦'],block=5,hp=19))
-        self.assertEqual(facts['incoming_attack_damage'],24)
-        self.assertEqual(facts['block_needed_for_no_damage'],19)
-        self.assertTrue(facts['lethal_if_no_more_block'])
-        self.assertEqual([c['name'] for c in facts['playable_cards']],['打擊','防禦'])
-        self.assertEqual(b.incoming_damage({'type':'Buff','label':''}),0)
-        self.assertEqual(b.incoming_damage({'type':'Attack','label':'21'}),21)
+        result=facts.combat_facts(self.combat(['打擊','防禦'],block=5,hp=19))
+        self.assertEqual(result['incoming_attack_damage'],24)
+        self.assertEqual(result['block_needed_for_no_damage'],19)
+        self.assertTrue(result['lethal_if_no_more_block'])
+        self.assertEqual([c['name'] for c in result['playable_cards']],['打擊','防禦'])
+        self.assertEqual(facts.incoming_damage({'type':'Buff','label':''}),0)
+        self.assertEqual(facts.incoming_damage({'type':'Attack','label':'21'}),21)
 
     def test_turn_plan_plays_without_asking_again(self):
         first=self.combat(['防禦','打擊','打擊+'])
         decision={'advice':'先防後攻','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',
-                  'next_cards':[{'hand_index':2,'target':'BOSS_0'},{'hand_index':1,'target':'BOSS_0'},{'hand_index':b.END_TURN,'target':''}]}
+                  'next_cards':[{'hand_index':2,'target':'BOSS_0'},{'hand_index':1,'target':'BOSS_0'},{'hand_index':rules.END_TURN,'target':''}]}
         second=self.combat(['打擊','打擊+'],energy=2)
         third=self.combat(['打擊'],energy=1)
         fourth=self.combat([],energy=0)
@@ -194,19 +199,19 @@ class Tests(unittest.TestCase):
         first=self.combat(['快速檢索','打擊'])
         decision={'advice':'抽牌','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',
                   'next_cards':[{'hand_index':1,'target':'BOSS_0'}]}
-        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊','防禦'])))  # Drew a card.
-        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'],round_=2)))  # New turn.
-        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'],enemies=[])))  # Target died.
-        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat([])))  # Card is gone.
-        self.assertIsNotNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'])))
-        self.assertIsNone(b.start_plan({'state_type':'map'},decision))
+        self.assertIsNone(plans.plan_decision(plans.start_plan(first,decision),self.combat(['打擊','防禦'])))  # Drew a card.
+        self.assertIsNone(plans.plan_decision(plans.start_plan(first,decision),self.combat(['打擊'],round_=2)))  # New turn.
+        self.assertIsNone(plans.plan_decision(plans.start_plan(first,decision),self.combat(['打擊'],enemies=[])))  # Target died.
+        self.assertIsNone(plans.plan_decision(plans.start_plan(first,decision),self.combat([])))  # Card is gone.
+        self.assertIsNotNone(plans.plan_decision(plans.start_plan(first,decision),self.combat(['打擊'])))
+        self.assertIsNone(plans.start_plan({'state_type':'map'},decision))
 
     def test_auto_mode_routes_and_escalates(self):
         easy=self.combat(['打擊'],hp=40); easy['state_type']='monster'; easy['player']['max_hp']=40
         easy['battle']['enemies'][0]['intents']=[]
         hard=self.combat(['打擊'])  # Boss.
-        self.assertFalse(b.hard_screen(easy)); self.assertTrue(b.hard_screen(hard))
-        self.assertTrue(b.hard_screen({'state_type':'map','map':{'next_options':[{'index':0},{'index':1}]}}))
+        self.assertFalse(router.hard_screen(easy)); self.assertTrue(router.hard_screen(hard))
+        self.assertTrue(router.hard_screen({'state_type':'map','map':{'next_options':[{'index':0},{'index':1}]}}))
         good={'advice':'打','stop':False,'action':'end_turn','parameters_json':'{}','next_cards':[]}
         gave_up={'advice':'不知道','stop':True,'action':'none','parameters_json':'{}','next_cards':[]}
         c=b.Controller(lambda message: None)
@@ -230,10 +235,10 @@ class Tests(unittest.TestCase):
     def test_enchant_selection_without_preview_is_confirmed(self):
         pick=lambda n: {'state_type':'card_select','card_select':{'preview_showing':False,'can_confirm':True,
                         'selected_count':n,'min_select':1,'max_select':1,'cards':[{'index':0,'selected':bool(n)}]}}
-        self.assertIsNone(b.auto_decision(pick(0)))
-        self.assertEqual(b.auto_decision(pick(1))['action'],'confirm_selection')
-        with self.assertRaises(ValueError): b.validate(pick(1),'select_card',{'index':0})
-        self.assertFalse(b.selection_complete({'state_type':'card_select','card_select':{'selected_count':1,'max_select':3}}))
+        self.assertIsNone(plans.auto_decision(pick(0)))
+        self.assertEqual(plans.auto_decision(pick(1))['action'],'confirm_selection')
+        with self.assertRaises(ValueError): rules.validate(pick(1),'select_card',{'index':0})
+        self.assertFalse(rules.selection_complete({'state_type':'card_select','card_select':{'selected_count':1,'max_select':3}}))
 
     def test_waits_until_action_shows_up_and_while_loading(self):
         old={'state_type':'map','map':{'current_position':{'row':2}}}
@@ -247,22 +252,22 @@ class Tests(unittest.TestCase):
         with patch.object(b.api,'request',side_effect=[partly,done,done]) as api, patch.object(c.stop_event,'wait',return_value=False):
             c.wait_for_change({'state_type':'monster','player':{'hand':[{'name':'扩容'}],'orb_slots':3}})
         self.assertEqual(api.call_count,3)  # Kept reading until the orb slots landed.
-        self.assertTrue(b.transitional(moved))
-        self.assertTrue(b.transitional({'state_type':'map','map':{'next_options':[]}}))
-        self.assertFalse(b.transitional({'state_type':'map','map':{'next_options':[{'index':0}]}}))
-        self.assertTrue(b.transitional({'state_type':'event','event':{'options':[],'in_dialogue':False}}))
-        self.assertFalse(b.transitional({'state_type':'event','event':{'options':[],'in_dialogue':True}}))
+        self.assertTrue(rules.transitional(moved))
+        self.assertTrue(rules.transitional({'state_type':'map','map':{'next_options':[]}}))
+        self.assertFalse(rules.transitional({'state_type':'map','map':{'next_options':[{'index':0}]}}))
+        self.assertTrue(rules.transitional({'state_type':'event','event':{'options':[],'in_dialogue':False}}))
+        self.assertFalse(rules.transitional({'state_type':'event','event':{'options':[],'in_dialogue':True}}))
 
     def test_plan_uses_game_names_and_piles_do_not_abort(self):
         hand=self.combat(['引雷针','防禦'])
         decision={'advice':'','stop':False,'action':'play_card','parameters_json':'{"card_index":1}',
                   'next_cards':[{'hand_index':0,'target':''},{'hand_index':9,'target':''}]}
-        plan=b.start_plan(hand,decision)
+        plan=plans.start_plan(hand,decision)
         self.assertEqual([e['name'] for e in plan['queue']],['引雷针'])  # Out-of-range index ends the plan.
         before=dict(hand,player=dict(hand['player'],discard_pile=[],discard_pile_count=0))
         after=dict(hand,player=dict(hand['player'],discard_pile=[{'name':'黏液'}],discard_pile_count=1))
-        self.assertEqual(b.fingerprint(before),b.fingerprint(after))
-        self.assertNotEqual(b.fingerprint(hand),b.fingerprint(self.combat(['引雷针'])))
+        self.assertEqual(rules.fingerprint(before),rules.fingerprint(after))
+        self.assertNotEqual(rules.fingerprint(hand),rules.fingerprint(self.combat(['引雷针'])))
 
     def test_new_fight_waits_for_the_opening_hand(self):
         loading={'state_type':'unknown'}
@@ -275,16 +280,16 @@ class Tests(unittest.TestCase):
 
     def test_look_alike_selection_actions_are_mapped(self):
         grid={'state_type':'card_select','card_select':{'preview_showing':False}}
-        self.assertEqual(b.validate(grid,'combat_select_card',{'card_index':1}),{'action':'select_card','index':1})
-        self.assertEqual(b.validate({'state_type':'hand_select'},'select_card',{'index':2}),{'action':'combat_select_card','card_index':2})
-        self.assertNotIn('play_card',b.allowed_actions(grid))
-        with self.assertRaises(ValueError): b.validate({'state_type':'map'},'combat_select_card',{'card_index':1})
-        self.assertEqual(b.validate({'state_type':'monster'},'play_card',{'hand_index':4}),{'action':'play_card','card_index':4})
+        self.assertEqual(rules.validate(grid,'combat_select_card',{'card_index':1}),{'action':'select_card','index':1})
+        self.assertEqual(rules.validate({'state_type':'hand_select'},'select_card',{'index':2}),{'action':'combat_select_card','card_index':2})
+        self.assertNotIn('play_card',rules.allowed_actions(grid))
+        with self.assertRaises(ValueError): rules.validate({'state_type':'map'},'combat_select_card',{'card_index':1})
+        self.assertEqual(rules.validate({'state_type':'monster'},'play_card',{'hand_index':4}),{'action':'play_card','card_index':4})
 
     def test_deck_summary_merges_copies(self):
         deck=[{'id':'STRIKE','name':'打擊','is_upgraded':False,'cost':'1','description':'造成6點傷害。'}]*4+[
               {'id':'STRIKE','name':'打擊+','is_upgraded':True,'cost':'1','description':'造成9點傷害。'}]
-        summary=b.deck_summary(deck)
+        summary=facts.deck_summary(deck)
         self.assertEqual([(c['name'],c['count']) for c in summary],[('打擊',4),('打擊+',1)])
         self.assertEqual(summary[0]['description'],'造成6點傷害。')
 
@@ -295,7 +300,7 @@ class Tests(unittest.TestCase):
                 {'index':13,'category':'card_removal','is_stocked':removal_stocked,'can_afford':True}]}}
         picking={'state_type':'card_select','card_select':{'preview_showing':False,'cards':[{'index':0}]}}
         buy={'advice':'','stop':False,'action':'shop_purchase','parameters_json':'{"index":13}','next_cards':[],
-             'next_purchases':[0,b.LEAVE_SHOP]}
+             'next_purchases':[0,rules.LEAVE_SHOP]}
         remove={'advice':'','stop':False,'action':'select_card','parameters_json':'{"index":0}','next_cards':[],'next_purchases':[]}
         after=shop(removal_stocked=False)
         c=b.Controller(lambda message: None)
@@ -306,29 +311,29 @@ class Tests(unittest.TestCase):
         posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
         self.assertEqual(posts,[{'action':'shop_purchase','index':13},{'action':'select_card','index':0},
                                 {'action':'shop_purchase','index':0},{'action':'proceed'}])
-        plan=b.start_plan(shop(),dict(buy,parameters_json='{"index":0}',next_purchases=[13]))
-        self.assertIsNone(b.plan_decision(plan,shop(removal_stocked=False)))  # Sold out: ask again.
+        plan=plans.start_plan(shop(),dict(buy,parameters_json='{"index":0}',next_purchases=[13]))
+        self.assertIsNone(plans.plan_decision(plan,shop(removal_stocked=False)))  # Sold out: ask again.
 
     def test_late_draw_keeps_the_chosen_play(self):
         before=self.combat(['黏液','打擊'])
         drew=self.combat(['黏液','打擊','集中打擊'])
         body={'action':'play_card','card_index':1,'target':'BOSS_0'}
-        self.assertTrue(b.still_valid(before,drew,body))
-        self.assertFalse(b.still_valid(before,self.combat(['打擊','黏液']),body))  # Hand reordered or played by hand.
-        self.assertFalse(b.still_valid(before,self.combat(['黏液']),body))
-        self.assertFalse(b.still_valid(before,self.combat(['黏液','打擊'],enemies=[]),body))  # Target died.
-        self.assertFalse(b.still_valid({'state_type':'map','map':{'a':1}},{'state_type':'map','map':{'a':2}},{'action':'choose_map_node','index':0}))
+        self.assertTrue(rules.still_valid(before,drew,body))
+        self.assertFalse(rules.still_valid(before,self.combat(['打擊','黏液']),body))  # Hand reordered or played by hand.
+        self.assertFalse(rules.still_valid(before,self.combat(['黏液']),body))
+        self.assertFalse(rules.still_valid(before,self.combat(['黏液','打擊'],enemies=[]),body))  # Target died.
+        self.assertFalse(rules.still_valid({'state_type':'map','map':{'a':1}},{'state_type':'map','map':{'a':2}},{'action':'choose_map_node','index':0}))
 
     def test_death_blow_counts_as_incoming_damage(self):
         # Waterfall Giant: after "dying" it becomes unkillable and hits for 53; this once read as 0 and lost the run.
         dying={'entity_id':'WATERFALL_GIANT_0','name':'瀑布巨兽','hp':999999990,'block':0,
                'intents':[{'type':'DeathBlow','label':'53','title':'濒死一击','description':'它会在被摧毁前攻击你造成53点伤害。'}]}
-        facts=b.combat_facts(self.combat(['防禦'],enemies=[dying],hp=17))
-        self.assertEqual(facts['incoming_attack_damage'],53)
-        self.assertTrue(facts['lethal_if_no_more_block'])
-        self.assertEqual(facts['special_intents'][0]['type'],'DeathBlow')
-        self.assertEqual(b.incoming_damage({'type':'Debuff','label':'','description':'这个敌人将要对你施加一个负面效果。'}),0)
-        self.assertEqual(b.combat_facts(self.combat(['防禦']))['special_intents'],[])
+        result=facts.combat_facts(self.combat(['防禦'],enemies=[dying],hp=17))
+        self.assertEqual(result['incoming_attack_damage'],53)
+        self.assertTrue(result['lethal_if_no_more_block'])
+        self.assertEqual(result['special_intents'][0]['type'],'DeathBlow')
+        self.assertEqual(facts.incoming_damage({'type':'Debuff','label':'','description':'这个敌人将要对你施加一个负面效果。'}),0)
+        self.assertEqual(facts.combat_facts(self.combat(['防禦']))['special_intents'],[])
 
     def test_energy_card_is_skipped_when_energy_already_suffices(self):
         def hand(cards, energy=3):
@@ -340,12 +345,12 @@ class Tests(unittest.TestCase):
         TURBO=('抢占先机','0','在下个回合获得[defect_energy_icon.png][defect_energy_icon.png]。')
         # The recorded turn: 3 energy covers Defend, Defend, Zap, so Supercritical's 4 energy would be wasted.
         wasteful=hand([DEF,DEF,ZAP,SUPER])
-        self.assertEqual(b.spare_energy(wasteful),0)
-        self.assertTrue(b.wastes_energy_card(wasteful,wasteful['player']['hand'][3]))
-        self.assertFalse(b.gives_energy_now({'description':TURBO[2]}))  # Next turn's energy is a different budget.
+        self.assertEqual(facts.spare_energy(wasteful),0)
+        self.assertTrue(facts.wastes_energy_card(wasteful,wasteful['player']['hand'][3]))
+        self.assertFalse(facts.gives_energy_now({'description':TURBO[2]}))  # Next turn's energy is a different budget.
         short=hand([DEF,DEF,ZAP,SUPER],energy=1)
         short['player']['hand'][1]['can_play']=False; short['player']['hand'][1]['unplayable_reason']='EnergyCostTooHigh'
-        self.assertFalse(b.wastes_energy_card(short,short['player']['hand'][3]))  # Needed to afford the rest.
+        self.assertFalse(facts.wastes_energy_card(short,short['player']['hand'][3]))  # Needed to afford the rest.
         decision={'advice':'','stop':False,'action':'play_card','parameters_json':'{"card_index":3}',
                   'next_cards':[{'hand_index':0,'target':''},{'hand_index':1,'target':''},{'hand_index':2,'target':''},{'hand_index':-1,'target':''}]}
         c=b.Controller(lambda message: None)
@@ -383,12 +388,12 @@ class Tests(unittest.TestCase):
                node(3,6,'RestSite',(3,7)), node(3,7,'Monster',(4,8)), node(4,8,'Elite',(4,9)), node(4,9,'Monster')]
         state={'state_type':'map','player':{'hp':25,'max_hp':75},'map':{'nodes':nodes,'next_options':[
             {'index':0,'col':2,'row':6,'type':'Monster'},{'index':1,'col':3,'row':6,'type':'RestSite'}]}}
-        fight,rest=b.route_facts(state)['options']
+        fight,rest=facts.route_facts(state)['options']
         self.assertEqual(fight['until_next_rest_site'],{'steps':1,'elites':[0,0],'fights':[1,1]})
         self.assertEqual(fight['max_rooms_before_first_elite'],4)
         self.assertEqual(rest['until_next_rest_site']['steps'],0)
         self.assertEqual(rest['max_rooms_before_first_elite'],2)
         self.assertEqual(rest['to_act_end_min_max']['elites'],[1,1])
-        self.assertEqual(b.route_facts(state)['hp_ratio'],0.33)
+        self.assertEqual(facts.route_facts(state)['hp_ratio'],0.33)
 
 if __name__=='__main__': unittest.main()
