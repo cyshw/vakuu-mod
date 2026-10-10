@@ -121,7 +121,9 @@ class Tests(unittest.TestCase):
         opened=set()
         self.assertEqual(b.auto_decision(state(2),opened)['action'],'claim_reward')
         self.assertEqual(b.auto_decision(state(1),opened)['action'],'claim_reward')  # First was taken.
-        self.assertIsNone(b.auto_decision(state(1),opened))  # Skipped and still listed: let the model decide.
+        self.assertEqual(b.auto_decision(state(1),opened)['action'],'proceed')  # Skipped: leave instead of reopening it.
+        mixed=state(1); mixed['rewards']['items'].append({'index':1,'type':'potion'}); mixed['player']={'potions':[{}],'max_potion_slots':1}
+        self.assertIsNone(b.auto_decision(mixed,opened))  # Something else still needs a decision.
         self.assertIsNone(b.auto_decision(state(1)))  # Advice mode never auto-opens.
 
     def test_rest_site_waits_for_proceed_then_leaves(self):

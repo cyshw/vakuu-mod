@@ -360,6 +360,10 @@ def auto_decision(state, opened=None):
             if key not in opened:
                 opened.add(key)
                 return _auto('看看命運端上了什麼。\n建議：打開卡牌獎勵。', 'claim_reward', index=cards[0]['index'])
+            # Only already-seen card rewards left means the model skipped them; asking again made it
+            # reopen and re-skip the same reward three times.
+            if len(cards) == len(rewards.get('items') or []) and rewards.get('can_proceed'):
+                return _auto('看過了，不值得帶走。\n建議：離開獎勵畫面。', 'proceed')
         if not rewards.get('items') and rewards.get('can_proceed'):
             return _auto('戰利品已盡，繼續前行。\n建議：離開獎勵畫面。', 'proceed')
     if kind == 'rest_site':
