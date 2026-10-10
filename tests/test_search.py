@@ -37,7 +37,7 @@ class SearchTests(unittest.TestCase):
             ('COMPILE_DRIVER', '造成7点伤害。 你每有一种不同的充能球，就抽一张牌。 （抽1张牌）'),
         ):
             s = state(enemies=[enemy(hp=99)])
-            s['player']['relics'] = [{'id': 'PHIAL_HOLSTER'}]
+            s['player']['relics'] = [{'id': 'PHIAL_HOLSTER'}, {'id': 'THE_COURIER'}]
             held = {'id': cid, 'index': 2, 'cost': '1', 'description': description, 'can_play': True}
             s['player']['hand'].append(held)
             with self.subTest(cid):

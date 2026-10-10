@@ -12,7 +12,8 @@ def card_roles(card):
     roles = set()
     if re.search(r'造成\d+点伤害', text): roles.add('damage')
     if re.search(r'获得\d+点格挡', text) or '冰霜充能球' in text: roles.add('block')
-    if re.search(r'抽\d+张牌', text): roles.add('draw')
+    if re.search(r'抽(?:\d+|一|两)张牌', text): roles.add('draw')
+    if '一种不同的充能球' in text and '抽' in text: roles.add('orb_draw')
     if re.search(r'获得(?:\[defect_energy_icon.png\])+', text): roles.add('energy')
     if '生成' in text and '充能球' in text: roles.add('channel')
     if re.search(r'获得\d+点?集中', text) and '在本回合' not in text: roles.add('focus')
@@ -50,12 +51,16 @@ def deck_direction(state, offered=(), archetype_hint=None):
         ('能力牌觸發', counts['power'], counts['power_payoff']),
         ('零費回收', counts['zero_cost'], counts['zero_payoff']),
     ):
-        if payoffs:
+        if payoffs or (name == '充能球／集中' and enablers >= 2):
             directions.append({'name': name, 'support_cards': enablers, 'payoff_cards': payoffs,
-                               'stage': '已有配合' if enablers >= 2 else '尚缺配合'})
+                               'stage': ('可發展，仍缺成長' if not payoffs else
+                                         '已有配合' if enablers >= 2 else '尚缺配合')})
     context = {
         'archetype_hint': archetype_hint, 'directions': directions,
         'coverage': dict(counts), 'nonstarter_attacks': nonstarter_attacks,
+        'cost_curve': dict(Counter(str(c.get('cost')) if c.get('cost') is not None else 'unknown'
+                                  for c in deck if c.get('type') in {'Attack', 'Skill', 'Power'})),
+        'upgraded_cards': sum(c.get('is_upgraded') is True for c in deck),
         'needs': needs, 'protect_starter_damage': fragile_damage,
         'relic_ids': [r.get('id') for r in player.get('relics') or []],
         'unknown_description_count': sum(not c.get('description') for c in deck),
@@ -70,6 +75,8 @@ def deck_direction(state, offered=(), archetype_hint=None):
                'copies_owned': existing[str(card.get('id', '')).split('.')[-1]], 'synergies': []}
         if ('channel' in roles and (counts['focus'] or counts['orb_payoff'])) or (roles & {'focus', 'orb_payoff'} and counts['channel']):
             fit['synergies'].append('現有充能球與集中配合')
+        if ('channel' in roles and counts['orb_draw']) or ('orb_draw' in roles and counts['channel']):
+            fit['synergies'].append('球種類與抽牌配合，需比較是否增加不同種類')
         if ('power' in roles and counts['power_payoff']) or ('power_payoff' in roles and counts['power'] >= 2):
             fit['synergies'].append('現有能力牌觸發配合')
         if ('zero_cost' in roles and counts['zero_payoff']) or ('zero_payoff' in roles and counts['zero_cost'] >= 2):

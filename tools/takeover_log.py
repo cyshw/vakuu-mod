@@ -106,7 +106,7 @@ def main():
     controller.wait_for_change = wait_for_change
 
     try:
-        controller.run(True, args.steps)
+        controller.run(True, args.steps, finish_candidate=args.stop_after_candidate)
     finally:
         controller.stop()  # The command exits here; do not leave an idle app-server behind.
         log.close()

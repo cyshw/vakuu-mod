@@ -331,12 +331,16 @@ class Controller:
         parser = models.parse_json_answer if candidate else models.parse_answer
         return parser(provider,out,answer_path)
 
-    def run(self, takeover=False, max_steps=30):
+    def run(self, takeover=False, max_steps=30, finish_candidate=False):
         opened_cards = set()
         plan = None
         try:
-            for step in range(max_steps if takeover else 1):
+            # Test runs may drain a selected bounded prefix after the step cap,
+            # but may not ask another model or start a new plan in these steps.
+            for step in range((max_steps + (3 if finish_candidate else 0)) if takeover else 1):
                 if self.stop_event.is_set(): break
+                draining = takeover and step >= max_steps
+                if draining and not (plan and plan.get('candidate_id') and plan.get('queue')): break
                 state = api.request('/api/v1/singleplayer?format=json')
                 # Settle first: a room that is still loading would skip the play-phase wait, and a fight
                 # that just began has no hand yet.
@@ -344,10 +348,13 @@ class Controller:
                 self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
-                self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
+                self.report('完成已選候選的剩餘動作。' if draining else
+                            '我有一份提案……容我看看你的牌。' if not takeover else
+                            f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
                 # A selected candidate owns its queue. Verify it before any new
                 # local optimization can replace the model's selected order.
                 decision = plan_decision(plan, state) if takeover and plan and plan.get('candidate_id') else None
+                if draining and decision is None: break
                 if takeover and plan and plan.get('candidate_id') and decision is None: plan = None
                 if takeover and decision is None: decision = auto_decision(state, opened_cards)
                 self.local_search = None

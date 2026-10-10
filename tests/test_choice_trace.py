@@ -51,3 +51,23 @@ class ChoiceTraceTests(unittest.TestCase):
         self.assertEqual(result['rejected_calls'], 1)
         self.assertEqual(result['accepted_calls'], 0)
         self.assertEqual(result['calls'][0]['posts'], [])
+
+    def test_wrong_target_failed_post_or_intervening_model_never_counts_as_complete(self):
+        offer = self.offer()
+        payload = json.loads(offer['prompt'].split('局面與候選：')[1])
+        payload['plans'][0]['sequence'] = [{'card_index': 0, 'target': 'a'}]
+        offer['prompt'] = '局面與候選：' + json.dumps(payload)
+        rows = [offer, {'kind': 'model_call', 'answer': {'choice': 'P1'}},
+                {'kind': 'model', 'decision': {'candidate_id': 'P1'}},
+                {'kind': 'state', 'state': {'player': {'hand': [{'index': 0, 'id': 'STRIKE'}]}}},
+                {'kind': 'post', 't': 1, 'body': {'action': 'play_card', 'card_index': 0, 'target': 'a'},
+                 'result': {'status': 'ok'}}]
+        self.assertTrue(self.trace(rows)['calls'][0]['completed_without_reasking'])
+        rows[-1]['body']['target'] = 'b'
+        self.assertFalse(self.trace(rows)['calls'][0]['sequence_matches'])
+        rows[-1]['body']['target'] = 'a'
+        rows[-1]['result']['status'] = 'error'
+        self.assertFalse(self.trace(rows)['calls'][0]['sequence_matches'])
+        rows[-1]['result']['status'] = 'ok'
+        rows.insert(-1, {'kind': 'model_input', 'stage': 'full_state'})
+        self.assertEqual(self.trace(rows)['calls'][0]['posts'], [])

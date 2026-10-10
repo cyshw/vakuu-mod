@@ -24,6 +24,26 @@ def sample():
 
 
 class ChoiceTests(unittest.TestCase):
+    def test_cloak_clasp_prefix_keeps_trigger_guards_and_never_ends_turn(self):
+        s = sample()
+        s['player']['relics'] = [{'id': 'CLOAK_CLASP', 'counter': None,
+                                 'description': '在你的回合结束时，每有一张手牌，就获得1点格挡'}]
+        offer = choice_offer(s)
+        self.assertEqual(offer['menu']['search_reason'], 'unmodeled_end_turn_relic')
+        self.assertTrue(any(len(p['sequence']) >= 2 for p in offer['menu']['plans']))
+        for plan in offer['menu']['plans']:
+            self.assertFalse(plan['end_turn'])
+            self.assertEqual(plan['confidence'], 'unverified')
+            self.assertNotIn('predicted_hp_loss', plan)
+            self.assertTrue(all(a['card_index'] in {0, 1} for a in plan['sequence']))
+        for variant in ('description', 'hand', 'player', 'enemy'):
+            changed = copy.deepcopy(s)
+            if variant == 'description': changed['player']['relics'][0]['description'] += '每打出一张牌失去1点生命。'
+            elif variant == 'hand': changed['player']['hand'][2]['description'] += '每打出一张牌失去1点生命。'
+            elif variant == 'player': changed['player']['status'] = [{'id': 'UNKNOWN_POWER', 'amount': 1}]
+            else: changed['battle']['enemies'][0]['status'] = [{'id': 'THORNS_POWER', 'amount': 1}]
+            with self.subTest(variant): self.assertIsNone(choice_offer(changed))
+
     def test_empty_partial_choices_are_not_advertised(self):
         menu = {'search_reason': 'unsupported_hand', 'plans': [
             {'id': 'P1', 'sequence': [], 'confidence': 'partial', 'end_turn': True},
@@ -209,6 +229,26 @@ class ChoiceTests(unittest.TestCase):
         posts = [call.args[1] for call in api.call_args_list if len(call.args) == 2]
         self.assertEqual(posts, [{'action': 'play_card', 'card_index': 0, 'target': 'a'},
                                  {'action': 'play_card', 'card_index': 0}])
+
+    def test_candidate_can_finish_at_step_cap_but_invalid_queue_never_reasks(self):
+        s = sample()
+        offer = {'menu': {'plans': [{'id': 'P1', 'sequence': [{'card_index': 0, 'target': 'a'}, {'card_index': 1}],
+                                    'confidence': 'unverified', 'end_turn': False}]}}
+        d = chosen_decision(s, offer, {'choice': 'P1', 'reject_reason': '', 'reason': ''})
+        for changed in (False, True):
+            second = copy.deepcopy(s)
+            second['player']['hand'] = second['player']['hand'][1:]
+            for i, card in enumerate(second['player']['hand']): card['index'] = i
+            second['player']['energy'] = 1 if not changed else 2
+            c = engine.Controller(lambda m: None)
+            responses = [s, s, {'status': 'ok'}, second]
+            if not changed: responses += [second, {'status': 'ok'}]
+            with self.subTest(changed=changed), patch.object(engine.api, 'request', side_effect=responses) as api, \
+                 patch.object(engine, 'search_turn', return_value={'decision': None, 'reason': 'unsupported_hand'}), \
+                 patch.object(c, 'decide_routed', return_value=d) as model, patch.object(c, 'wait_for_change'):
+                c.run(True, 1, finish_candidate=True)
+            self.assertEqual(model.call_count, 1)
+            self.assertEqual(sum(len(call.args) == 2 for call in api.call_args_list), 1 if changed else 2)
 
 
     def test_claude_gets_the_full_state_without_a_candidate_round(self):

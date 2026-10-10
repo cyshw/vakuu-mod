@@ -16,7 +16,8 @@ from vakuu_relics import tuning_fork_counter
 # These only act on pickup, room entry, or turn start (already reflected in state).
 PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',
                   'FESTIVE_POPPER', 'MERCURY_HOURGLASS', 'PAELS_FLESH', 'MEAL_TICKET',
-                  'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF', 'BLACK_STAR', 'PHIAL_HOLSTER'}
+                  'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF', 'BLACK_STAR', 'PHIAL_HOLSTER',
+                  'THE_COURIER'}
 PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER', 'FOCUS_POWER',
                  # Supported moves never draw cards; these triggers cannot fire in the search.
                  'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER', 'LIGHTNING_ROD_POWER',
@@ -124,12 +125,22 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     if state.get('state_type') not in COMBAT: return decline('not_combat')
     player, battle = state.get('player') or {}, state.get('battle') or {}
     if battle.get('turn') != 'player' or battle.get('is_play_phase') is not True: return decline('not_play_phase')
-    if any(key(r) not in PASSIVE_RELICS | {'TUNING_FORK'} for r in player.get('relics') or []): return decline('unknown_relic')
+    # Cloak Clasp affects ending the turn, not playing a basic card. Validate
+    # its exact known effect, then offer only a prefix after all trigger guards.
+    end_turn_relic = False
+    for relic in player.get('relics') or []:
+        if key(relic) in PASSIVE_RELICS | {'TUNING_FORK'}: continue
+        if (key(relic) == 'CLOAK_CLASP' and
+                re.sub(r'\s+', '', str(relic.get('description') or '')) ==
+                '在你的回合结束时，每有一张手牌，就获得1点格挡' and relic.get('counter') is None):
+            end_turn_relic = True
+        else: return decline('unknown_relic')
     try: fork_counter = tuning_fork_counter(player.get('relics') or [])
     except ValueError: return decline('unknown_relic')
     unknown = {key(s) for s in player.get('status') or []} - PLAYER_STATUS
     if unknown - KILL_SAFE_STATUS: return decline('unknown_player_status')
     kill_only = bool(unknown)  # Statuses ignored below can only add damage, so only a found kill counts.
+    if end_turn_relic and kill_only: return decline('unknown_player_status')
     enemies = [e for e in battle.get('enemies') or [] if (e.get('hp') or 0) > 0]
     if not enemies: return decline('no_enemies')
     if any(key(s) not in ENEMY_STATUS for e in enemies for s in e.get('status') or []):
@@ -181,11 +192,12 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     orbs = tuple((key(o), o.get('passive_val'), o.get('evoke_val')) for o in player.get('orbs') or [])
     if any(o[0] not in {'LIGHTNING_ORB', 'FROST_ORB'} or type(o[1]) is not int or type(o[2]) is not int for o in orbs):
         return decline('unknown_orb')
-    if len(enemies) > 1 and (any(o[0] == 'LIGHTNING_ORB' for o in orbs) or any(m.channel for m in moves)):
-        return decline('random_orb_targets')
     slots = player.get('orb_slots', 0)
     if type(slots) is not int or slots < len(orbs): return decline('unknown_orb_slots')
     if any(m.channel or m.evokes for m in moves) and slots <= 0: return decline('no_orb_slots')
+    if end_turn_relic: return decline('unmodeled_end_turn_relic')
+    if len(enemies) > 1 and (any(o[0] == 'LIGHTNING_ORB' for o in orbs) or any(m.channel for m in moves)):
+        return decline('random_orb_targets')
     # API enumeration order is not a documented UI order. With identical orbs it
     # cannot affect the result; mixed queues must wait for an explicit API index.
     if any(m.channel or m.evokes for m in moves) and len(set(orbs)) > 1:

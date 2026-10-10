@@ -12,7 +12,8 @@ simulated 只計支援範圍內的當回合效果，partial 有未計效果，un
 有足夠資訊但方案不合適回 reject、reject_reason=no_suitable_plan。拒絕後會提供完整手牌。
 選用時 reject_reason 留空；reason 用繁體中文簡述理由（60字內）。不需要重寫出牌順序。
 考慮血量與敵人意圖；不要為普通戰鬥的小傷浪費藥水，菁英與頭目則可早用藥水。
-end_turn=false 只有起手，抽牌後會重新決策。判斷起手是否合理，不要求證明全手牌最優。
+end_turn=false 只有起手，抽牌後會重新決策。一般未打出的手牌回合結束會棄掉，保留／虛無等依描述處理。
+判斷起手是否合理，不要求證明全手牌最優。
 不要只因隱藏手牌可能更好而拒絕。若缺少資訊會影響候選的合法性、存活或關鍵機制，
 或所有候選都明顯不合理，才拒絕；需要保留能量比較未知牌的效果時也可拒絕。'''
 
@@ -21,7 +22,7 @@ def choice_offer(state, search_result=None):
     if state.get('state_type') not in COMBAT: return None
     menu = turn_candidates(state, search_result)
     if not menu: return None
-    if menu['search_reason'] == 'mixed_orb_order':
+    if menu['search_reason'] in {'mixed_orb_order', 'unmodeled_end_turn_relic'}:
         # The API does not establish mixed orb order. Keep only the prefix of
         # known damage/block cards before any orb or unsupported effect.
         hand = {c.get('index'): c for c in (state.get('player') or {}).get('hand') or []}
@@ -59,14 +60,15 @@ def choice_offer(state, search_result=None):
             plans.append({'id': f'P{len(plans) + 1}', 'style': plan['style'], 'sequence': prefix,
                           'cards': [hand[a['card_index']].get('name') or hand[a['card_index']].get('id') for a in prefix],
                           'confidence': 'unverified', 'end_turn': False, 'requires_replan': True,
-                          'unmodeled_effects': ['只含不生成或激發充能球的起手；未評估混合充能球順序及後續回合。']})
+                          'unmodeled_effects': ['只含普通傷害／格擋起手；未評估充能球順序、回合結束遺物與後續回合。']})
         if not plans: return None
         menu = {**menu, 'plans': plans}
     # Missing/unknown rules need the full state. Random lightning targets are a
     # known uncertainty exposed by the orb/enemy payload; offer unverified
     # prefixes without inventing a damage forecast or auto-ending the turn.
     if menu['search_reason'] not in {'supported_turn', 'unsupported_hand', 'no_supported_moves',
-                                     'needs_potion_evaluation', 'random_orb_targets', 'mixed_orb_order'}:
+                                     'needs_potion_evaluation', 'random_orb_targets', 'mixed_orb_order',
+                                     'unmodeled_end_turn_relic'}:
         return None
     # Only advertise choices the translator can execute. Partial empty plans
     # cannot authorize ending a turn while unsupported cards remain.
