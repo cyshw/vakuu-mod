@@ -211,6 +211,7 @@ def transitional(state):
     screen = state.get(kind) or {}
     if kind == 'unknown': return True  # Between rooms while the next one loads.
     if kind == 'map': return not screen.get('next_options')  # Still walking to the chosen node.
+    if kind == 'event': return not screen.get('options') and not screen.get('in_dialogue')  # Options not shown yet.
     if kind in ('rest_site', 'rewards'):
         return not screen.get('options' if kind == 'rest_site' else 'items') and not screen.get('can_proceed')
     if kind == 'treasure':  # "Opening chest..." / "Treasure room loading..." carry no relic list yet,

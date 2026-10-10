@@ -242,6 +242,8 @@ class Tests(unittest.TestCase):
         self.assertTrue(b.transitional(moved))
         self.assertTrue(b.transitional({'state_type':'map','map':{'next_options':[]}}))
         self.assertFalse(b.transitional({'state_type':'map','map':{'next_options':[{'index':0}]}}))
+        self.assertTrue(b.transitional({'state_type':'event','event':{'options':[],'in_dialogue':False}}))
+        self.assertFalse(b.transitional({'state_type':'event','event':{'options':[],'in_dialogue':True}}))
 
     def test_plan_uses_game_names_and_piles_do_not_abort(self):
         hand=self.combat(['引雷针','防禦'])
