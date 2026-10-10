@@ -487,7 +487,10 @@ class Tests(unittest.TestCase):
         self.assertEqual(routes['safest']['option_index'],1)
         rest={'state_type':'rest_site','player':{'hp':20,'max_hp':75},'rest_site':{'options':[{'index':0},{'index':1}]}}
         route={'path':[(0,5),(0,6)],'types':{(0,5):'Elite',(0,6):'Boss'}}
-        self.assertEqual(facts.rest_facts(rest,route),{'hp_ratio':0.27,'rest_heals':22,'hp_after_rest':42,'planned_next_rooms':['Elite','Boss']})
+        result=facts.rest_facts(rest,route)
+        self.assertEqual({k:result[k] for k in ('hp_ratio','rest_heals','hp_after_rest','planned_next_rooms')},
+                         {'hp_ratio':0.27,'rest_heals':22,'hp_after_rest':42,'planned_next_rooms':['Elite','Boss']})
+        self.assertTrue(result['rest_recommended'])  # Upgrading leaves an elite to face at 20 HP: projected below 30%.
         self.assertTrue(router.hard_screen(rest))
         reward=lambda top: {'state_type':'card_reward'}
         with patch.object(plans,'advise',return_value={'status':'ok','ranked_cards':[{'index':0,'name':'A','score':55},{'index':1,'name':'B','score':30}]}):

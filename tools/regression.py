@@ -35,13 +35,50 @@ def add(args):
     log, _, _ = args.case.partition('#')
     case = next((c for c in replay_eval.build_cases([replay_eval.LOGS / f'{log}.jsonl']) if c['id'] == args.case), None)
     if case is None: sys.exit(f'找不到 {args.case}（用 replay_eval 的案例編號，例如 run27-full#30）')
+    route = played_route(replay_eval.LOGS / f'{log}.jsonl', case) if case['type'] == 'rest_site' else None
     SUITE.mkdir(parents=True, exist_ok=True)
     target = SUITE / (args.case.replace('#', '_') + '.json')
     target.write_text(json.dumps({'id': case['id'], 'type': case['type'], 'note': args.note,
                                   'expect': dict(parse_expect(e) for e in args.expect),
-                                  'original': case['original'], 'state': case['state']},
+                                  'original': case['original'], 'state': case['state'],
+                                  **({'route': route} if route else {})},
                                  ensure_ascii=False, indent=1), encoding='utf-8')
     print('saved', target, replay_eval.score(case, case['original']))
+
+
+def played_route(path, case):
+    """The route plan takeover held at this rest site, rebuilt from the last map decision before it.
+
+    The rest site screen shows no map; rows are recovered from floors (row = floor - offset, with the
+    offset read off the map screen where the route was drawn).
+    """
+    from vakuu_plans import start_route
+    drawn = None
+    last = None
+    for line in open(path, encoding='utf-8'):
+        record = json.loads(line)
+        if record['kind'] == 'state': last = record['state']
+        elif record['kind'] == 'model' and last and last.get('state_type') == 'map' and record['decision'].get('next_nodes'):
+            drawn = (last, record['decision'])
+        if record['kind'] == 'model' and last is not None and replay_eval.fingerprint(last) == replay_eval.fingerprint(case['state']):
+            break
+    if not drawn: return None
+    world, decision = drawn
+    route = start_route(world, decision)
+    options = (world.get('map') or {}).get('next_options') or []
+    if not route or not options: return None
+    offset = (world['run']['floor'] + 1) - options[0]['row']
+    row = case['state']['run']['floor'] - offset
+    return {'act': route['act'], 'hp_ratio': route['hp_ratio'], 'max_hp': route['max_hp'],
+            'path': [list(n) for n in route['path'] if n[1] > row],
+            'types': [[n[0], n[1], t] for n, t in route['types'].items()]}
+
+
+def as_route(saved):
+    """Back from JSON: node tuples and the (col, row) -> type map start_route builds."""
+    if not saved: return None
+    return {**saved, 'path': [tuple(n) for n in saved['path']], 'expected_hp': {},
+            'types': {(c, r): t for c, r, t in saved['types']}}
 
 
 def load():
@@ -63,7 +100,7 @@ def run(args):
 
     def ask(job):
         case, _ = job
-        try: return case, replay_eval.decide(args.config, case['state']), None
+        try: return case, replay_eval.decide(args.config, case['state'], as_route(case.get('route'))), None
         except Exception as exc: return case, None, str(exc)
 
     passed = {}

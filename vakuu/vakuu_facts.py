@@ -47,6 +47,10 @@ def combat_facts(state):
         # >= 0: current energy already pays for every other card in hand, so energy cards would be wasted.
         'spare_energy_without_energy_cards': spare_energy(state),
         'timed_effects': timed_effects(player),
+        # Sonnet kept a 0-cost "gain 10 block" card "for next turn" in two fights; it was discarded.
+        'unplayed_cards_are_discarded_at_end_of_turn': True,
+        **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
+                                                                if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),
         'note': '敵人傷害已含意圖顯示的修正，卡牌描述的數字已含力量、敏捷、虛弱等狀態；block_needed 與 hp_after 已扣掉 end_of_turn_orbs 的冰霜格擋，未計遺物的回合結束效果。',
     }
@@ -331,14 +335,32 @@ def route_facts(state):
 
 REST_HEAL = 0.3  # Resting heals 30% of max HP.
 
+REST_FLOOR = 0.3  # Rest when upgrading would leave less than this share of max HP before the next rest site.
+
 def rest_facts(state, route):
-    """Numbers for rest-or-upgrade: guides default to upgrading and rest below ~40% HP before danger."""
+    """Numbers for rest-or-upgrade, with the HP projected to the next rest site if this one upgrades.
+
+    Two overnight runs upgraded at 52% HP in act 1 ("still above 40%"), lost 28 HP in the next fight
+    and died a room later; the projection shows when the stretch ahead cannot be survived on average.
+    """
     player = state.get('player') or {}
     hp, max_hp = player.get('hp') or 0, player.get('max_hp') or 1
     heal = min(int(max_hp * REST_HEAL), max_hp - hp)
-    upcoming = [route['types'].get(node) for node in route['path'][:4]] if route and route.get('types') else None
-    return {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal,
-            'planned_next_rooms': upcoming}
+    facts = {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal}
+    if not route or not route.get('types'): return {**facts, 'planned_next_rooms': None}
+    rooms = []
+    for node in route.get('path') or []:
+        kind = route['types'].get(node)
+        if kind in ('RestSite', 'Boss'): break
+        rooms.append({'type': kind, 'row': node[1]})
+    damage = route_damage(state)
+    lowest = lambda start: min(project_route(rooms, start, max_hp, damage)['hp_by_room'] or [start])
+    if_upgrade, if_rest = lowest(hp), lowest(hp + heal)
+    return {**facts, 'planned_next_rooms': [route['types'].get(node) for node in (route.get('path') or [])[:4]],
+            'rooms_before_next_rest_site': [r['type'] for r in rooms],
+            'lowest_hp_before_next_rest_if_upgrade': round(if_upgrade),
+            'lowest_hp_before_next_rest_if_rest': round(if_rest),
+            'rest_recommended': if_upgrade < REST_FLOOR * max_hp}
 
 def route_ahead(route):
     """The planned rooms after this one, and how far the next rest site, shop and elite are.
@@ -376,6 +398,7 @@ STARTERS = ('STRIKE', 'DEFEND')
 # Block cards besides Defend a deck should have by each act; run 28 reached the act 2 boss with 3 of 27
 # cards and died to a 57-damage turn with no block in hand.
 BLOCK_TARGET = {1: 2, 2: 4, 3: 5}
+MIN_OTHER_ATTACKS = 3  # Damage cards besides Strikes a deck needs before a Strike is worth removing.
 
 def deck_profile(deck, act=None):
     """What the deck has and lacks, so card choices consider needs and not only general card ratings.
@@ -386,6 +409,11 @@ def deck_profile(deck, act=None):
     count = lambda pred: sum(1 for card in deck if pred(card))
     text = lambda card: str(card.get('description') or '')
     block = count(lambda c: (BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)) and not str(c.get('id', '')).startswith('DEFEND'))
+    # Removing Strikes thins a deck only when other attacks carry the damage: an overnight run cut two
+    # Strikes from a 13-card deck with 2 other attacks and took 14 turns over its first elite.
+    # Defect deals much of its damage through Lightning and Dark orbs, so cards channelling them count.
+    other_attacks = count(lambda c: not str(c.get('id', '')).startswith('STRIKE')
+                          and ('造成' in text(c) or re.search(r'生成\d*个?(闪电|黑暗)', text(c))))
     target = BLOCK_TARGET.get(act)
     return {
         'size': len(deck),
@@ -396,6 +424,8 @@ def deck_profile(deck, act=None):
         'block_sources': count(lambda c: BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)),
         'block_sources_besides_defend': block,
         'starter_strikes': count(lambda c: str(c.get('id', '')).startswith('STRIKE')),
+        'damage_cards_besides_strikes': other_attacks,
+        'removing_a_strike_ok': other_attacks >= MIN_OTHER_ATTACKS,
         'starter_defends': count(lambda c: str(c.get('id', '')).startswith('DEFEND')),
         'unplayable': count(lambda c: '不能被打出' in text(c)),
     }

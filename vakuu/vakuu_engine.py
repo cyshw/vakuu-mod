@@ -34,12 +34,14 @@ POLL_INTERVAL = 0.25
 CARD_POLL_INTERVAL = 0.1
 CARD_SETTLE_WINDOW = 0.2
 
-def prune_runs(keep=40, exclude=()):
-    # Each call leaves a schema/log folder; keep only recent ones for debugging.
+def prune_runs(keep=40, exclude=(), min_age=600):
+    # Each call leaves a schema/log folder; keep only recent ones for debugging. Folders younger than
+    # min_age may belong to a call still running (replays ask several at once) and are never removed.
     runs = sorted((p for p in (ROOT / 'button-runtime').glob('*-*-*-*-*') if p.is_dir()),
                   key=lambda p: p.stat().st_mtime)
+    cutoff = time.time() - min_age
     for old in runs[:-keep]:
-        if old not in exclude: shutil.rmtree(old, ignore_errors=True)
+        if old not in exclude and old.stat().st_mtime < cutoff: shutil.rmtree(old, ignore_errors=True)
 
 PROMPT = ROOT / 'vakuu_prompt.md'
 SESSION_MAX_TURNS = 8  # Model calls one combat conversation answers before a fresh one starts.

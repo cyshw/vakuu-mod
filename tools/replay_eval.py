@@ -68,8 +68,9 @@ def pick(cases, per_type, seed):
     return chosen
 
 
-def decide(config, state):
+def decide(config, state, route=None):
     controller = engine.Controller(lambda message: None)
+    controller.route = route  # Rest sites read the planned route; exam cases store the one played.
     model, effort = (config.split('@') + ['low'])[:2]
     selection = {'model_key': model, 'effort': effort}
     if model.startswith('auto:'):
@@ -193,6 +194,16 @@ def score(case, decision):
             index = json.loads(decision['parameters_json']).get('card_index')
             picked = next((r['score'] for r in rows if r['index'] == index), None)
         result.update(skipped=decision['action'] == 'skip_card_reward', picked_score=picked, best_score=best)
+    if kind == 'card_select' and decision['action'] == 'select_card':
+        index = json.loads(decision['parameters_json']).get('index')
+        card = next((c for c in (state.get('card_select') or {}).get('cards') or [] if c.get('index') == index), None)
+        result['selected_name'] = (card or {}).get('name')
+        result['selected_strike'] = str((card or {}).get('id') or '').startswith('STRIKE') or (card or {}).get('name') in ('打击', '打擊')
+    if kind == 'shop':
+        items = {i.get('index'): i for i in (state.get('shop') or {}).get('items') or []}
+        bought = [json.loads(decision['parameters_json']).get('index')] if decision['action'] == 'shop_purchase' else []
+        bought += [i for i in decision.get('next_purchases') or [] if isinstance(i, int) and i >= 0]
+        result['bought_removal'] = any((items.get(i) or {}).get('category') == 'card_removal' for i in bought)
     if kind == 'event' and decision['action'] == 'choose_event_option':
         index = json.loads(decision['parameters_json']).get('index')
         option = next((o for o in (state.get('event') or {}).get('options') or [] if o.get('index') == index), None)
