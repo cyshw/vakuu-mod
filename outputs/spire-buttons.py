@@ -4,12 +4,14 @@ import hashlib
 import json
 import os
 import queue
+import re
 import shutil
 import subprocess
 import sys
 import threading
 import time
 import uuid
+from collections import Counter
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 import tkinter as tk
@@ -63,8 +65,78 @@ SCHEMA = {
         'advice': {'type': 'string'}, 'stop': {'type': 'boolean'},
         'action': {'type': 'string', 'enum': ['none'] + list(FIELDS)},
         'parameters_json': {'type': 'string'},
-    }, 'required': ['advice', 'stop', 'action', 'parameters_json']
+        # Rest of this turn after `action`, so the turn is played as one coherent plan.
+        'next_cards': {'type': 'array', 'items': {
+            'type': 'object', 'additionalProperties': False,
+            'properties': {'name': {'type': 'string'}, 'target': {'type': 'string'}},
+            'required': ['name', 'target']}},
+    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards']
 }
+COMBAT = {'monster', 'elite', 'boss'}
+END_TURN = 'END_TURN'
+
+def incoming_damage(intent):
+    if 'Attack' not in str(intent.get('type')): return 0
+    numbers = [int(n) for n in re.findall(r'\d+', str(intent.get('label') or ''))]
+    if not numbers: return 0
+    return numbers[0] * (numbers[1] if len(numbers) > 1 else 1)  # "12×2" means two hits of 12.
+
+def combat_facts(state):
+    """Arithmetic the model kept getting wrong, computed once from the live state."""
+    player = state.get('player') or {}
+    enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
+    incoming = sum(incoming_damage(i) for e in enemies for i in e.get('intents') or [])
+    block = player.get('block') or 0
+    hp = player.get('hp') or 0
+    loss = max(0, incoming - block)
+    return {
+        'incoming_attack_damage': incoming,
+        'current_block': block,
+        'block_needed_for_no_damage': loss,
+        'hp_after_enemy_attacks_if_no_more_block': hp - loss,
+        'lethal_if_no_more_block': loss >= hp > 0,
+        'energy': player.get('energy'),
+        'playable_cards': [{'index': c.get('index'), 'name': c.get('name'), 'cost': c.get('cost')}
+                           for c in player.get('hand') or [] if c.get('can_play')],
+        'enemies': [{'entity_id': e.get('entity_id'), 'name': e.get('name'), 'hp': e.get('hp'), 'block': e.get('block')}
+                    for e in enemies],
+        'note': '傷害已含意圖顯示的修正；未計回合結束時的被動格擋或傷害（如冰霜、閃電充能球）。',
+    }
+
+def hand_names(state):
+    return Counter(c.get('name') for c in (state.get('player') or {}).get('hand') or [])
+
+def start_plan(state, decision):
+    """Remember the model's remaining moves for this turn, with the hand we expect afterwards."""
+    queue = [dict(entry) for entry in decision.get('next_cards') or [] if entry.get('name')]
+    if state.get('state_type') not in COMBAT or not queue or decision['action'] not in ('play_card', 'end_turn'):
+        return None
+    expected = hand_names(state)
+    if decision['action'] == 'play_card':
+        index = json.loads(decision['parameters_json']).get('card_index')
+        hand = state['player'].get('hand') or []
+        if not isinstance(index, int) or not 0 <= index < len(hand): return None
+        expected[hand[index].get('name')] -= 1
+    return {'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
+
+def plan_decision(plan, state):
+    """Next planned move if the turn went as the model expected; None means ask the model again."""
+    if not plan or state.get('state_type') not in COMBAT or (state.get('battle') or {}).get('round') != plan['round']:
+        return None
+    hand = (state.get('player') or {}).get('hand') or []
+    if hand_names(state) - plan['expected']: return None  # Drew or created cards the plan did not know about.
+    entry = plan['queue'].pop(0)
+    if entry['name'] == END_TURN:
+        return _auto('照方才的盤算，收手。\n建議：結束回合。', 'end_turn')
+    card = next((c for c in hand if c.get('name') == entry['name'] and c.get('can_play')), None)
+    if card is None: return None
+    alive = {e.get('entity_id') for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0}
+    params = {'card_index': card['index']}
+    if card.get('target_type') == 'AnyEnemy':
+        if entry.get('target') not in alive: return None
+        params['target'] = entry['target']
+    plan['expected'][card.get('name')] -= 1
+    return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
 def fingerprint(state):
     return hashlib.sha256(json.dumps(state, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
@@ -81,8 +153,8 @@ def validate(state, action, params):
         raise ValueError('不允許在目前畫面執行這個操作：' + action)
     if not isinstance(params, dict) or set(params) - FIELDS[action]:
         raise ValueError('操作參數不符合遊戲 API')
-    # An optional null target means no target (e.g. Block cards), not an entity ID.
-    params = {key:value for key,value in params.items() if not (key == 'target' and value is None)}
+    # An optional null or empty target means no target (e.g. Block cards), not an entity ID.
+    params = {key:value for key,value in params.items() if not (key == 'target' and value in (None, ''))}
     required = FIELDS[action] - {'target'}
     if not required.issubset(params):
         raise ValueError('操作缺少必要參數')
@@ -225,6 +297,7 @@ class Controller:
         if 'player' in state and 'deck' in state['player']:
             compact['player']['deck'] = [{k:c.get(k) for k in ('id','name','is_upgraded','cost')} for c in state['player']['deck']]
         if state.get('state_type') == 'card_reward': compact['card_advice'] = advise(state)
+        if state.get('state_type') in COMBAT: compact['combat_facts'] = combat_facts(state)
         prompt = (
             '你扮演殺戮尖塔2的瓦庫 Vakuu「第一個惡魔」，同時是遊戲顧問。'
             '瓦庫以力量、交易和契約誘惑對方，帶著優越感與冷淡的戲謔；不是熱心旅伴，也不是網路嘴砲。'
@@ -235,7 +308,13 @@ class Controller:
             '總共最多3句，戰術理由必須清楚；危急時先給關鍵操作。'
             '只根據下列 JSON 決策，不呼叫工具，不讀寫檔案，不操作電腦。'
             '輸出一個遊戲 API 動作。parameters_json 是參數物件的 JSON 字串。'
-            '卡牌 index 會隨出牌改變，只決定當前的一個動作。target 使用敵人 entity_id 字串。'
+            '卡牌 index 會隨出牌改變。target 使用敵人 entity_id 字串。'
+            '戰鬥中一次規劃整個回合：action 是第一個動作，next_cards 依序列出 action 之後還要打的牌，'
+            '不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）'
+            '（name 必須與手牌名稱完全一致，含「+」；需要單一目標時填 target 的 entity_id，否則填空字串），'
+            '打完要結束回合就在最後加上 name="' + END_TURN + '"。能量必須夠付整串牌的費用。'
+            '會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。'
+            '戰鬥數字以 combat_facts 為準，不要自行重算傷害與格擋；lethal_if_no_more_block 為 true 時優先保命。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
             '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
             '商店沒有想買或買不起的商品時用 proceed 離開；proceed 會自動先關閉商品欄。'
@@ -270,6 +349,7 @@ class Controller:
 
     def run(self, takeover=False, max_steps=30):
         opened_cards = set()
+        plan = None
         try:
             for step in range(max_steps if takeover else 1):
                 if self.stop_event.is_set(): break
@@ -278,7 +358,11 @@ class Controller:
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
-                decision = (auto_decision(state, opened_cards) if takeover else None) or self.decide(state)
+                decision = (auto_decision(state, opened_cards) or plan_decision(plan, state)) if takeover else None
+                if decision is None:
+                    decision = self.decide(state)
+                    plan = start_plan(state, decision)
+                elif plan and not plan['queue']: plan = None
                 self.report(decision['advice'])
                 if not takeover or decision['stop'] or decision['action'] == 'none': break
                 body = validate(state, decision['action'], json.loads(decision['parameters_json']))

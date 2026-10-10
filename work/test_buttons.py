@@ -12,6 +12,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(b.validate({'state_type':'monster'},'play_card',params),
                          {'action':'play_card','card_index':1})
         self.assertIn('target',params)  # Validation does not mutate model output.
+        self.assertEqual(b.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':''}),
+                         {'action':'play_card','card_index':1})
         with self.assertRaises(ValueError):
             b.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':0})
 
@@ -151,5 +153,50 @@ class Tests(unittest.TestCase):
         self.assertIsNone(b.auto_decision({'state_type':'treasure','treasure':{'relics':[{'index':0},{'index':1}],'can_proceed':True}}))
         self.assertEqual(b.auto_decision({'state_type':'treasure','treasure':{'can_proceed':True}})['action'],'proceed')
         self.assertIsNone(b.auto_decision({'state_type':'treasure','treasure':{'message':'Opening chest...','can_proceed':True}}))
+
+    @staticmethod
+    def combat(hand, energy=3, round_=1, enemies=None, block=0, hp=40):
+        return {'state_type':'boss','battle':{'round':round_,'turn':'player','is_play_phase':True,
+                'enemies':enemies if enemies is not None else [{'entity_id':'BOSS_0','name':'頭目','hp':50,'block':0,
+                          'intents':[{'type':'Attack','label':'12×2'},{'type':'Defend','label':''}]}]},
+                'player':{'hp':hp,'block':block,'energy':energy,
+                          'hand':[{'index':i,'name':n,'cost':'1','can_play':True,'target_type':'AnyEnemy' if '打' in n else 'Self'}
+                                  for i,n in enumerate(hand)]}}
+
+    def test_combat_facts_do_the_arithmetic(self):
+        facts=b.combat_facts(self.combat(['打擊','防禦'],block=5,hp=19))
+        self.assertEqual(facts['incoming_attack_damage'],24)
+        self.assertEqual(facts['block_needed_for_no_damage'],19)
+        self.assertTrue(facts['lethal_if_no_more_block'])
+        self.assertEqual([c['name'] for c in facts['playable_cards']],['打擊','防禦'])
+        self.assertEqual(b.incoming_damage({'type':'Buff','label':''}),0)
+        self.assertEqual(b.incoming_damage({'type':'Attack','label':'21'}),21)
+
+    def test_turn_plan_plays_without_asking_again(self):
+        first=self.combat(['防禦','打擊','打擊+'])
+        decision={'advice':'先防後攻','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',
+                  'next_cards':[{'name':'打擊+','target':'BOSS_0'},{'name':'打擊','target':'BOSS_0'},{'name':b.END_TURN,'target':''}]}
+        second=self.combat(['打擊','打擊+'],energy=2)
+        third=self.combat(['打擊'],energy=1)
+        fourth=self.combat([],energy=0)
+        c=b.Controller(lambda message: None)
+        responses=[first,first,{'status':'ok'},second,second,{'status':'ok'},third,third,{'status':'ok'},fourth,fourth,{'status':'ok'}]
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False):
+            c.run(True,4)
+        self.assertEqual(decide.call_count,1)
+        posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
+        self.assertEqual(posts,[{'action':'play_card','card_index':0},{'action':'play_card','card_index':1,'target':'BOSS_0'},
+                                {'action':'play_card','card_index':0,'target':'BOSS_0'},{'action':'end_turn'}])
+
+    def test_plan_is_dropped_when_the_turn_surprises_it(self):
+        first=self.combat(['快速檢索','打擊'])
+        decision={'advice':'抽牌','stop':False,'action':'play_card','parameters_json':'{"card_index":0}',
+                  'next_cards':[{'name':'打擊','target':'BOSS_0'}]}
+        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊','防禦'])))  # Drew a card.
+        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'],round_=2)))  # New turn.
+        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'],enemies=[])))  # Target died.
+        self.assertIsNone(b.plan_decision(b.start_plan(first,decision),self.combat([])))  # Card is gone.
+        self.assertIsNotNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'])))
+        self.assertIsNone(b.start_plan({'state_type':'map'},decision))
 
 if __name__=='__main__': unittest.main()

@@ -83,6 +83,8 @@ def parse_answer(provider,output,answer_path):
     if envelope.get('is_error'): raise RuntimeError(str(envelope.get('result',envelope.get('errors'))))
     value=envelope.get('structured_output')
     if value is None: value=json.loads(envelope.get('result','{}'))
-    if not isinstance(value,dict) or set(value)!={'advice','stop','action','parameters_json'}:
+    if not isinstance(value,dict) or not set(value)<={'advice','stop','action','parameters_json','next_cards'} \
+            or not {'advice','stop','action','parameters_json'}<=set(value):
         raise ValueError('Claude 沒有傳回有效的遊戲決策')
+    if not isinstance(value.get('next_cards',[]),list): raise ValueError('Claude 沒有傳回有效的出牌計畫')
     return value
