@@ -13,6 +13,10 @@ def hard_screen(state):
     # the stronger model; single-path maps never reach the model.
     if kind == 'map': return len((state.get('map') or {}).get('next_options') or []) > 1
     # Rest or upgrade is one of the run's biggest choices; Haiku nearly always rested.
+    # Shops (remove a Strike or buy?), event choices and deck-changing picks shape the whole run;
+    # Haiku bought a card over the first card removal and took a slow card from the opening event.
+    if kind in ('shop', 'card_select'): return True
+    if kind == 'event': return sum(1 for o in (state.get('event') or {}).get('options') or [] if not o.get('is_locked')) > 1
     if kind == 'rest_site': return sum(1 for o in (state.get('rest_site') or {}).get('options') or [] if o.get('is_enabled', True)) > 1
     if kind in COMBAT:
         player = state.get('player') or {}

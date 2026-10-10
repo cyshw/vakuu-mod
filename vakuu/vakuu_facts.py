@@ -213,3 +213,27 @@ def enemy_ids(state):
     """Distinct monster ids in the fight (entity ids without the _0, _1 suffix)."""
     return sorted({re.sub(r'_\d+$', '', str(e.get('entity_id') or '')) for e in (state.get('battle') or {}).get('enemies') or []} - {''})
 
+BLOCK_TEXT = re.compile(r'[获獲]得\s*(\d+)\s*点?[格]挡')
+STARTERS = ('STRIKE', 'DEFEND')
+
+def deck_profile(deck):
+    """What the deck has and lacks, so card choices consider needs and not only general card ratings.
+
+    A run died with 4 Strikes and 4 Defends after skipping block cards rated "F": ratings say how strong
+    a card is in general, not whether this deck is short of block.
+    """
+    count = lambda pred: sum(1 for card in deck if pred(card))
+    text = lambda card: str(card.get('description') or '')
+    return {
+        'size': len(deck),
+        'attacks': count(lambda c: c.get('type') == 'Attack'),
+        'skills': count(lambda c: c.get('type') == 'Skill'),
+        'powers': count(lambda c: c.get('type') == 'Power'),
+        'block_sources': count(lambda c: BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)),
+        'block_sources_besides_defend': count(lambda c: (BLOCK_TEXT.search(text(c)) or '冰霜' in text(c))
+                                               and not str(c.get('id', '')).startswith('DEFEND')),
+        'starter_strikes': count(lambda c: str(c.get('id', '')).startswith('STRIKE')),
+        'starter_defends': count(lambda c: str(c.get('id', '')).startswith('DEFEND')),
+        'unplayable': count(lambda c: '不能被打出' in text(c)),
+    }
+

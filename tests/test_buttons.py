@@ -380,7 +380,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(c.strategy,{'fight':(1,5),'text':'先殺左邊'})
         prompts.clear()
         with patch.object(b.models,'settings',return_value={'model_key':'auto:combat','effort':'low'}), patch.object(c,'decide',side_effect=fake):
-            c.decide_routed(fight); c.decide_routed({'state_type':'event','event':{'options':[{'index':0},{'index':1}]}})
+            c.decide_routed(fight); c.decide_routed({'state_type':'event','event':{'options':[{'index':0},{'index':1,'is_locked':True}]}})
         self.assertEqual([m for m,_ in prompts],['claude:sonnet','claude:haiku'])
 
     def test_route_facts_expose_forced_elites(self):
@@ -463,5 +463,17 @@ class Tests(unittest.TestCase):
         self.assertIsNone(plans.auto_decision(pick(1,'选择任意张牌。')))  # No count: the model decides.
         self.assertEqual(rules.validate(pick(0),'play_card',{'card_index':0,'target':'SEWER_CLAM_0'}),
                          {'action':'combat_select_card','card_index':0})
+
+    def test_deck_profile_and_hard_shop_event_screens(self):
+        deck=[{'id':'STRIKE_DEFECT','type':'Attack','description':'造成6点伤害。'}]*4+[
+              {'id':'DEFEND_DEFECT','type':'Skill','description':'获得5点格挡。'}]*4+[
+              {'id':'GLACIER','type':'Skill','description':'获得6点格挡。 生成2个冰霜充能球。'},
+              {'id':'ASCENDERS_BANE','type':'Curse','description':'不能被打出。'}]
+        profile=facts.deck_profile(deck)
+        self.assertEqual((profile['attacks'],profile['block_sources'],profile['block_sources_besides_defend'],
+                          profile['starter_strikes'],profile['unplayable']),(4,5,1,4,1))
+        self.assertTrue(router.hard_screen({'state_type':'shop','shop':{'items':[]}}))
+        self.assertTrue(router.hard_screen({'state_type':'event','event':{'options':[{'index':0},{'index':1}]}}))
+        self.assertFalse(router.hard_screen({'state_type':'event','event':{'options':[{'index':0}]}}))
 
 if __name__=='__main__': unittest.main()
