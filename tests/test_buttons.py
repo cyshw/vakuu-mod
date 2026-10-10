@@ -9,6 +9,8 @@ import vakuu_facts as facts
 import vakuu_plans as plans
 import vakuu_router as router
 import vakuu_rules as rules
+# Route projections use built-in damage defaults here, never live Spire Codex data.
+facts.spire_codex.room_damage = lambda *args, **kwargs: None
 
 class Tests(unittest.TestCase):
     def test_optional_null_target_is_omitted(self):
@@ -485,5 +487,25 @@ class Tests(unittest.TestCase):
         data={'hand':[{'name':'A','keywords':[{'name':'消耗','description':'移除'}]},{'name':'B','keywords':[{'name':'消耗','description':'移除'}]}]}
         self.assertEqual(facts.pull_keywords(data),{'消耗':'移除'})
         self.assertEqual(data['hand'][1]['keywords'],['消耗'])
+
+    def test_route_projection_and_replan_when_behind(self):
+        rooms=[{'type':'Monster','row':r} for r in (4,5,6,7,8)]+[{'type':'RestSite','row':9},{'type':'Boss','row':10}]
+        projected=facts.project_route(rooms,60,75,facts.DEFAULT_DAMAGE)
+        self.assertEqual(projected['hp_by_room'][:5],[46,32,18,4,-10])  # Five normal fights of 14 with no rest.
+        self.assertEqual(projected['below_25pct_at_room'],3)
+        rested=facts.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5}],25,75,facts.DEFAULT_DAMAGE)
+        self.assertEqual(rested['hp_by_room'],[11,34])  # Below 40% the rest site heals 22.
+        def at(col,row,kind,hp,options):
+            return {'state_type':'map','run':{'act':1},'player':{'hp':hp,'max_hp':75},
+                    'map':{'current_position':{'col':col,'row':row,'type':kind},'next_options':[{'index':i,'col':c,'row':row+1} for i,c in enumerate(options)],
+                           'nodes':[{'col':c,'row':r,'type':'Monster'} for c in range(4) for r in range(1,6)]}}
+        drawn={'action':'choose_map_node','parameters_json':'{"index":0}','next_nodes':[{'col':0,'row':2},{'col':0,'row':3}]}
+        route=plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
+        self.assertEqual(route['expected_hp'][(0,1)],52)
+        self.assertIsNotNone(plans.route_decision(route,at(0,1,'Monster',50,[0,1])))  # On plan.
+        route=plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
+        self.assertIsNone(plans.route_decision(route,at(0,1,'Monster',40,[0,1])))  # 12 below the 52 projected.
+        route=plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
+        self.assertIsNone(plans.route_decision(route,at(0,1,'RestSite',60,[0,1])))  # Rethink after a rest site.
 
 if __name__=='__main__': unittest.main()

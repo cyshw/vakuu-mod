@@ -3,7 +3,7 @@ import json
 from collections import Counter
 
 from sts2_advisor import advise
-from vakuu_facts import wastes_energy_card
+from vakuu_facts import project_route, route_damage, wastes_energy_card
 from vakuu_rules import COMBAT, END_TURN, LEAVE_SHOP, hand_selection_complete, selection_complete
 
 def hand_names(state):
@@ -156,8 +156,10 @@ def auto_decision(state, opened=None):
             return _auto('手上已無可出之牌。\n建議：結束回合。', 'end_turn')
     return None
 
-# Re-plan the route when HP fell this much (fraction of max HP) since it was drawn.
+# Re-plan the route when HP fell this much (fraction of max HP) since it was drawn,
+# or fell this far below the HP projected for the current room.
 ROUTE_HP_DROP = 0.2
+ROUTE_BEHIND = 0.15
 
 def hp_ratio(state):
     player = state.get('player') or {}
@@ -170,8 +172,16 @@ def start_route(state, decision):
             if isinstance(node, dict) and isinstance(node.get('col'), int) and isinstance(node.get('row'), int)]
     if not path: return None
     kinds = {(n.get('col'), n.get('row')): n.get('type') for n in (state.get('map') or {}).get('nodes') or []}
+    # Expected HP at each room of the chosen route, to notice when the run falls behind the plan.
+    options = {o.get('index'): (o.get('col'), o.get('row')) for o in (state.get('map') or {}).get('next_options') or []}
+    first = options.get(json.loads(decision['parameters_json']).get('index'))
+    walk = ([first] if first else []) + path
+    player = state.get('player') or {}
+    curve = project_route([{'type': kinds.get(node), 'row': node[1]} for node in walk],
+                          player.get('hp') or 0, player.get('max_hp') or 1, route_damage(state))['hp_by_room']
     return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path,
-            'types': {node: kinds.get(node) for node in path}}
+            'types': {node: kinds.get(node) for node in walk}, 'expected_hp': dict(zip(walk, curve)),
+            'max_hp': player.get('max_hp') or 1}
 
 def route_decision(route, state):
     """Next node of the planned route; None asks the model to re-plan (route left, big HP loss, new act)."""
@@ -179,7 +189,14 @@ def route_decision(route, state):
     if (state.get('run') or {}).get('act') != route['act']: return None
     if route['hp_ratio'] - hp_ratio(state) >= ROUTE_HP_DROP: return None
     world = state.get('map') or {}
-    row = (world.get('current_position') or {}).get('row', -1)
+    here = world.get('current_position') or {}
+    row = here.get('row', -1)
+    # Rest sites and shops are where a player rethinks the route; and falling well behind the
+    # projected HP means the plan's assumptions no longer hold.
+    if here.get('type') in ('RestSite', 'Shop'): return None
+    expected = (route.get('expected_hp') or {}).get((here.get('col'), here.get('row')))
+    if expected is not None and expected - ((state.get('player') or {}).get('hp') or 0) >= ROUTE_BEHIND * route.get('max_hp', 1):
+        return None
     route['path'] = [node for node in route['path'] if node[1] > row]  # Drop rooms already passed.
     if not route['path']: return None
     col, next_row = route['path'][0]

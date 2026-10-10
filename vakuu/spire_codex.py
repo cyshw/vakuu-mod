@@ -147,3 +147,20 @@ def encounter_stats(bracket=BRACKET, now=time.time):
         path.write_text(json.dumps({'fetched_at': now(), 'encounters': encounters}, ensure_ascii=False), encoding='utf-8')
         return encounters
 
+
+
+def room_damage(character, act, bracket=BRACKET):
+    """Average HP lost per fight for this character in one act, by room type (weak pools apart).
+
+    Weighted by how many runs met each encounter; None when Spire Codex has no data for that act.
+    """
+    totals = {}
+    for encounter_id, row in (encounter_stats(bracket) or {}).items():
+        if row.get('act') != act: continue
+        mine = next((c for c in row.get('characters') or [] if c.get('character') == character), None)
+        if not mine or not mine.get('total') or mine.get('avg_damage') is None: continue
+        kind = row.get('room_type')
+        if kind == 'monster' and encounter_id.endswith('_WEAK'): kind = 'monster_weak'
+        weight, damage = totals.get(kind, (0, 0))
+        totals[kind] = (weight + mine['total'], damage + mine['total'] * mine['avg_damage'])
+    return {kind: round(damage / weight, 1) for kind, (weight, damage) in totals.items()} or None
