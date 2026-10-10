@@ -92,6 +92,22 @@ class Controller:
             if self.process and self.process.poll() is None:
                 self.process.terminate()
 
+    def wait_for_play_phase(self, state):
+        deadline = time.monotonic() + 45
+        announced = False
+        while state.get('state_type') in {'monster', 'elite', 'boss'}:
+            battle = state.get('battle', {})
+            if battle.get('is_play_phase') is not False and battle.get('turn') != 'enemy':
+                break
+            if not announced:
+                self.report('契約還沒結束。讓對手先出手。\n正在等待敵方回合與動畫結算，接手會繼續。')
+                announced = True
+            if time.monotonic() >= deadline:
+                raise RuntimeError('等待出牌階段超過 45 秒，已停止；請確認遊戲是否需要手動處理。')
+            if self.stop_event.wait(0.5): raise InterruptedError('已停止')
+            state = api.request('/api/v1/singleplayer?format=json')
+        return state
+
     def decide(self, state):
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
         run_dir.mkdir(parents=True)
@@ -147,6 +163,7 @@ class Controller:
             for step in range(max_steps if takeover else 1):
                 if self.stop_event.is_set(): break
                 state = api.request('/api/v1/singleplayer?format=json')
+                if takeover: state = self.wait_for_play_phase(state)
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')

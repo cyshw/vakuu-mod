@@ -7,6 +7,28 @@ spec=importlib.util.spec_from_file_location('buttons',path)
 b=importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
 
 class Tests(unittest.TestCase):
+    def test_takeover_continues_into_next_player_turn(self):
+        player1={'state_type':'monster','battle':{'round':1,'turn':'player','is_play_phase':True}}
+        enemy={'state_type':'monster','battle':{'round':1,'turn':'enemy','is_play_phase':False}}
+        player2={'state_type':'monster','battle':{'round':2,'turn':'player','is_play_phase':True}}
+        decision={'advice':'結束回合','stop':False,'action':'end_turn','parameters_json':'{}'}
+        c=b.Controller(lambda message: None)
+        # GET, stale-state check, POST, then enemy polling and next round.
+        responses=[player1,player1,{'status':'ok'},enemy,enemy,player2,player2,{'status':'ok'}]
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide',return_value=decision) as decide, patch.object(c.stop_event,'wait',return_value=False):
+            c.run(True,2)
+        self.assertEqual(decide.call_count,2)
+        self.assertEqual(decide.call_args_list[1].args[0],player2)
+        self.assertEqual(sum(len(call.args)==2 for call in api.call_args_list),2)
+
+    def test_stop_while_waiting_never_calls_model_or_posts(self):
+        enemy={'state_type':'boss','battle':{'turn':'enemy','is_play_phase':False}}
+        c=b.Controller(lambda message: None)
+        with patch.object(b.api,'request',return_value=enemy) as api, patch.object(c,'decide') as decide, patch.object(c.stop_event,'wait',return_value=True):
+            c.run(True)
+        decide.assert_not_called()
+        self.assertTrue(all(len(call.args)==1 for call in api.call_args_list))
+
     def test_advice_never_posts(self):
         state={'state_type':'event','event':{'event_id':'NEOW'}}
         c=b.Controller(lambda message: None)
