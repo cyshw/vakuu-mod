@@ -327,4 +327,31 @@ class Tests(unittest.TestCase):
         self.assertEqual(b.incoming_damage({'type':'Debuff','label':'','description':'这个敌人将要对你施加一个负面效果。'}),0)
         self.assertEqual(b.combat_facts(self.combat(['防禦']))['special_intents'],[])
 
+    def test_energy_card_is_skipped_when_energy_already_suffices(self):
+        def hand(cards, energy=3):
+            state=self.combat([n for n,_,_ in cards],energy=energy)
+            for c,(name,cost,desc) in zip(state['player']['hand'],cards): c.update(cost=cost,description=desc)
+            return state
+        SUPER=('超临界态','0','获得4[defect_energy_icon.png]。 消耗。')
+        DEF=('防御','1','获得5点格挡。'); ZAP=('电击','1','生成1个闪电充能球。')
+        TURBO=('抢占先机','0','在下个回合获得[defect_energy_icon.png][defect_energy_icon.png]。')
+        # The recorded turn: 3 energy covers Defend, Defend, Zap, so Supercritical's 4 energy would be wasted.
+        wasteful=hand([DEF,DEF,ZAP,SUPER])
+        self.assertEqual(b.spare_energy(wasteful),0)
+        self.assertTrue(b.wastes_energy_card(wasteful,wasteful['player']['hand'][3]))
+        self.assertFalse(b.gives_energy_now({'description':TURBO[2]}))  # Next turn's energy is a different budget.
+        short=hand([DEF,DEF,ZAP,SUPER],energy=1)
+        short['player']['hand'][1]['can_play']=False; short['player']['hand'][1]['unplayable_reason']='EnergyCostTooHigh'
+        self.assertFalse(b.wastes_energy_card(short,short['player']['hand'][3]))  # Needed to afford the rest.
+        decision={'advice':'','stop':False,'action':'play_card','parameters_json':'{"card_index":3}',
+                  'next_cards':[{'hand_index':0,'target':''},{'hand_index':1,'target':''},{'hand_index':2,'target':''},{'hand_index':-1,'target':''}]}
+        c=b.Controller(lambda message: None)
+        after1=hand([DEF,ZAP,SUPER],energy=2); after2=hand([ZAP,SUPER],energy=1); after3=hand([SUPER],energy=0)
+        responses=[wasteful,wasteful,{'status':'ok'},after1,after1,{'status':'ok'},after2,after2,{'status':'ok'},after3,after3,{'status':'ok'}]
+        with patch.object(b.api,'request',side_effect=responses) as api, patch.object(c,'decide_routed',return_value=decision),              patch.object(c.stop_event,'wait',return_value=False), patch.object(c,'wait_for_change'):
+            c.run(True,4)
+        posts=[call.args[1] for call in api.call_args_list if len(call.args)==2]
+        self.assertEqual(posts,[{'action':'play_card','card_index':0},{'action':'play_card','card_index':0},
+                                {'action':'play_card','card_index':0},{'action':'end_turn'}])  # Supercritical kept.
+
 if __name__=='__main__': unittest.main()

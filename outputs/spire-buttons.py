@@ -113,8 +113,11 @@ def combat_facts(state):
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
         'lethal_if_no_more_block': loss >= hp > 0,
         'energy': player.get('energy'),
-        'playable_cards': [{'index': c.get('index'), 'name': c.get('name'), 'cost': c.get('cost')}
+        'playable_cards': [{'index': c.get('index'), 'name': c.get('name'), 'cost': c.get('cost'),
+                            'gives_energy_now': gives_energy_now(c), 'exhausts': '消耗' in str(c.get('description') or '')}
                            for c in player.get('hand') or [] if c.get('can_play')],
+        # >= 0: current energy already pays for every other card in hand, so energy cards would be wasted.
+        'spare_energy_without_energy_cards': spare_energy(state),
         'enemies': [{'entity_id': e.get('entity_id'), 'name': e.get('name'), 'hp': e.get('hp'), 'block': e.get('block')}
                     for e in enemies],
         'note': '傷害已含意圖顯示的修正；未計回合結束時的被動格擋或傷害（如冰霜、閃電充能球）。',
@@ -176,6 +179,36 @@ def start_turn_plan(state, decision):
         expected[hand[index].get('name')] -= 1
     return {'kind': 'turn', 'round': state['battle'].get('round'), 'queue': queue, 'expected': expected}
 
+ENERGY_NOW = re.compile(r'[获獲]得\s*\d*\s*\[[^\]]*energy')
+
+def gives_energy_now(card):
+    # "获得4[energy]" (Supercritical) pays off this turn; "在下个回合获得..." (Turbo-like) is next turn's budget.
+    text = str(card.get('description') or '')
+    return bool(ENERGY_NOW.search(text)) and '下个回合' not in text and '下回合' not in text
+
+def card_cost(card):
+    try: return int(card.get('cost'))
+    except (TypeError, ValueError): return 0  # X costs and unknowns: treat as free here.
+
+def spare_energy(state):
+    """Energy left after paying for every other card that could be played this turn (negative: short)."""
+    player = state.get('player') or {}
+    wanted = [c for c in player.get('hand') or []
+              if (c.get('can_play') or c.get('unplayable_reason') == 'EnergyCostTooHigh') and not gives_energy_now(c)]
+    return (player.get('energy') or 0) - sum(card_cost(c) for c in wanted)
+
+def wastes_energy_card(state, card):
+    """Playing an energy card while the current energy already covers the whole hand throws it away,
+    and cards like Supercritical exhaust, so it is gone for the rest of the fight."""
+    return gives_energy_now(card) and spare_energy(state) >= 0
+
+def first_card(state, decision):
+    if decision.get('action') != 'play_card': return None
+    try: index = json.loads(decision['parameters_json']).get('card_index')
+    except (ValueError, AttributeError): return None
+    hand = (state.get('player') or {}).get('hand') or []
+    return hand[index] if isinstance(index, int) and 0 <= index < len(hand) else None
+
 def plan_decision(plan, state):
     """Next planned move if things went as the model expected; None means ask the model again."""
     if not plan or not plan['queue']: return None
@@ -189,6 +222,8 @@ def plan_decision(plan, state):
         return _auto('照方才的盤算，收手。\n建議：結束回合。', 'end_turn')
     card = next((c for c in hand if c.get('name') == entry['name'] and c.get('can_play')), None)
     if card is None: return None
+    if wastes_energy_card(state, card):
+        return plan_decision(plan, state)  # Skip it (it stays in hand) and take the next planned move.
     alive = {e.get('entity_id') for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0}
     params = {'card_index': card['index']}
     if card.get('target_type') == 'AnyEnemy':
@@ -487,6 +522,9 @@ class Controller:
             '戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，'
             'special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。'
             'lethal_if_no_more_block 為 true 時優先保命。'
+            '能量要盤算：spare_energy_without_energy_cards >= 0 代表現有能量已夠打完手上其他所有牌，'
+            '這時不要打 gives_energy_now 的牌（多出的能量會浪費，exhausts 的牌打了就沒了），留到能量不夠的回合；'
+            '整串計畫的總費用不要超過可用能量，也不要留下用不掉的能量。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
             '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
             'cards 的 selected 表示已選取，selected_count、min_select、max_select 是已選與可選張數；'
@@ -542,6 +580,10 @@ class Controller:
                     # Buying card removal opens a selection screen; keep the shopping list for afterwards.
                     keep = plan and plan['kind'] == 'shop' and state.get('state_type') == 'card_select'
                     plan = start_plan(state, decision) or (plan if keep else None)
+                    first = first_card(state, decision)
+                    if first and wastes_energy_card(state, first) and plan and plan['kind'] == 'turn':
+                        plan['expected'][first.get('name')] += 1  # It stays in hand instead of being played.
+                        decision = plan_decision(plan, state) or decision  # Skip the wasted energy card.
                 elif plan and not plan['queue']: plan = None
                 self.report(decision['advice'])
                 if not takeover or decision['stop'] or decision['action'] == 'none': break
