@@ -71,7 +71,9 @@ def build_command(selection,run_dir,schema):
         if effort: command+=['-c','model_reasoning_effort='+json.dumps(effort)]
         return command+['-'],provider
     command=[exe,'-p','--output-format','json','--json-schema',json.dumps(schema),
-             '--model',CLAUDE_MODEL_IDS[model],'--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--no-session-persistence']
+             '--model',CLAUDE_MODEL_IDS[model],'--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--no-session-persistence',
+             # Skip user settings, hooks, plugins and skills: measured ~1.6s faster startup per call; OAuth still works.
+             '--setting-sources','','--disable-slash-commands']
     if effort: command+=['--effort',effort]
     return command,provider
 

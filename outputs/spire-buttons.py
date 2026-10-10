@@ -95,6 +95,48 @@ def prune_runs(keep=40):
                   key=lambda p: p.stat().st_mtime)
     for old in runs[:-keep]: shutil.rmtree(old, ignore_errors=True)
 
+def _auto(advice, action, **params):
+    return {'advice': advice, 'stop': False, 'action': action, 'parameters_json': json.dumps(params)}
+
+def auto_decision(state):
+    """Takeover steps with exactly one sensible move; skipping the model saves a full CLI call."""
+    kind = state.get('state_type')
+    player = state.get('player') or {}
+    if selection_complete(state) and state['card_select'].get('can_confirm'):
+        return _auto('契約已定，落筆為證。\n建議：確認剛才的選擇。', 'confirm_selection')
+    if kind == 'card_reward':
+        rating = advise(state)
+        rows = rating.get('ranked_cards', [])
+        if rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5:
+            return _auto(f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 BoberInSpire 評分）。",
+                         'select_card_reward', card_index=rows[0]['index'])
+    if kind == 'rewards':
+        rewards = state.get('rewards') or {}
+        room = len(player.get('potions') or []) < player.get('max_potion_slots', 0)
+        for item in rewards.get('items') or []:
+            if item.get('type') in ('gold', 'relic') or (item.get('type') == 'potion' and room):
+                return _auto('白給的東西，收下便是。\n建議：領取' + (item.get('description') or '獎勵') + '。',
+                             'claim_reward', index=item['index'])
+        if not rewards.get('items') and rewards.get('can_proceed'):
+            return _auto('戰利品已盡，繼續前行。\n建議：離開獎勵畫面。', 'proceed')
+    if kind == 'map':
+        options = (state.get('map') or {}).get('next_options') or []
+        if len(options) == 1:
+            return _auto('只有一條路，那就走吧。\n建議：前往唯一可選的地點。', 'choose_map_node', index=options[0]['index'])
+    if kind == 'event':
+        event = state.get('event') or {}
+        if event.get('in_dialogue'):
+            return _auto('讓他說完。\n建議：繼續對話。', 'advance_dialogue')
+        options = [o for o in event.get('options') or [] if not o.get('is_locked')]
+        if len(options) == 1:
+            return _auto('別無選擇，倒也省事。\n建議：選擇唯一可用的選項。', 'choose_event_option', index=options[0]['index'])
+    if kind in ('monster', 'elite', 'boss'):
+        hand = player.get('hand')
+        potions = [p for p in player.get('potions') or [] if p.get('can_use_in_combat')]
+        if isinstance(hand, list) and not any(card.get('can_play') for card in hand) and not potions:
+            return _auto('手上已無可出之牌。\n建議：結束回合。', 'end_turn')
+    return None
+
 class Controller:
     def __init__(self, report):
         self.report = report
@@ -188,16 +230,7 @@ class Controller:
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
-                rating = advise(state) if state.get('state_type') == 'card_reward' else None
-                rows = rating.get('ranked_cards', []) if rating else []
-                if takeover and selection_complete(state) and state['card_select'].get('can_confirm'):
-                    decision = {'advice':'契約已定，落筆為證。\n建議：確認剛才的選擇。', 'stop':False,
-                                'action':'confirm_selection', 'parameters_json':'{}'}
-                elif takeover and rating and rating.get('status') == 'ok' and len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] > 5:
-                    decision = {'advice':f"這份力量，倒還值得收下。\n建議：選 {rows[0]['name']}（{rows[0]['score']} 分，依 BoberInSpire 評分）。", 'stop':False,
-                                'action':'select_card_reward', 'parameters_json':json.dumps({'card_index':rows[0]['index']})}
-                else:
-                    decision = self.decide(state)
+                decision = (auto_decision(state) if takeover else None) or self.decide(state)
                 self.report(decision['advice'])
                 if not takeover or decision['stop'] or decision['action'] == 'none': break
                 body = validate(state, decision['action'], json.loads(decision['parameters_json']))

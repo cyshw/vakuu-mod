@@ -93,4 +93,24 @@ class Tests(unittest.TestCase):
             self.assertEqual(sorted(p.name[7] for p in runtime.iterdir() if p.is_dir()),['3','4'])
             self.assertTrue((runtime/'model-settings.json').exists())
 
+    def test_auto_decisions_for_single_choice_screens(self):
+        act=lambda state: (lambda d: d and (d['action'], b.json.loads(d['parameters_json'])))(b.auto_decision(state))
+        player={'potions':[{'can_use_in_combat':True}],'max_potion_slots':2}
+        rewards={'state_type':'rewards','player':player,'rewards':{'items':[{'index':0,'type':'card'},{'index':1,'type':'gold'}],'can_proceed':True}}
+        self.assertEqual(act(rewards),('claim_reward',{'index':1}))
+        full={**rewards,'player':{'potions':[{},{}],'max_potion_slots':2},'rewards':{'items':[{'index':0,'type':'potion'}],'can_proceed':True}}
+        self.assertIsNone(act(full))  # A full belt needs a real choice.
+        self.assertEqual(act({'state_type':'rewards','rewards':{'items':[],'can_proceed':True}}),('proceed',{}))
+        self.assertEqual(act({'state_type':'map','map':{'next_options':[{'index':0}]}}),('choose_map_node',{'index':0}))
+        self.assertIsNone(act({'state_type':'map','map':{'next_options':[{'index':0},{'index':1}]}}))
+        self.assertEqual(act({'state_type':'event','event':{'in_dialogue':True}}),('advance_dialogue',{}))
+        self.assertEqual(act({'state_type':'event','event':{'options':[{'index':0,'is_locked':True},{'index':1,'is_locked':False}]}}),
+                         ('choose_event_option',{'index':1}))
+        stuck={'state_type':'monster','player':{'hand':[{'can_play':False}],'potions':[]}}
+        self.assertEqual(act(stuck),('end_turn',{}))
+        self.assertIsNone(act({**stuck,'player':{'hand':[{'can_play':False}],'potions':[{'can_use_in_combat':True}]}}))
+        self.assertIsNone(act({**stuck,'player':{'hand':[{'can_play':True}],'potions':[]}}))
+        for state in (rewards,{'state_type':'map','map':{'next_options':[{'index':0}]}}):
+            action,params=act(state); b.validate(state,action,params)
+
 if __name__=='__main__': unittest.main()
