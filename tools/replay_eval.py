@@ -190,6 +190,10 @@ def score(case, decision):
             index = json.loads(decision['parameters_json']).get('card_index')
             picked = next((r['score'] for r in rows if r['index'] == index), None)
         result.update(skipped=decision['action'] == 'skip_card_reward', picked_score=picked, best_score=best)
+    if kind == 'event' and decision['action'] == 'choose_event_option':
+        index = json.loads(decision['parameters_json']).get('index')
+        option = next((o for o in (state.get('event') or {}).get('options') or [] if o.get('index') == index), None)
+        result['picked_title'] = (option or {}).get('title')
     if kind == 'map' and decision['action'] == 'choose_map_node':
         index = json.loads(decision['parameters_json']).get('index')
         option = next((o for o in route_facts(state)['options'] if o['index'] == index), None)

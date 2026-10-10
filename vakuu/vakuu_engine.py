@@ -146,7 +146,7 @@ class Controller:
         if state.get('state_type') == 'event':
             event = state.get('event') or {}
             advice = event_advice(event.get('event_id'), event.get('options') or [],
-                                              (state.get('player') or {}).get('character_id') or '')
+                                  (state.get('player') or {}).get('character_id') or '')
             if advice: compact['event_advice'] = advice
             ahead = route_ahead(self.route)
             if ahead: compact['route_ahead'] = ahead
