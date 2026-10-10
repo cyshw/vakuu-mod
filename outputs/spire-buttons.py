@@ -72,7 +72,9 @@ SCHEMA = {
             'required': ['hand_index', 'target']}},
         # Shop items to buy after `action`, so a shop visit is planned in one call.
         'next_purchases': {'type': 'array', 'items': {'type': 'integer'}},
-    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards', 'next_purchases']
+        # A per-fight battle plan, written only when the prompt asks for one (auto:brief).
+        'strategy': {'type': 'string'},
+    }, 'required': ['advice', 'stop', 'action', 'parameters_json', 'next_cards', 'next_purchases', 'strategy']
 }
 COMBAT = {'monster', 'elite', 'boss'}
 END_TURN = -1  # hand_index that means "end the turn" in next_cards.
@@ -412,12 +414,20 @@ def undecided(state, decision):
     except (ValueError, TypeError): return True
     return False
 
+def fight_key(state):
+    """Identifies the current fight (one per floor), or None outside combat."""
+    if state.get('state_type') not in COMBAT: return None
+    run = state.get('run') or {}
+    return (run.get('act'), run.get('floor'))
+
 class Controller:
     def __init__(self, report):
         self.report = report
         self.stop_event = threading.Event()
         self.process = None
         self.lock = threading.Lock()
+        self.strategy = None  # {'fight': fight_key, 'text': battle plan} in auto:brief mode.
+        self.want_strategy = False
 
     def stop(self):
         self.stop_event.set()
@@ -469,9 +479,14 @@ class Controller:
     def decide_routed(self, state):
         """Pick the model; in auto mode escalate to the next tier when one cannot decide."""
         selection = models.settings()
+        self.want_strategy = False
         if not selection['model_key'].startswith('auto:'):
             return self.decide(state, selection)
-        tiers = models.AUTO_TIERS[1 if hard_screen(state) else 0:]
+        mode = selection['model_key'].split(':', 1)[1]
+        fight = fight_key(state)
+        self.want_strategy = mode == 'brief' and fight is not None and (self.strategy or {}).get('fight') != fight
+        strong = hard_screen(state) or self.want_strategy or (mode == 'combat' and fight is not None)
+        tiers = models.AUTO_TIERS[1 if strong else 0:]
         for tier, stronger in zip(tiers, tiers[1:] + (None,)):
             try:
                 decision = self.decide(state, {**selection, 'model_key': 'claude:' + tier})
@@ -480,6 +495,8 @@ class Controller:
                 if stronger is None: raise
                 reason = str(exc)
             if reason is None or stronger is None:
+                if self.want_strategy and decision.get('strategy'):
+                    self.strategy = {'fight': fight, 'text': decision['strategy']}
                 decision['advice'] += f'\n（{tier.title()} 判斷）'
                 return decision  # The top tier's answer stands even if it gives up, so takeover stops.
             self.report(f'{tier.title()} {reason}，改由 {stronger.title()} 判斷……')
@@ -497,6 +514,8 @@ class Controller:
             compact['player']['deck'] = deck_summary(state['player']['deck'])
         if state.get('state_type') == 'card_reward': compact['card_advice'] = advise(state)
         if state.get('state_type') == 'shop': compact['shop_card_advice'] = advise(state)
+        if self.want_strategy: compact['request_strategy'] = True
+        elif self.strategy and self.strategy['fight'] == fight_key(state): compact['fight_strategy'] = self.strategy['text']
         if state.get('state_type') in COMBAT: compact['combat_facts'] = combat_facts(state)
         prompt = (
             '你扮演殺戮尖塔2的瓦庫 Vakuu「第一個惡魔」，同時是遊戲顧問。'
@@ -519,6 +538,9 @@ class Controller:
             + str(LEAVE_SHOP) + '；金幣必須夠付整串商品。買刪牌服務後會先選要刪的牌，之後照清單繼續。'
             'shop_card_advice 是商店卡牌的評分，格式同 card_advice。非商店畫面 next_purchases 為空陣列。'
             'player.deck 已合併相同的牌（count 為張數）並附效果說明。'
+            'request_strategy 為 true 時，在 strategy 寫本場作戰方針（120字內：敵人機制與危險回合、集火順序、何時全力防禦、'
+            '關鍵牌與藥水留到何時），後續回合會交給較弱的模型照著執行；否則 strategy 為空字串。'
+            '有 fight_strategy 時照方針執行，除非局面明顯改變。'
             '戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，'
             'special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。'
             'lethal_if_no_more_block 為 true 時優先保命。'

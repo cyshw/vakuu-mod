@@ -354,4 +354,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(posts,[{'action':'play_card','card_index':0},{'action':'play_card','card_index':0},
                                 {'action':'play_card','card_index':0},{'action':'end_turn'}])  # Supercritical kept.
 
+    def test_brief_and_combat_modes(self):
+        fight=self.combat(['打擊'],hp=40); fight['state_type']='monster'; fight['player']['max_hp']=40
+        fight['battle']['enemies'][0]['intents']=[]; fight['run']={'act':1,'floor':5}
+        good={'advice':'','stop':False,'action':'end_turn','parameters_json':'{}','next_cards':[],'next_purchases':[],'strategy':'先殺左邊'}
+        c=b.Controller(lambda message: None)
+        prompts=[]
+        def fake(state, selection): prompts.append((selection['model_key'], c.want_strategy)); return dict(good)
+        with patch.object(b.models,'settings',return_value={'model_key':'auto:brief','effort':'low'}), patch.object(c,'decide',side_effect=fake):
+            c.decide_routed(fight); c.decide_routed(fight)
+        self.assertEqual(prompts,[('claude:sonnet',True),('claude:haiku',False)])  # Plan once, then Haiku follows it.
+        self.assertEqual(c.strategy,{'fight':(1,5),'text':'先殺左邊'})
+        prompts.clear()
+        with patch.object(b.models,'settings',return_value={'model_key':'auto:combat','effort':'low'}), patch.object(c,'decide',side_effect=fake):
+            c.decide_routed(fight); c.decide_routed({'state_type':'map','map':{'next_options':[{'index':0},{'index':1}]}})
+        self.assertEqual([m for m,_ in prompts],['claude:sonnet','claude:haiku'])
+
 if __name__=='__main__': unittest.main()

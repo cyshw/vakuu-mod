@@ -26,7 +26,10 @@ MODELS=[{'key':'codex:','label':'Codex · 預設模型'}]+[
     {'key':'codex:'+m,'label':'Codex · '+m} for m in
     ['gpt-6.1-sol','gpt-6-astra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna']
 ]+[{'key':'claude:'+m,'label':'Claude · '+m.title()+' 5.5'} for m in CLAUDE_MODEL_IDS]+[
-    {'key':'auto:','label':'Claude · 自動調度'}]
+    {'key':'auto:','label':'Claude · 自動調度'},
+    # Comparison variants: a Sonnet battle plan per fight for Haiku to follow, or Sonnet for every fight.
+    {'key':'auto:brief','label':'Claude · 自動調度（Sonnet 作戰方針）'},
+    {'key':'auto:combat','label':'Claude · 自動調度（戰鬥用 Sonnet）'}]
 # Auto mode: easy screens use the first tier, hard ones start at the second, and a tier that
 # cannot decide hands the same screen to the next one.
 AUTO_TIERS=('haiku','sonnet','opus')
@@ -91,7 +94,7 @@ def parse_answer(provider,output,answer_path):
     if envelope.get('is_error'): raise RuntimeError(str(envelope.get('result',envelope.get('errors'))))
     value=envelope.get('structured_output')
     if value is None: value=json.loads(envelope.get('result','{}'))
-    if not isinstance(value,dict) or not set(value)<={'advice','stop','action','parameters_json','next_cards','next_purchases'} \
+    if not isinstance(value,dict) or not set(value)<={'advice','stop','action','parameters_json','next_cards','next_purchases','strategy'} \
             or not {'advice','stop','action','parameters_json'}<=set(value):
         raise ValueError('Claude 沒有傳回有效的遊戲決策')
     if not isinstance(value.get('next_cards',[]),list): raise ValueError('Claude 沒有傳回有效的出牌計畫')
