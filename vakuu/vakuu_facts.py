@@ -340,6 +340,19 @@ def rest_facts(state, route):
     return {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal,
             'planned_next_rooms': upcoming}
 
+def route_ahead(route):
+    """The planned rooms after this one, and how far the next rest site, shop and elite are.
+
+    Event options trade HP or gold; whether 7 HP for 101 gold is worth it depends on the next rest
+    site and shop, which the event screen does not show.
+    """
+    if not route or not route.get('types'): return None
+    rooms = [route['types'].get(node) for node in route.get('path') or []]
+    if not rooms: return None
+    distance = lambda kind: next((i + 1 for i, room in enumerate(rooms) if room == kind), None)
+    return {'next_rooms': rooms[:8], 'rooms_to_rest_site': distance('RestSite'), 'rooms_to_shop': distance('Shop'),
+            'rooms_to_elite': distance('Elite'), 'rooms_to_boss': len(rooms) + 1}
+
 ENEMY_NOTES = Path(__file__).resolve().parent / 'enemy_notes.md'
 NOTE_LINE = re.compile(r'^-\s*([A-Z0-9_]+)\s*[：:]\s*(.+)$')
 

@@ -18,8 +18,8 @@ import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
 import spire_quota
-from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_facts, wastes_energy_card
-from spire_codex import monster_intel
+from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
+from spire_codex import event_advice, monster_intel
 from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
@@ -143,6 +143,13 @@ class Controller:
             # doubled the map prompt (about 4.6k characters).
             compact.get('map', {}).pop('nodes', None)
         if state.get('state_type') == 'rest_site': compact['rest_facts'] = rest_facts(state, self.route)
+        if state.get('state_type') == 'event':
+            event = state.get('event') or {}
+            advice = event_advice(event.get('event_id'), event.get('options') or [],
+                                              (state.get('player') or {}).get('character_id') or '')
+            if advice: compact['event_advice'] = advice
+            ahead = route_ahead(self.route)
+            if ahead: compact['route_ahead'] = ahead
         if state.get('state_type') in ('card_reward', 'shop', 'card_select', 'event'):
             compact['deck_size'] = len((state.get('player') or {}).get('deck') or [])
             compact['deck_profile'] = deck_profile((state.get('player') or {}).get('deck') or [], (state.get('run') or {}).get('act'))

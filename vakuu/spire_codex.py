@@ -164,3 +164,97 @@ def room_damage(character, act, bracket=BRACKET):
         weight, damage = totals.get(kind, (0, 0))
         totals[kind] = (weight + mine['total'], damage + mine['total'] * mine['avg_damage'])
     return {kind: round(damage / weight, 1) for kind, (weight, damage) in totals.items()} or None
+
+
+def _cached(name, url, max_age, build, now=time.time):
+    """One cached JSON document from Spire Codex, rebuilt by build(data) when older than max_age."""
+    path = CACHE / f'{name}.json'
+    with _lock:
+        try: cached = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError): cached = None
+        if cached and now() - cached.get('fetched_at', 0) < max_age: return cached['data']
+        try:
+            request = urllib.request.Request(url, headers={'User-Agent': 'vakuu-mod/0.1 (personal STS2 assistant)'})
+            with urllib.request.urlopen(request, timeout=10) as response: data = build(json.load(response))
+        except (OSError, ValueError, KeyError, TypeError):
+            return cached['data'] if cached else None
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'fetched_at': now(), 'data': data}, ensure_ascii=False), encoding='utf-8')
+        return data
+
+
+def _plain(text):
+    return TAGS.sub('', str(text or '')).strip()
+
+
+def _events(rows):
+    """Event id -> option title -> {id, next}: the options shown on the page that option leads to.
+
+    The page text itself is story; what matters for a multi-step event is the choices that follow.
+    """
+    events = {}
+    for event in rows:
+        follow = {page.get('id'): [f"{_plain(o.get('title'))}：{_plain(o.get('description'))}" for o in page.get('options') or []]
+                  for page in event.get('pages') or []}
+        options = {}
+        for option in [o for page in event.get('pages') or [] for o in page.get('options') or []] + (event.get('options') or []):
+            title = _plain(option.get('title'))
+            if title not in options: options[title] = {'id': option.get('id'), 'next': follow.get(option.get('id')) or []}
+        events[event['id']] = options
+    return events
+
+
+def _event_metrics(data):
+    metrics = {}
+    for row in data['rows']:
+        metrics.setdefault(row['event'], {})[row['option']] = {k: row.get(k) for k in ('share', 'win_rate', 'lift', 'chosen')}
+    return {'data_through': data.get('data_through'), 'events': metrics}
+
+
+def _relic_metrics(data):
+    return {'baseline_win_rate': data.get('baseline_win_rate'), 'data_through': data.get('data_through'),
+            'relics': {row['id']: {k: row.get(k) for k in ('score', 'win_rate', 'lift', 'pick_rate', 'picks')}
+                       for row in data['rows'] if row.get('id')}}
+
+
+def relic_metrics(character, bracket=BRACKET):
+    return _cached(f'relics-{bracket}-{character.lower()}',
+                   f'https://spire-codex.com/api/runs/metrics/relics?bracket={bracket}&character={character.lower()}',
+                   MAX_AGE, _relic_metrics)
+
+
+def relic_ids():
+    """Chinese relic name -> id, since event and reward screens show relic names only."""
+    return _cached('relic-names', 'https://spire-codex.com/api/relics?lang=zhs', MONSTER_MAX_AGE,
+                   lambda rows: {_plain(r.get('name')): r['id'] for r in rows if r.get('id')}) or {}
+
+
+def relic_rating(name, character):
+    """Community rating of a relic by its shown name, or None."""
+    rid = relic_ids().get(_plain(name))
+    found = ((relic_metrics(character) or {}).get('relics') or {}).get(rid)
+    return {'relic_id': rid, **found} if found else None
+
+
+def event_advice(event_id, options, character):
+    """Per shown option: what it leads to and how often the community picks it and wins afterwards.
+
+    Win rates carry selection bias (strong runs take risky options), so they are a hint, not a verdict.
+    Ancient events (Neow) offer relics and have no option metrics; their relic ratings stand in.
+    """
+    texts = (_cached('events-zhs', 'https://spire-codex.com/api/events?lang=zhs', MONSTER_MAX_AGE, _events) or {}).get(event_id) or {}
+    metrics = ((_cached(f'event-metrics-{BRACKET}', f'https://spire-codex.com/api/runs/metrics/events?bracket={BRACKET}',
+                        MAX_AGE, _event_metrics) or {}).get('events') or {}).get(event_id) or {}
+    advice = []
+    for option in options:
+        if option.get('is_locked'): continue
+        title = _plain(option.get('title'))
+        known = texts.get(title) or {}
+        entry = {'index': option.get('index'), 'title': title}
+        if known.get('next'): entry['then_choose_from'] = known['next']
+        if metrics.get(known.get('id')): entry['community'] = metrics[known['id']]
+        elif option.get('relic_name'):
+            rating = relic_rating(option['relic_name'], character)
+            if rating: entry['relic_rating'] = rating
+        if len(entry) > 2: advice.append(entry)
+    return advice or None
