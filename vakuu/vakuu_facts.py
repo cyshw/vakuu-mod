@@ -207,6 +207,9 @@ def enemy_notes(state):
     try: lines = ENEMY_NOTES.read_text(encoding='utf-8').splitlines()
     except OSError: return {}
     notes = dict(m.groups() for m in map(NOTE_LINE.match, lines) if m)
-    present = {re.sub(r'_\d+$', '', str(e.get('entity_id') or '')) for e in (state.get('battle') or {}).get('enemies') or []}
-    return {enemy: notes[enemy] for enemy in sorted(present) if enemy in notes}
+    return {enemy: notes[enemy] for enemy in enemy_ids(state) if enemy in notes}
+
+def enemy_ids(state):
+    """Distinct monster ids in the fight (entity ids without the _0, _1 suffix)."""
+    return sorted({re.sub(r'_\d+$', '', str(e.get('entity_id') or '')) for e in (state.get('battle') or {}).get('enemies') or []} - {''})
 

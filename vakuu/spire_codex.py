@@ -4,6 +4,7 @@ Ratings are fetched at most once a day per character and cached locally; when th
 the last cached copy is used, so takeover never waits on or fails because of the network.
 """
 import json
+import re
 import threading
 import time
 import urllib.request
@@ -47,3 +48,72 @@ def card_metrics(character, bracket=BRACKET, now=time.time):
         temporary.write_text(json.dumps(fresh, ensure_ascii=False), encoding='utf-8')
         temporary.replace(path)
         return fresh
+
+
+MONSTER_URL = 'https://spire-codex.com/api/{kind}/{id}?lang=zhs'
+MONSTER_MAX_AGE = 7 * 24 * 3600  # Game data changes only with patches.
+TAGS = re.compile(r'\[/?[a-z_]+\]')
+
+
+def _get(kind, entity_id):
+    request = urllib.request.Request(MONSTER_URL.format(kind=kind, id=entity_id),
+                                     headers={'User-Agent': 'vakuu-mod/0.1 (personal STS2 assistant)'})
+    with urllib.request.urlopen(request, timeout=8) as response:
+        return json.load(response)
+
+
+def _pattern(raw, names):
+    """Attack pattern as readable lines: fixed cycles, random picks and conditional branches."""
+    lines = []
+    for state in (raw or {}).get('states') or []:
+        kind = state.get('type')
+        if kind == 'move':
+            target = next((s for s in raw['states'] if s.get('id') == state.get('next')), None)
+            following = names.get(target.get('move_id'), target.get('id')) if target and target.get('move_id') else (target or {}).get('id')
+            lines.append(f"{names.get(state.get('move_id'), state.get('move_id'))} → {following or '結束'}")
+        elif kind in ('random', 'conditional'):
+            options = [names.get(b.get('move_id'), b.get('move_id')) + (f"（條件 {b['condition']}）" if b.get('condition') else '')
+                       for b in state.get('branches') or []]
+            lines.append(f"{state.get('id')}：{'隨機' if kind == 'random' else '依條件'}選 " + ('、'.join(options) if options else '（未列出）'))
+    return {'type': (raw or {}).get('type'), 'initial': names.get((raw or {}).get('initial_move')), 'steps': lines}
+
+
+def fetch_monster(monster_id, ascension):
+    data = _get('monsters', monster_id)
+    tough, deadly = ascension >= 8, ascension >= 9  # A8 raises enemy HP, A9 their damage.
+    names = {m['id']: m.get('name') for m in data.get('moves') or []}
+    def damage(d):
+        if not d: return None
+        hit = d.get('ascension') if deadly and d.get('ascension') is not None else d.get('normal')
+        return f"{hit}×{d['hit_count']}" if d.get('hit_count') else hit
+    abilities = []
+    for power in data.get('innate_powers') or []:
+        try: info = _get('powers', power['power_id'])
+        except (OSError, ValueError): info = {}
+        amount = power.get('amount_ascension') if deadly and power.get('amount_ascension') is not None else power.get('amount')
+        # Descriptions are templates: [Amount] is this monster's amount; other numbers are literal.
+        text = (info.get('description') or '').replace('[Amount]', str(amount))
+        abilities.append({'name': info.get('name') or power['power_id'], 'amount': amount, 'description': TAGS.sub('', text)})
+    hp = (data.get('min_hp_ascension'), data.get('max_hp_ascension')) if tough and data.get('min_hp_ascension') else (data.get('min_hp'), data.get('max_hp'))
+    return {
+        'name': data.get('name'), 'hp_range': list(hp), 'abilities': abilities,
+        'moves': [{'name': m.get('name'), 'intent': m.get('intent'), 'damage': damage(m.get('damage')),
+                   'block': (m.get('block') or {}).get('normal') if isinstance(m.get('block'), dict) else m.get('block'),
+                   'effects': [f"{p.get('power_id')} {p.get('amount')}→{p.get('target')}" for p in m.get('powers') or []] or None}
+                  for m in data.get('moves') or []],
+        'pattern': _pattern(data.get('attack_pattern'), names),
+    }
+
+
+def monster_intel(monster_id, ascension, now=time.time):
+    """Cached Spire Codex facts for one monster (HP, moves, move order, innate abilities), or None."""
+    path = CACHE / 'monsters' / f'{monster_id}-a{ascension}.json'
+    with _lock:
+        try: cached = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError): cached = None
+        if cached and now() - cached.get('fetched_at', 0) < MONSTER_MAX_AGE: return cached['intel']
+        try: intel = fetch_monster(monster_id, ascension)
+        except (OSError, ValueError, KeyError, TypeError): return cached['intel'] if cached else None
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'fetched_at': now(), 'intel': intel}, ensure_ascii=False), encoding='utf-8')
+        return intel

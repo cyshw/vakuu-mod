@@ -110,5 +110,28 @@ class CodexTests(unittest.TestCase):
             with patch.object(spire_codex, 'fetch', side_effect=OSError('offline')):
                 self.assertIsNone(spire_codex.card_metrics('SILENT', now=lambda: 1000))
 
+
+SLUG = {'id': 'CORPSE_SLUG', 'name': '噬尸蛞蝓', 'min_hp': 25, 'max_hp': 27, 'min_hp_ascension': 27, 'max_hp_ascension': 29,
+        'moves': [{'id': 'WHIP', 'name': '鞭打', 'intent': 'Attack', 'damage': {'normal': 3, 'ascension': None, 'hit_count': 2}},
+                  {'id': 'GLOMP', 'name': '扑上', 'intent': 'Attack', 'damage': {'normal': 8, 'ascension': 9}}],
+        'innate_powers': [{'power_id': 'RAVENOUS', 'amount': 4, 'amount_ascension': 5}],
+        'attack_pattern': {'type': 'cycle', 'states': [{'id': 'W', 'type': 'move', 'move_id': 'WHIP', 'next': 'G'},
+                                                       {'id': 'G', 'type': 'move', 'move_id': 'GLOMP', 'next': 'W'}]}}
+RAVENOUS = {'name': '饥饿', 'description': '当有敌人死亡时，在本回合被[gold]击晕[/gold]然后获得[blue][Amount][/blue]点力量。'}
+
+class MonsterIntelTests(unittest.TestCase):
+    def test_ascension_values_pattern_and_cache(self):
+        fake = lambda kind, entity_id: SLUG if kind == 'monsters' else RAVENOUS
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory,              patch.object(spire_codex, 'CACHE', Path(directory)), patch.object(spire_codex, '_get', side_effect=fake) as get:
+            intel = spire_codex.monster_intel('CORPSE_SLUG', 9, now=lambda: 0)
+            spire_codex.monster_intel('CORPSE_SLUG', 9, now=lambda: 3600)  # Cached within the week.
+            low = spire_codex.monster_intel('CORPSE_SLUG', 0, now=lambda: 0)
+        self.assertEqual(intel['hp_range'], [27, 29])
+        self.assertEqual([m['damage'] for m in intel['moves']], ['3×2', 9])
+        self.assertEqual(intel['abilities'][0]['description'], '当有敌人死亡时，在本回合被击晕然后获得5点力量。')
+        self.assertEqual(intel['pattern']['steps'], ['鞭打 → 扑上', '扑上 → 鞭打'])
+        self.assertEqual(low['hp_range'], [25, 27])
+        self.assertEqual(get.call_count, 4)  # Monster + power, twice: A9 once (then cached) and A0.
+
 if __name__ == '__main__':
     unittest.main()

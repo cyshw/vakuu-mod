@@ -5,7 +5,7 @@ advice 使用繁體中文：先一句不超過25字的原創瓦庫低語，再�
 
 【戰鬥計畫】戰鬥中一次規劃整個回合：action 是第一個動作，next_cards 依序列出 action 之後還要打的牌，不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）。hand_index 是該牌在目前遊戲狀態手牌中的 index（出牌前的編號，不因先前出牌而改變）；需要單一目標時填 target 的 entity_id，否則填空字串。打完要結束回合就在最後加上 hand_index={{END_TURN}}。能量必須夠付整串牌的費用。會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。非戰鬥畫面 next_cards 為空陣列。
 
-【戰鬥數字】戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。lethal_if_no_more_block 為 true 時優先保命。enemy_notes 是玩家整理的特定敵人打法，比你自己的推測更可靠，出牌與寫作戰方針時要照著做。
+【戰鬥數字】戰鬥數字以 combat_facts 為主，不要自行重算一般攻擊；但一定要讀每個敵人意圖的 description，special_intents 列出的特殊意圖（如濒死一击）以其描述為準，與數字不一致時以描述為準。lethal_if_no_more_block 為 true 時優先保命。enemy_notes 是玩家整理的特定敵人打法，比你自己的推測更可靠，出牌與寫作戰方針時要照著做。enemy_intel 是 Spire Codex 從遊戲檔案整理的敵人資料（依目前進階的血量範圍、各招式傷害、出招順序 pattern、天生能力 abilities；amount 是能力的實際數值）；用出招順序預判之後幾回合的攻擊，並留意死亡、甦醒、分裂等特殊機制。
 
 【能量】能量要盤算：spare_energy_without_energy_cards >= 0 代表現有能量已夠打完手上其他所有牌，這時不要打 gives_energy_now 的牌（多出的能量會浪費，exhausts 的牌打了就沒了），留到能量不夠的回合；整串計畫的總費用不要超過可用能量，也不要留下用不掉的能量。
 

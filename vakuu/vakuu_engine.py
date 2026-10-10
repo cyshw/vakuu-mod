@@ -18,7 +18,8 @@ import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
 import spire_quota
-from vakuu_facts import combat_facts, deck_summary, enemy_notes, rest_facts, route_facts, wastes_energy_card
+from vakuu_facts import combat_facts, deck_summary, enemy_ids, enemy_notes, rest_facts, route_facts, wastes_energy_card
+from spire_codex import monster_intel
 from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
@@ -145,6 +146,9 @@ class Controller:
             compact['combat_facts'] = combat_facts(state)
             notes = enemy_notes(state)
             if notes: compact['enemy_notes'] = notes
+            ascension = (state.get('run') or {}).get('ascension') or 0
+            intel = {enemy: monster_intel(enemy, ascension) for enemy in enemy_ids(state)}
+            if any(intel.values()): compact['enemy_intel'] = {k: v for k, v in intel.items() if v}
         # Only this screen's actions: the full list let the model pick look-alikes from other screens.
         actions = {a: sorted(FIELDS[a]) for a in sorted(allowed_actions(state))}
         prompt = (instructions() + '\n目前畫面可用動作與參數：' + json.dumps(actions, ensure_ascii=False)
