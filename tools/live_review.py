@@ -54,7 +54,7 @@ def turn_flags(state):
 def review(path, since_floor=0):
     rows = [json.loads(line) for line in open(path, encoding='utf-8')]
     stats = spire_codex.encounter_stats()
-    lines, fights, last, fight, turn_state = [], [], None, None, None
+    lines, fights, last, fight, turn_state, step_state = [], [], None, None, None, None
     act_fights = {}
     for record in rows:
         kind = record['kind']
@@ -72,10 +72,15 @@ def review(path, since_floor=0):
                     fights.append(fight)
                 fight['rounds'] = max(fight['rounds'], state['battle'].get('round') or 0)
                 fight['end'] = state['player'].get('hp')
-                turn_state = state
             elif fight and run.get('floor') == fight['key'][1] and state.get('player'):
                 fight['end'] = state['player'].get('hp')
-        elif kind == 'post' and record['body'].get('action') == 'end_turn' and fight and turn_state:
+        elif kind == 'report' and '接手中' in record['message']:
+            # The state takeover decided this step on. States read right after a play can still show the
+            # hand and energy from before it (the API lags), so judging the turn by the last read misfires.
+            step_state = last
+        elif kind == 'post' and record['body'].get('action') == 'end_turn' and fight and step_state \
+                and step_state.get('state_type') in COMBAT:
+            turn_state = step_state
             flags, blockers = turn_flags(turn_state)
             fight['warnings'] += [f"第 {turn_state['battle'].get('round')} 回合：{f}" for f in flags]
             fight['pending_block'] = (turn_state['battle'].get('round'), turn_state['player'].get('hp'), blockers)
@@ -103,7 +108,7 @@ def review(path, since_floor=0):
     out += ['', '🟢 不高於社群平均、🟡 高出 50% 以內、🔴 高出 50% 以上。社群數據為 Spire Codex 進階10以上同角色對局。', '']
     warned = [f for f in fights if f['warnings'] and f['key'][1] >= since_floor]
     if warned:
-        out += ['## 回合警示', '']
+        out += ['## 回合提示（值得檢查，不一定是錯誤）', '']
         for f in warned:
             out += [f"**第 {f['key'][1]} 層（{'、'.join(f['enemies'])}）**"] + [f'- {w}' for w in f['warnings']] + ['']
     out += ['## 長期決策', ''] + (lines or ['（尚無）'])
