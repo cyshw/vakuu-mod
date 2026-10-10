@@ -113,4 +113,13 @@ class Tests(unittest.TestCase):
         for state in (rewards,{'state_type':'map','map':{'next_options':[{'index':0}]}}):
             action,params=act(state); b.validate(state,action,params)
 
+    def test_card_rewards_open_once_each(self):
+        state=lambda n: {'state_type':'rewards','run':{'floor':3},'rewards':{'can_proceed':True,
+                         'items':[{'index':i,'type':'card'} for i in range(n)]}}
+        opened=set()
+        self.assertEqual(b.auto_decision(state(2),opened)['action'],'claim_reward')
+        self.assertEqual(b.auto_decision(state(1),opened)['action'],'claim_reward')  # First was taken.
+        self.assertIsNone(b.auto_decision(state(1),opened))  # Skipped and still listed: let the model decide.
+        self.assertIsNone(b.auto_decision(state(1)))  # Advice mode never auto-opens.
+
 if __name__=='__main__': unittest.main()

@@ -98,7 +98,7 @@ def prune_runs(keep=40):
 def _auto(advice, action, **params):
     return {'advice': advice, 'stop': False, 'action': action, 'parameters_json': json.dumps(params)}
 
-def auto_decision(state):
+def auto_decision(state, opened=None):
     """Takeover steps with exactly one sensible move; skipping the model saves a full CLI call."""
     kind = state.get('state_type')
     player = state.get('player') or {}
@@ -117,6 +117,14 @@ def auto_decision(state):
             if item.get('type') in ('gold', 'relic') or (item.get('type') == 'potion' and room):
                 return _auto('白給的東西，收下便是。\n建議：領取' + (item.get('description') or '獎勵') + '。',
                              'claim_reward', index=item['index'])
+        # Opening a card reward commits to nothing; the real choice happens on the card screen.
+        # Open each one once, so a skipped reward that stays listed goes to the model instead of looping.
+        cards = [item for item in rewards.get('items') or [] if item.get('type') == 'card']
+        if cards and opened is not None:
+            key = ((state.get('run') or {}).get('floor'), len(cards))
+            if key not in opened:
+                opened.add(key)
+                return _auto('看看命運端上了什麼。\n建議：打開卡牌獎勵。', 'claim_reward', index=cards[0]['index'])
         if not rewards.get('items') and rewards.get('can_proceed'):
             return _auto('戰利品已盡，繼續前行。\n建議：離開獎勵畫面。', 'proceed')
     if kind == 'map':
@@ -222,6 +230,7 @@ class Controller:
         return models.parse_answer(provider,out,answer_path)
 
     def run(self, takeover=False, max_steps=30):
+        opened_cards = set()
         try:
             for step in range(max_steps if takeover else 1):
                 if self.stop_event.is_set(): break
@@ -230,7 +239,7 @@ class Controller:
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
-                decision = (auto_decision(state) if takeover else None) or self.decide(state)
+                decision = (auto_decision(state, opened_cards) if takeover else None) or self.decide(state)
                 self.report(decision['advice'])
                 if not takeover or decision['stop'] or decision['action'] == 'none': break
                 body = validate(state, decision['action'], json.loads(decision['parameters_json']))
