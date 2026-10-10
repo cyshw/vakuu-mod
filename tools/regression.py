@@ -58,7 +58,7 @@ def failures(case, decision):
 
 
 def run(args):
-    cases = load()
+    cases = [c for c in load() if not args.only or any(part in c['id'] for part in args.only)]
     jobs = [(case, n) for case in cases for n in range(args.repeat)]
 
     def ask(job):
@@ -88,6 +88,7 @@ def main():
     sub.add_parser('list')
     p = sub.add_parser('run'); p.add_argument('--config', default='claude:sonnet@low')
     p.add_argument('--repeat', type=int, default=1); p.add_argument('--workers', type=int, default=4)
+    p.add_argument('--only', nargs='+', help='only cases whose id contains one of these, e.g. run28')
     args = parser.parse_args()
     if args.command == 'add': add(args)
     elif args.command == 'list':

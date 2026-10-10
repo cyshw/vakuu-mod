@@ -145,7 +145,7 @@ class Controller:
         if state.get('state_type') == 'rest_site': compact['rest_facts'] = rest_facts(state, self.route)
         if state.get('state_type') in ('card_reward', 'shop', 'card_select', 'event'):
             compact['deck_size'] = len((state.get('player') or {}).get('deck') or [])
-            compact['deck_profile'] = deck_profile((state.get('player') or {}).get('deck') or [])
+            compact['deck_profile'] = deck_profile((state.get('player') or {}).get('deck') or [], (state.get('run') or {}).get('act'))
         if self.want_strategy: compact['request_strategy'] = True
         elif self.strategy and self.strategy['fight'] == fight_key(state): compact['fight_strategy'] = self.strategy['text']
         if state.get('state_type') in COMBAT:

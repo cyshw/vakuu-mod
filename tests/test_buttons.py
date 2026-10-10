@@ -228,6 +228,14 @@ class Tests(unittest.TestCase):
         self.assertEqual(result['block_needed_for_no_damage'],20)  # 24 incoming minus 4 Frost block.
         self.assertTrue(result['lethal_if_no_more_block'])
 
+    def test_last_elite_before_boss_is_flagged_when_the_boss_leaves_too_little(self):
+        rooms=[{'type':'Elite','row':13},{'type':'RestSite','row':14},{'type':'Boss','row':15}]
+        damage={**facts.DEFAULT_DAMAGE,'elite':35,'boss':54}
+        projected=facts.project_route(rooms,59,75,damage)
+        self.assertEqual(projected['boss_average_damage'],54)
+        self.assertEqual(projected['hp_after_boss_if_average'],projected['hp_before_boss']-54)
+        self.assertEqual(facts.deck_profile([{'id':'DEFEND_D','description':'获得5点格挡。'}],2)['short_of_block'],True)
+
     def test_pile_contents_are_name_counts(self):
         player={'draw_pile':[{'name':'打擊'},{'name':'打擊'},{'name':'防禦'}],'discard_pile':[],'exhaust_pile':[{'name':'燃燒'}]}
         self.assertEqual(facts.pile_contents(player),{'draw_pile':{'打擊':2,'防禦':1},'exhaust_pile':{'燃燒':1}})

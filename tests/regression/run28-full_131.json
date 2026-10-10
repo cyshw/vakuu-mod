@@ -1,0 +1,1497 @@
+{
+ "id": "run28-full#131",
+ "type": "map",
+ "note": "run28 第30層：頭目前最後一個菁英，打完菁英加休息後進頭目只剩約平均，不該賭",
+ "expect": {
+  "picked_type": [
+   "!=",
+   "Elite"
+  ]
+ },
+ "original": {
+  "action": "choose_map_node",
+  "advice": "力量不會自己走來,構裝體,得伸手去拿。\n建議:血量79%且菁英後緊接休息點,可回血再戰頭目;帶著爆炸安瓿應付,取遺物強化牌組。",
+  "parameters_json": "{\"index\":1}",
+  "next_cards": [],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": [
+   {
+    "col": 6,
+    "row": 14
+   },
+   {
+    "col": 3,
+    "row": 15
+   }
+  ],
+  "stop": false
+ },
+ "state": {
+  "state_type": "map",
+  "map": {
+   "current_position": {
+    "col": 5,
+    "row": 12,
+    "type": "Monster"
+   },
+   "visited": [
+    {
+     "col": 3,
+     "row": 0,
+     "type": "Ancient"
+    },
+    {
+     "col": 0,
+     "row": 1,
+     "type": "Monster"
+    },
+    {
+     "col": 0,
+     "row": 2,
+     "type": "Unknown"
+    },
+    {
+     "col": 0,
+     "row": 3,
+     "type": "Unknown"
+    },
+    {
+     "col": 1,
+     "row": 4,
+     "type": "Monster"
+    },
+    {
+     "col": 2,
+     "row": 5,
+     "type": "Unknown"
+    },
+    {
+     "col": 2,
+     "row": 6,
+     "type": "RestSite"
+    },
+    {
+     "col": 3,
+     "row": 7,
+     "type": "Monster"
+    },
+    {
+     "col": 3,
+     "row": 8,
+     "type": "Treasure"
+    },
+    {
+     "col": 2,
+     "row": 9,
+     "type": "Monster"
+    },
+    {
+     "col": 3,
+     "row": 10,
+     "type": "RestSite"
+    },
+    {
+     "col": 4,
+     "row": 11,
+     "type": "Shop"
+    },
+    {
+     "col": 5,
+     "row": 12,
+     "type": "Monster"
+    }
+   ],
+   "next_options": [
+    {
+     "index": 0,
+     "col": 5,
+     "row": 13,
+     "type": "Unknown",
+     "leads_to": [
+      {
+       "col": 6,
+       "row": 14,
+       "type": "RestSite"
+      }
+     ]
+    },
+    {
+     "index": 1,
+     "col": 6,
+     "row": 13,
+     "type": "Elite",
+     "leads_to": [
+      {
+       "col": 6,
+       "row": 14,
+       "type": "RestSite"
+      }
+     ]
+    }
+   ],
+   "nodes": [
+    {
+     "col": 3,
+     "row": 0,
+     "type": "Ancient",
+     "children": [
+      [
+       0,
+       1
+      ],
+      [
+       1,
+       1
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       4,
+       1
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 2,
+     "type": "Unknown",
+     "children": [
+      [
+       0,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 3,
+     "type": "Unknown",
+     "children": [
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 5,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 6,
+     "type": "Elite",
+     "children": [
+      [
+       0,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 7,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 8,
+     "type": "Treasure",
+     "children": [
+      [
+       0,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 9,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       10
+      ],
+      [
+       1,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 10,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 11,
+     "type": "RestSite",
+     "children": [
+      [
+       0,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 12,
+     "type": "Elite",
+     "children": [
+      [
+       0,
+       13
+      ],
+      [
+       1,
+       13
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 13,
+     "type": "Shop",
+     "children": [
+      [
+       0,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 14,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       1,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 2,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 6,
+     "type": "Elite",
+     "children": [
+      [
+       1,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 7,
+     "type": "RestSite",
+     "children": [
+      [
+       1,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 8,
+     "type": "Treasure",
+     "children": [
+      [
+       2,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 10,
+     "type": "Elite",
+     "children": [
+      [
+       0,
+       11
+      ],
+      [
+       2,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 1,
+     "row": 13,
+     "type": "Unknown",
+     "children": [
+      [
+       0,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 2,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 3,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 5,
+     "type": "Unknown",
+     "children": [
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 6,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 9,
+     "type": "Monster",
+     "children": [
+      [
+       1,
+       10
+      ],
+      [
+       3,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 11,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 12,
+     "type": "Monster",
+     "children": [
+      [
+       1,
+       13
+      ],
+      [
+       3,
+       13
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       3,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 5,
+     "type": "Unknown",
+     "children": [
+      [
+       3,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 6,
+     "type": "Unknown",
+     "children": [
+      [
+       3,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 7,
+     "type": "Monster",
+     "children": [
+      [
+       3,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 8,
+     "type": "Treasure",
+     "children": [
+      [
+       2,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 10,
+     "type": "RestSite",
+     "children": [
+      [
+       2,
+       11
+      ],
+      [
+       4,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 13,
+     "type": "Elite",
+     "children": [
+      [
+       3,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 14,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 2,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 3,
+     "type": "Monster",
+     "children": [
+      [
+       3,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 10,
+     "type": "Unknown",
+     "children": [
+      [
+       4,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 11,
+     "type": "Shop",
+     "children": [
+      [
+       5,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 2,
+     "type": "Monster",
+     "children": [
+      [
+       6,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 3,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 4,
+     "type": "Unknown",
+     "children": [
+      [
+       5,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 5,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 6,
+     "type": "RestSite",
+     "children": [
+      [
+       6,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 9,
+     "type": "RestSite",
+     "children": [
+      [
+       4,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 12,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       13
+      ],
+      [
+       6,
+       13
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 13,
+     "type": "Unknown",
+     "children": [
+      [
+       6,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 3,
+     "type": "Monster",
+     "children": [
+      [
+       6,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 4,
+     "type": "Unknown",
+     "children": [
+      [
+       6,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 5,
+     "type": "Unknown",
+     "children": [
+      [
+       6,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 6,
+     "type": "Shop",
+     "children": [
+      [
+       6,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 7,
+     "type": "Elite",
+     "children": [
+      [
+       6,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 8,
+     "type": "Treasure",
+     "children": [
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 9,
+     "type": "Monster",
+     "children": [
+      [
+       6,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 10,
+     "type": "Elite",
+     "children": [
+      [
+       6,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 11,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 13,
+     "type": "Elite",
+     "children": [
+      [
+       6,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 14,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 15,
+     "type": "Boss",
+     "children": [],
+     "id": "KAISER_CRAB_BOSS",
+     "name": "帝皇蟹"
+    }
+   ],
+   "boss": {
+    "col": 3,
+    "row": 15,
+    "id": "KAISER_CRAB_BOSS",
+    "name": "帝皇蟹"
+   },
+   "bosses": [
+    {
+     "col": 3,
+     "row": 15,
+     "id": "KAISER_CRAB_BOSS",
+     "name": "帝皇蟹"
+    }
+   ]
+  },
+  "run": {
+   "act": 2,
+   "floor": 30,
+   "ascension": 9
+  },
+  "player": {
+   "character": "故障机器人",
+   "character_id": "DEFECT",
+   "deck": [
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ZAP",
+     "name": "电击",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个闪电充能球。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DUALCAST",
+     "name": "双重释放",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "激发你最右侧的充能球两次。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "激发",
+       "description": "消耗你最右侧的充能球并使用其激发效果。"
+      }
+     ]
+    },
+    {
+     "id": "ASCENDERS_BANE",
+     "name": "进阶之灾",
+     "type": "Curse",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 虚无。 永恒。",
+     "rarity": "Curse",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "永恒",
+       "description": "无法从你的牌组中移除或变化。"
+      },
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      },
+      {
+       "name": "虚无",
+       "description": "如果这张牌在这个回合结束时留在你的手牌中，则将其消耗。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "ADAPTIVE_STRIKE",
+     "name": "适应打击",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成18点伤害。 将这张牌的一张0[defect_energy_icon.png]复制品添加到你的弃牌堆。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "MOMENTUM_STRIKE",
+     "name": "趁势打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成11点伤害。 这张牌的耗能降为0[defect_energy_icon.png]。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "BULK_UP",
+     "name": "暴涨",
+     "type": "Power",
+     "cost": "2",
+     "star_cost": null,
+     "description": "失去1个充能球栏位。 获得2点力量。 获得2点敏捷。 第一次打出时抽2张牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      },
+      {
+       "name": "敏捷",
+       "description": "敏捷会增加从卡牌中获得的格挡。"
+      },
+      {
+       "name": "迅速",
+       "description": "你第一次打出这张牌时，抽2张牌。"
+      }
+     ]
+    },
+    {
+     "id": "OVERCLOCK",
+     "name": "超频",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "抽2张牌。 将一张灼伤加入你的弃牌堆。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "灼伤",
+       "description": "不能被打出。 在你的回合结束时，如果这张牌在你的手牌中，你受到2点伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ENTROPY",
+     "name": "熵",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合开始时，变化你手牌中的1张牌。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "变化",
+       "description": "卡牌被变化时会变成任意稀有度的随机牌。"
+      }
+     ]
+    },
+    {
+     "id": "COOLHEADED",
+     "name": "冷静头脑",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个冰霜充能球。 抽1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      }
+     ]
+    },
+    {
+     "id": "BALL_LIGHTNING",
+     "name": "球状闪电",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成7点伤害。 生成1个闪电充能球。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ITERATION",
+     "name": "迭代",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每回合你第一次抽到状态牌时，抽2张牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "COOLHEADED",
+     "name": "冷静头脑",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个冰霜充能球。 抽1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      }
+     ]
+    },
+    {
+     "id": "ECHO_FORM",
+     "name": "回响形态",
+     "type": "Power",
+     "cost": "3",
+     "star_cost": null,
+     "description": "虚无。 你每回合打出的第一张牌会被打出两次。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "虚无",
+       "description": "如果这张牌在这个回合结束时留在你的手牌中，则将其消耗。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "GO_FOR_THE_EYES",
+     "name": "眼部攻击+",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 如果敌人的意图是攻击，则给予2层虚弱。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      }
+     ]
+    },
+    {
+     "id": "OVERCLOCK",
+     "name": "超频",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "抽2张牌。 将一张灼伤加入你的弃牌堆。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "灼伤",
+       "description": "不能被打出。 在你的回合结束时，如果这张牌在你的手牌中，你受到2点伤害。"
+      }
+     ]
+    },
+    {
+     "id": "CLUMSY",
+     "name": "笨拙",
+     "type": "Curse",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 虚无。",
+     "rarity": "Curse",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      },
+      {
+       "name": "虚无",
+       "description": "如果这张牌在这个回合结束时留在你的手牌中，则将其消耗。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "TURBO",
+     "name": "内核加速",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得[defect_energy_icon.png][defect_energy_icon.png]。 将一张虚空加入你的弃牌堆。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "虚空",
+       "description": "不能被打出。 虚无。 每当你抽到这张牌时，失去[defect_energy_icon.png]。"
+      }
+     ]
+    },
+    {
+     "id": "ROCKET_PUNCH",
+     "name": "火箭飞拳",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成13点伤害。 抽1张牌。 每当你生成状态牌时，此牌的耗能将在下一次打出前减少1[defect_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "AUTOMATION",
+     "name": "自动化",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "你每抽10张牌，获得[defect_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    }
+   ],
+   "hp": 59,
+   "max_hp": 75,
+   "block": 0,
+   "gold": 24,
+   "status": [],
+   "relics": [
+    {
+     "id": "CRACKED_CORE",
+     "name": "破损核心",
+     "description": "在每场战斗开始时，生成1个闪电充能球。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "HEFTY_TABLET",
+     "name": "沉重石板",
+     "description": "拾起时，从3张稀有牌中选择1张加入你的牌组，同时将1张受伤加入你的牌组。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "受伤",
+       "description": "不能被打出。"
+      },
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      }
+     ]
+    },
+    {
+     "id": "REGAL_PILLOW",
+     "name": "皇家枕头",
+     "description": "在休息时，额外回复15点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "BLOOD_VIAL",
+     "name": "小血瓶",
+     "description": "在每场战斗开始时，回复2点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "FESTIVE_POPPER",
+     "name": "节日拉炮",
+     "description": "在每场战斗开始时，对所有敌人造成9点伤害。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "MERCURY_HOURGLASS",
+     "name": "水银沙漏",
+     "description": "在你的回合开始时，对所有敌人造成3点伤害。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "PAELS_FLESH",
+     "name": "佩尔之肉",
+     "description": "从你的第3回合开始，在回合开始时额外获得[defect_energy_icon.png]。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    },
+    {
+     "id": "MEAL_TICKET",
+     "name": "餐券",
+     "description": "每当你进入商店房间时，回复15点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "HORN_CLEAT",
+     "name": "船夹板",
+     "description": "在你的第二回合开始时，获得14点格挡。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "potions": [
+    {
+     "id": "SKILL_POTION",
+     "name": "技能药水",
+     "description": "从3张随机技能牌中选择1张加入你的手牌。这张牌在本回合可以免费打出。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    },
+    {
+     "id": "EXPLOSIVE_AMPOULE",
+     "name": "爆炸安瓿",
+     "description": "对所有敌人造成10点伤害。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AllEnemies",
+     "keywords": []
+    }
+   ],
+   "max_potion_slots": 2
+  }
+ }
+}

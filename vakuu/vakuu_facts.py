@@ -63,6 +63,8 @@ def orb_end_of_turn(player):
 POTION_BLOCK = re.compile(r'(\d+)\s*[点點]\s*格[挡擋]')
 POTION_DAMAGE = re.compile(r'(\d+)\s*[点點]\s*[伤傷]害')
 
+NORMAL_FIGHT_POTION_SAVE = 0.2  # Share of max HP a potion must save this turn to be drunk in an ordinary fight.
+
 def potion_facts(state, loss):
     """Combat potions with their block and damage read off the text, and whether they change this turn.
 
@@ -85,7 +87,18 @@ def potion_facts(state, loss):
     potion_block = sum(p.get('block', 0) for p in usable)
     hp = player.get('hp') or 0
     lethal = loss >= hp > 0
+    # Run 28 drank three potions in ordinary fights to save a few HP, then lacked them in the elite
+    # and boss fights that ended the run; the model also talked 12 saved HP up to "a fifth of max HP".
+    normal = state.get('state_type') == 'monster' and not lethal
+    if normal:
+        for potion in usable:
+            saved = min(potion.get('block', 0), loss)
+            if saved: potion['hp_saved_this_turn'] = saved
+            kills = weakest is not None and potion.get('damage', 0) >= weakest
+            potion['worth_it_in_this_normal_fight'] = saved >= NORMAL_FIGHT_POTION_SAVE * (player.get('max_hp') or 0) or kills
     return {
+        **({'normal_fight_potion_rule': '普通戰鬥且這回合不會死：只喝 worth_it_in_this_normal_fight 為 true 的藥水，其他留給菁英與頭目'}
+           if normal else {}),
         'usable_potions': usable,
         # Sonnet once wrote "this turn cannot be survived" with a Fire Potion in hand and never mentioned it.
         **({'lethal_with_potions_in_hand': '不喝藥水這回合會死：先算 ' + '、'.join(p['name'] for p in usable) + ' 能不能救命'}
@@ -207,7 +220,14 @@ def project_route(rooms, hp, max_hp, damage):
     before_rest = curve[:first_rest] if first_rest is not None else curve
     return {'lowest_before_first_rest': min(before_rest) if before_rest else round(hp),
             'hp_by_room': curve, 'lowest_hp': lowest, 'lowest_at_room': curve.index(lowest) + 1 if curve else None,
-            'hp_before_boss': curve[-1] if curve else round(hp), 'below_25pct_at_room': danger}
+            'hp_before_boss': curve[-1] if curve else round(hp), 'below_25pct_at_room': danger,
+            # Run 28 took the last elite before the act 2 boss at 59/75: elite, rest, then a boss that
+            # costs 59.5 HP on average left nothing to spare, and a bad elite fight lost the run.
+            'boss_average_damage': round(damage['boss']),
+            'hp_after_boss_if_average': round((curve[-1] if curve else hp) - damage['boss'])}
+
+BOSS_NEAR_ROOMS = 6  # Rooms left before the boss at which projections are trusted for the last elite.
+BOSS_SPARE = 0.2  # HP share an average boss fight should leave for the last elite to be worth it.
 
 def route_damage(state):
     player = state.get('player') or {}
@@ -293,6 +313,11 @@ def route_facts(state):
     routes = candidate_routes(world, nodes, children)
     for route in routes:
         route['projected'] = project_route(route['rooms'], player.get('hp') or 0, player.get('max_hp') or 1, damage)
+        # Close to the boss the averages are reliable enough to call an elite a bad bet outright.
+        before_boss = [r for r in route['rooms'] if r['type'] != 'Boss']
+        risky = route['projected']['hp_after_boss_if_average'] < BOSS_SPARE * (player.get('max_hp') or 1)
+        if len(before_boss) <= BOSS_NEAR_ROOMS and any(r['type'] == 'Elite' for r in before_boss) and risky:
+            route['elite_too_risky_before_boss'] = True
     facts = {'hp_ratio': round((player.get('hp') or 0) / (player.get('max_hp') or 1), 2), 'options': [],
              'expected_damage_per_room': damage, 'candidate_routes': routes}
     for option in world.get('next_options') or []:
@@ -335,7 +360,11 @@ def enemy_ids(state):
 BLOCK_TEXT = re.compile(r'[获獲]得\s*(\d+)\s*点?[格]挡')
 STARTERS = ('STRIKE', 'DEFEND')
 
-def deck_profile(deck):
+# Block cards besides Defend a deck should have by each act; run 28 reached the act 2 boss with 3 of 27
+# cards and died to a 57-damage turn with no block in hand.
+BLOCK_TARGET = {1: 2, 2: 4, 3: 5}
+
+def deck_profile(deck, act=None):
     """What the deck has and lacks, so card choices consider needs and not only general card ratings.
 
     A run died with 4 Strikes and 4 Defends after skipping block cards rated "F": ratings say how strong
@@ -343,14 +372,16 @@ def deck_profile(deck):
     """
     count = lambda pred: sum(1 for card in deck if pred(card))
     text = lambda card: str(card.get('description') or '')
+    block = count(lambda c: (BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)) and not str(c.get('id', '')).startswith('DEFEND'))
+    target = BLOCK_TARGET.get(act)
     return {
         'size': len(deck),
+        **({'block_target_besides_defend': target, 'short_of_block': block < target} if target else {}),
         'attacks': count(lambda c: c.get('type') == 'Attack'),
         'skills': count(lambda c: c.get('type') == 'Skill'),
         'powers': count(lambda c: c.get('type') == 'Power'),
         'block_sources': count(lambda c: BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)),
-        'block_sources_besides_defend': count(lambda c: (BLOCK_TEXT.search(text(c)) or '冰霜' in text(c))
-                                               and not str(c.get('id', '')).startswith('DEFEND')),
+        'block_sources_besides_defend': block,
         'starter_strikes': count(lambda c: str(c.get('id', '')).startswith('STRIKE')),
         'starter_defends': count(lambda c: str(c.get('id', '')).startswith('DEFEND')),
         'unplayable': count(lambda c: '不能被打出' in text(c)),

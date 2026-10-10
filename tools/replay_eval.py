@@ -123,8 +123,11 @@ def score_combat(state, decision):
             # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
             'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions
                                        and not (ends and unblocked < (player.get('hp') or 0)),
+            # The prompt allows a potion in an ordinary fight when it saves about a fifth of max HP.
             'potion_drunk_when_safe': bool(potions) and state.get('state_type') == 'monster'
-                                      and not facts['lethal_if_no_more_block'] and not facts.get('potion_kills_an_enemy')}
+                                      and not facts['lethal_if_no_more_block'] and not facts.get('potion_kills_an_enemy')
+                                      and min(sum(p.get('block', 0) for p in potions), facts['block_needed_for_no_damage'])
+                                      < 0.2 * (player.get('max_hp') or 0)}
 
 
 def planned_kills(state, decision, facts):
@@ -192,6 +195,8 @@ def score(case, decision):
         option = next((o for o in route_facts(state)['options'] if o['index'] == index), None)
         if option: result.update(rooms_before_elite=option['max_rooms_before_first_elite'],
                                  hp_ratio=route_facts(state)['hp_ratio'])
+        node = next((o for o in (state.get('map') or {}).get('next_options') or [] if o.get('index') == index), None)
+        result['picked_type'] = (node or {}).get('type')
     return result
 
 
