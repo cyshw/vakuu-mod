@@ -31,6 +31,8 @@ from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_a
 # Tuned for the game's Instant fast mode; wait_until_settled covers screens that still animate.
 ACTION_PAUSE = 0.5
 POLL_INTERVAL = 0.25
+CARD_POLL_INTERVAL = 0.1
+CARD_SETTLE_WINDOW = 0.2
 
 def prune_runs(keep=40, exclude=()):
     # Each call leaves a schema/log folder; keep only recent ones for debugging.
@@ -115,15 +117,18 @@ class Controller:
     def wait_for_change(self, before, timeout=10, body=None):
         # Some actions (e.g. map travel) keep showing the old screen for a moment; acting on it
         # repeats the move or trips the stale-state check.
-        # Effects also land in stages (Capacitor updates the hand first and orb slots later), so after
-        # the first change keep reading until two reads in a row agree.
+        # Effects also land in stages (Capacitor updates the hand first and orb slots later).
+        # Cards use fast polling plus a quiet window after the hand changes; other
+        # actions retain the screen-transition pause.
         deadline = time.monotonic() + timeout
-        if self.stop_event.wait(ACTION_PAUSE): return
+        playing_card = bool(body and body.get('action') == 'play_card')
+        if not playing_card and self.stop_event.wait(ACTION_PAUSE): return
+        poll_interval = CARD_POLL_INTERVAL if playing_card else POLL_INTERVAL
         previous = fingerprint(before)
         changed = False
         stable_since = time.monotonic()
         pending_card = False
-        if body and body.get('action') == 'play_card':
+        if playing_card:
             card = next((c for c in (before.get('player') or {}).get('hand') or []
                          if c.get('index') == body['card_index']), None)
             pending_card = card is not None and not wastes_energy_card(before, card)
@@ -136,10 +141,10 @@ class Controller:
             # lands. Playability flags alone do not mean resolution is finished.
             resolved = resolved or state.get('state_type') != before.get('state_type') or hand_signatures(state) != old_hand
             if current != previous or not resolved: stable_since = time.monotonic()
-            if changed and resolved and current == previous and time.monotonic() - stable_since >= (.75 if pending_card else 0): return
+            if changed and resolved and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
             changed = changed or current != previous
             previous = current
-            if self.stop_event.wait(POLL_INTERVAL): return
+            if self.stop_event.wait(poll_interval): return
         if not resolved: raise RuntimeError('出牌仍未完成結算，已停止，避免重複出牌。')
 
     def wait_until_settled(self, state, timeout=10):
