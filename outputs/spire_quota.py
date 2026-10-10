@@ -95,7 +95,7 @@ def read_limits(provider):
     if provider=='claude':
         try: return format_claude_limits(read_claude_limits())
         except RuntimeError: return 'Claude 登入憑證已過期，完成一次 Claude 呼叫後再展開面板。'
-        except (OSError,ValueError,KeyError,TypeError): return '目前無法取得 Claude 剩餘額度，可開啟官方額度頁面查看。'
+        except (OSError,ValueError,KeyError,TypeError): return '目前無法取得 Claude 剩餘額度，稍後再展開面板重試。'
     try: return format_limits(read_codex_limits())
     except (OSError,RuntimeError,ValueError,KeyError,queue.Empty,TimeoutError): return '目前無法取得 Codex 剩餘額度，稍後再展開面板重試。'
 

@@ -22,7 +22,6 @@ public static partial class McpMod
     private static Button? _claudeLoginButton;
     private static bool _authPolling;
     private static Label? _quotaLabel;
-    private static Button? _quotaPage;
     private static bool _quotaPolling;
     private static readonly System.Net.Http.HttpClient _quotaHttp = new() { Timeout = TimeSpan.FromSeconds(38) };
     private static readonly List<string> _modelKeys = new();
@@ -176,8 +175,6 @@ public static partial class McpMod
         _quotaLabel = new Label { Text = "額度：讀取中…", AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MouseFilter = Control.MouseFilterEnum.Ignore };
         _quotaLabel.AddThemeFontSizeOverride("font_size", 14); box.AddChild(_quotaLabel);
-        _quotaPage = new Button { Text = "查看 Claude 額度", Visible = false, FocusMode = Control.FocusModeEnum.None };
-        _quotaPage.Pressed += () => OS.ShellOpen("https://claude.ai/settings/usage"); box.AddChild(_quotaPage);
         _codexTimer = new Godot.Timer { WaitTime = 0.5, OneShot = false };
         _codexLayer.AddChild(_codexTimer);
         _codexTimer.Timeout += () => { _ = PollCodexStatus(); };
@@ -271,7 +268,7 @@ public static partial class McpMod
             await RunOnMainThread(() => {
                 bool selectedClaude = _modelPicker!.Selected >= 0 && _modelKeys[_modelPicker.Selected].StartsWith("claude:");
                 if (selectedClaude != claude) { retry = true; return; }
-                _quotaLabel!.Text = message; _quotaPage!.Visible = claude;
+                _quotaLabel!.Text = message;
             });
         }
         catch { await RunOnMainThread(() => { _quotaLabel!.Text = "額度：暫時無法讀取，稍後再展開面板重試。"; }); }
