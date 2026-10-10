@@ -27,7 +27,7 @@ from vakuu_rules import COMBAT, END_TURN, fingerprint, transitional, validate  #
 LOGS = SOURCE / 'button-runtime' / 'logs'
 OUT = SOURCE / 'button-runtime' / 'eval'
 TYPES = {'combat': COMBAT, 'map': {'map'}, 'rest_site': {'rest_site'}, 'card_reward': {'card_reward'},
-         'shop': {'shop'}, 'event': {'event'}}
+         'shop': {'shop'}, 'event': {'event'}, 'card_select': {'card_select'}}
 BLOCK = re.compile(r'获得(\d+)点格挡')
 DAMAGE = re.compile(r'造成(\d+)点伤害(?:(\d+)次)?')
 ENERGY = re.compile(r'获得(\d+)\[')
@@ -38,10 +38,10 @@ def case_type(state):
     return next((name for name, kinds in TYPES.items() if kind in kinds), None)
 
 
-def build_cases():
+def build_cases(paths=None):
     """Every state a model decided on, deduplicated, skipping screens caught mid-animation."""
     cases, seen = [], set()
-    for path in sorted(LOGS.glob('*.jsonl')):
+    for path in paths or sorted(LOGS.glob('*.jsonl')):
         last = None
         for line in open(path, encoding='utf-8'):
             record = json.loads(line)
@@ -53,7 +53,8 @@ def build_cases():
                     if kind == 'combat' and not (last.get('player') or {}).get('hand'): continue
                     if kind == 'map' and len((last.get('map') or {}).get('next_options') or []) < 2: continue
                     seen.add(key)
-                    cases.append({'id': f'{path.stem}#{len(cases)}', 'type': kind, 'state': last})
+                    cases.append({'id': f'{path.stem}#{len(cases)}', 'type': kind, 'state': last,
+                                  'original': record['decision'], 'original_model': record.get('model')})
     return cases
 
 
@@ -149,8 +150,9 @@ def run(cases, configs, workers, out):
     jobs = [(case, config) for case in cases for config in configs]
     print(f'{len(cases)} cases x {len(configs)} configs = {len(jobs)} model calls', flush=True)
     with open(out, 'a', encoding='utf-8') as file, ThreadPoolExecutor(workers) as pool:
-        futures = {pool.submit(lambda c=case, k=config: (time.time(), decide(k, c['state']))): (case, config)
-                   for case, config in jobs}
+        # 'original' replays what was decided live (no model call), to compare before and after a change.
+        call = lambda c, k: (time.time(), c['original'] if k == 'original' else decide(k, c['state']))
+        futures = {pool.submit(call, case, config): (case, config) for case, config in jobs}
         for done, future in enumerate(as_completed(futures), 1):
             case, config = futures[future]
             try:
@@ -216,9 +218,12 @@ def main():
     parser.add_argument('--seed', type=int, default=1, help='same seed = same cases, so runs stay comparable')
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--report', type=Path, help='only write the report for an existing results.jsonl')
+    parser.add_argument('--logs', type=Path, nargs='+', help='take cases only from these log files')
+    parser.add_argument('--all', action='store_true', help='use every case instead of sampling per type')
     args = parser.parse_args()
     if args.report: return report(args.report)
-    cases = pick(build_cases(), args.per_type, args.seed)
+    pool = build_cases(args.logs)
+    cases = pool if args.all else pick(pool, args.per_type, args.seed)
     out = OUT / time.strftime('%Y%m%d-%H%M%S') / 'results.jsonl'
     run(cases, args.configs, args.workers, out)
     report(out)
