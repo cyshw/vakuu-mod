@@ -372,10 +372,17 @@ class Controller:
     def wait_for_change(self, before, timeout=5):
         # Some actions (e.g. map travel) keep showing the old screen for a moment; acting on it
         # repeats the move or trips the stale-state check.
+        # Effects also land in stages (Capacitor updates the hand first and orb slots later), so after
+        # the first change keep reading until two reads in a row agree.
         deadline = time.monotonic() + timeout
         if self.stop_event.wait(ACTION_PAUSE): return
+        previous = fingerprint(before)
+        changed = False
         while time.monotonic() < deadline:
-            if fingerprint(api.request('/api/v1/singleplayer?format=json')) != fingerprint(before): return
+            current = fingerprint(api.request('/api/v1/singleplayer?format=json'))
+            if changed and current == previous: return
+            changed = changed or current != previous
+            previous = current
             if self.stop_event.wait(POLL_INTERVAL): return
 
     def wait_until_settled(self, state, timeout=10):

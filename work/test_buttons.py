@@ -236,9 +236,14 @@ class Tests(unittest.TestCase):
         old={'state_type':'map','map':{'current_position':{'row':2}}}
         moved={'state_type':'unknown'}
         c=b.Controller(lambda message: None)
-        with patch.object(b.api,'request',side_effect=[old,old,moved]) as api, patch.object(c.stop_event,'wait',return_value=False):
+        with patch.object(b.api,'request',side_effect=[old,old,moved,moved]) as api, patch.object(c.stop_event,'wait',return_value=False):
             c.wait_for_change(old)
-        self.assertEqual(api.call_count,3)
+        self.assertEqual(api.call_count,4)  # Returns once two reads after the change agree.
+        partly={'state_type':'monster','player':{'hand':[],'orb_slots':3}}
+        done={'state_type':'monster','player':{'hand':[],'orb_slots':5}}
+        with patch.object(b.api,'request',side_effect=[partly,done,done]) as api, patch.object(c.stop_event,'wait',return_value=False):
+            c.wait_for_change({'state_type':'monster','player':{'hand':[{'name':'扩容'}],'orb_slots':3}})
+        self.assertEqual(api.call_count,3)  # Kept reading until the orb slots landed.
         self.assertTrue(b.transitional(moved))
         self.assertTrue(b.transitional({'state_type':'map','map':{'next_options':[]}}))
         self.assertFalse(b.transitional({'state_type':'map','map':{'next_options':[{'index':0}]}}))
