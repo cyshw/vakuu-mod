@@ -56,12 +56,16 @@ def deck_summary(deck):
                              'upgraded': bool(card.get('is_upgraded')), 'description': card.get('description')}
     return list(groups.values())
 
-ENERGY_NOW = re.compile(r'[获獲]得\s*\d*\s*\[[^\]]*energy')
+ENERGY_NOW = re.compile(r'^[获獲]得\s*\d*\s*\[[^\]]*energy')
 
 def gives_energy_now(card):
-    # "获得4[energy]" (Supercritical) pays off this turn; "在下个回合获得..." (Turbo-like) is next turn's budget.
-    text = str(card.get('description') or '')
-    return bool(ENERGY_NOW.search(text)) and '下个回合' not in text and '下回合' not in text
+    # Only cards whose effect *is* gaining energy now, like Supercritical ("获得4[energy]。 消耗。").
+    # Not next turn's energy ("在下个回合获得..."), and not attacks with an energy bonus: Sever
+    # ("造成26点伤害。 如果这张牌击杀了敌人，则获得3[energy]") was once skipped as a wasted energy
+    # card, leaving an enemy alive that it would have killed.
+    text = str(card.get('description') or '').strip()
+    if card.get('type') == 'Attack' or '如果' in text or '下个回合' in text or '下回合' in text: return False
+    return bool(ENERGY_NOW.search(text))
 
 def card_cost(card):
     try: return int(card.get('cost'))

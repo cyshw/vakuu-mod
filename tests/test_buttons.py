@@ -347,6 +347,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(facts.spare_energy(wasteful),0)
         self.assertTrue(facts.wastes_energy_card(wasteful,wasteful['player']['hand'][3]))
         self.assertFalse(facts.gives_energy_now({'description':TURBO[2]}))  # Next turn's energy is a different budget.
+        sever={'type':'Attack','description':'造成26点伤害。 如果这张牌击杀了敌人，则获得[defect_energy_icon.png][defect_energy_icon.png][defect_energy_icon.png]。'}
+        self.assertFalse(facts.gives_energy_now(sever))  # An attack with a kill bonus is never "just energy".
+        self.assertFalse(facts.gives_energy_now({'type':'Skill','description':'抽1张牌。 如果手牌为空，则获得2[defect_energy_icon.png]。'}))
         short=hand([DEF,DEF,ZAP,SUPER],energy=1)
         short['player']['hand'][1]['can_play']=False; short['player']['hand'][1]['unplayable_reason']='EnergyCostTooHigh'
         self.assertFalse(facts.wastes_energy_card(short,short['player']['hand'][3]))  # Needed to afford the rest.
