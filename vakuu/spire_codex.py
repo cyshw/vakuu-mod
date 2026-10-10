@@ -102,6 +102,7 @@ def fetch_monster(monster_id, ascension):
                    'effects': [f"{p.get('power_id')} {p.get('amount')}→{p.get('target')}" for p in m.get('powers') or []] or None}
                   for m in data.get('moves') or []],
         'pattern': _pattern(data.get('attack_pattern'), names),
+        'encounters': [e.get('encounter_id') for e in data.get('encounters') or [] if e.get('encounter_id')],
     }
 
 
@@ -111,9 +112,38 @@ def monster_intel(monster_id, ascension, now=time.time):
     with _lock:
         try: cached = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, ValueError): cached = None
-        if cached and now() - cached.get('fetched_at', 0) < MONSTER_MAX_AGE: return cached['intel']
+        fresh_enough = cached and now() - cached.get('fetched_at', 0) < MONSTER_MAX_AGE
+        if fresh_enough and 'encounters' in cached['intel']: return cached['intel']
         try: intel = fetch_monster(monster_id, ascension)
         except (OSError, ValueError, KeyError, TypeError): return cached['intel'] if cached else None
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({'fetched_at': now(), 'intel': intel}, ensure_ascii=False), encoding='utf-8')
         return intel
+
+
+ENCOUNTER_URL = 'https://spire-codex.com/api/runs/encounter-stats?bracket={bracket}&page={page}&limit=100'
+
+
+def encounter_stats(bracket=BRACKET, now=time.time):
+    """Community damage taken and turns per encounter (overall and per character), cached daily."""
+    path = CACHE / f'encounters-{bracket}.json'
+    with _lock:
+        try: cached = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError): cached = None
+        if cached and now() - cached.get('fetched_at', 0) < MAX_AGE: return cached['encounters']
+        try:
+            rows, page = [], 1
+            while True:
+                request = urllib.request.Request(ENCOUNTER_URL.format(bracket=bracket, page=page),
+                                                 headers={'User-Agent': 'vakuu-mod/0.1 (personal STS2 assistant)'})
+                with urllib.request.urlopen(request, timeout=10) as response: data = json.load(response)
+                rows += data.get('encounters') or []
+                if not data.get('has_next') or page >= 20: break
+                page += 1
+        except (OSError, ValueError):
+            return cached['encounters'] if cached else {}
+        encounters = {row['encounter_id']: row for row in rows if row.get('encounter_id')}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'fetched_at': now(), 'encounters': encounters}, ensure_ascii=False), encoding='utf-8')
+        return encounters
+
