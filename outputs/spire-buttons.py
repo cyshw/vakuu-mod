@@ -164,9 +164,25 @@ def selection_complete(state):
     chosen, most = select.get('selected_count'), select.get('max_select')
     return bool(select.get('preview_showing')) or (isinstance(most, int) and most > 0 and isinstance(chosen, int) and chosen >= most)
 
+# Look-alike actions the model mixes up between a grid selection (e.g. Hologram picking from the
+# discard pile) and an in-hand selection; mapped to the one the current screen accepts.
+ALIASES = {
+    ('card_select', 'combat_select_card'): ('select_card', {'card_index': 'index'}),
+    ('card_select', 'combat_confirm_selection'): ('confirm_selection', {}),
+    ('hand_select', 'select_card'): ('combat_select_card', {'index': 'card_index'}),
+    ('hand_select', 'confirm_selection'): ('combat_confirm_selection', {}),
+}
+
+def allowed_actions(state):
+    if selection_complete(state): return {'confirm_selection', 'cancel_selection'}
+    return ALLOWED.get(state.get('state_type'), set()) | {'use_potion', 'discard_potion'}
+
 def validate(state, action, params):
-    allowed = ALLOWED.get(state.get('state_type'), set()) | {'use_potion', 'discard_potion'}
-    if selection_complete(state): allowed = {'confirm_selection', 'cancel_selection'}
+    alias = ALIASES.get((state.get('state_type'), action))
+    if alias and isinstance(params, dict):
+        action, renames = alias
+        params = {renames.get(key, key): value for key, value in params.items()}
+    allowed = allowed_actions(state)
     if action not in allowed or action not in FIELDS:
         raise ValueError('不允許在目前畫面執行這個操作：' + action)
     if not isinstance(params, dict) or set(params) - FIELDS[action]:
@@ -393,7 +409,9 @@ class Controller:
             '資料未知或不完整時自行判斷。分數是規則分數，不是勝率。'
             '優先減少失血、完成目前遊戲。不要放棄遊戲或重開。若無有效動作、在主選單、或需要人工協助，'
             '輸出 action=none、stop=true。你看不到這個按鈕以外的聊天。'
-            '可用動作與參數：' + json.dumps(FIELDS, default=list) + '\n遊戲狀態：' + json.dumps(compact,ensure_ascii=False)
+            # Only this screen's actions: the full list let the model pick look-alikes from other screens.
+            '目前畫面可用動作與參數：' + json.dumps({a: sorted(FIELDS[a]) for a in sorted(allowed_actions(state))}, ensure_ascii=False)
+            + '\n遊戲狀態：' + json.dumps(compact,ensure_ascii=False)
         )
         command,provider=models.build_command(selection or models.settings(),run_dir,SCHEMA)
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0

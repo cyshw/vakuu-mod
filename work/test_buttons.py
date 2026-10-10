@@ -263,4 +263,11 @@ class Tests(unittest.TestCase):
             state=c.wait_until_settled(c.wait_for_play_phase(c.wait_until_settled(loading)))
         self.assertEqual(state,ready)
 
+    def test_look_alike_selection_actions_are_mapped(self):
+        grid={'state_type':'card_select','card_select':{'preview_showing':False}}
+        self.assertEqual(b.validate(grid,'combat_select_card',{'card_index':1}),{'action':'select_card','index':1})
+        self.assertEqual(b.validate({'state_type':'hand_select'},'select_card',{'index':2}),{'action':'combat_select_card','card_index':2})
+        self.assertNotIn('play_card',b.allowed_actions(grid))
+        with self.assertRaises(ValueError): b.validate({'state_type':'map'},'combat_select_card',{'card_index':1})
+
 if __name__=='__main__': unittest.main()
