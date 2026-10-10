@@ -8,7 +8,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from spire_models import find_cli
+from spire_models import find_cli, uses_claude
 
 _lock=threading.Lock()
 _cache={}
@@ -100,7 +100,7 @@ def read_limits(provider):
     except (OSError,RuntimeError,ValueError,KeyError,queue.Empty,TimeoutError): return '目前無法取得 Codex 剩餘額度，稍後再展開面板重試。'
 
 def quota(model_key):
-    provider=model_key.split(':',1)[0]
+    provider='claude' if uses_claude(model_key) else model_key.split(':',1)[0]
     with _lock:
         cached=_cache.get(provider)
         if cached and time.monotonic()-cached['time']<60: return cached['value']

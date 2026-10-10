@@ -25,7 +25,14 @@ def claude_auth_status():
 MODELS=[{'key':'codex:','label':'Codex · 預設模型'}]+[
     {'key':'codex:'+m,'label':'Codex · '+m} for m in
     ['gpt-6.1-sol','gpt-6-astra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna']
-]+[{'key':'claude:'+m,'label':'Claude · '+m.title()+' 5.5'} for m in CLAUDE_MODEL_IDS]
+]+[{'key':'claude:'+m,'label':'Claude · '+m.title()+' 5.5'} for m in CLAUDE_MODEL_IDS]+[
+    {'key':'auto:','label':'Claude · 自動調度'}]
+# Auto mode: easy screens use the first tier, hard ones start at the second, and a tier that
+# cannot decide hands the same screen to the next one.
+AUTO_TIERS=('haiku','sonnet','opus')
+
+def uses_claude(model_key):
+    return model_key.startswith(('claude:','auto:'))
 
 DEFAULT_SETTINGS={'model_key':'codex:','effort':''}
 
@@ -61,6 +68,7 @@ def find_cli(provider):
 def build_command(selection,run_dir,schema):
     selection=validate_settings(selection)
     provider,model=selection['model_key'].split(':',1)
+    if provider=='auto': raise ValueError('自動調度需先決定實際模型')
     effort=selection['effort']
     exe=find_cli(provider)
     if provider=='codex':

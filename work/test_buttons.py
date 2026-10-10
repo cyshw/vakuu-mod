@@ -199,4 +199,29 @@ class Tests(unittest.TestCase):
         self.assertIsNotNone(b.plan_decision(b.start_plan(first,decision),self.combat(['打擊'])))
         self.assertIsNone(b.start_plan({'state_type':'map'},decision))
 
+    def test_auto_mode_routes_and_escalates(self):
+        easy=self.combat(['打擊'],hp=40); easy['state_type']='monster'; easy['player']['max_hp']=40
+        easy['battle']['enemies'][0]['intents']=[]
+        hard=self.combat(['打擊'])  # Boss.
+        self.assertFalse(b.hard_screen(easy)); self.assertTrue(b.hard_screen(hard))
+        good={'advice':'打','stop':False,'action':'end_turn','parameters_json':'{}','next_cards':[]}
+        gave_up={'advice':'不知道','stop':True,'action':'none','parameters_json':'{}','next_cards':[]}
+        c=b.Controller(lambda message: None)
+        auto={'model_key':'auto:','effort':'low'}
+        def tiers(answers, state):
+            calls=[]
+            def fake(state_, selection): calls.append(selection['model_key']); return dict(answers[len(calls)-1])
+            with patch.object(b.models,'settings',return_value=auto), patch.object(c,'decide',side_effect=fake):
+                result=c.decide_routed(state)
+            return calls, result
+        self.assertEqual(tiers([good],easy)[0],['claude:haiku'])
+        self.assertEqual(tiers([good],hard)[0],['claude:sonnet'])
+        calls,result=tiers([gave_up,good],hard)
+        self.assertEqual(calls,['claude:sonnet','claude:opus']); self.assertIn('Opus',result['advice'])
+        calls,result=tiers([gave_up,gave_up],hard)
+        self.assertEqual(len(calls),2); self.assertTrue(result['stop'])  # Opus giving up stops takeover.
+        with patch.object(b.models,'settings',return_value={'model_key':'claude:haiku','effort':''}), patch.object(c,'decide',return_value=good) as decide:
+            c.decide_routed(hard)
+        self.assertEqual(decide.call_args.args[1]['model_key'],'claude:haiku')  # Manual choice is respected.
+
 if __name__=='__main__': unittest.main()

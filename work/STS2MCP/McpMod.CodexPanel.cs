@@ -233,6 +233,9 @@ public static partial class McpMod
         await RefreshClaudeLogin();
     }
 
+    // Auto mode dispatches between Claude models, so it needs the same login.
+    private static bool UsesClaude(string key) => key.StartsWith("claude:") || key.StartsWith("auto:");
+
     private static async Task RefreshClaudeLogin()
     {
         _ = RefreshQuota();
@@ -240,9 +243,9 @@ public static partial class McpMod
         await RunOnMainThread(() => {
             if (_modelPicker != null && _modelPicker.Selected >= 0 && _modelPicker.Selected < _modelKeys.Count)
                 key = _modelKeys[_modelPicker.Selected];
-            if (!key.StartsWith("claude:")) _claudeLoginButton!.Visible = false;
+            if (!UsesClaude(key)) _claudeLoginButton!.Visible = false;
         });
-        if (!key.StartsWith("claude:") || _authPolling) return;
+        if (!UsesClaude(key) || _authPolling) return;
         _authPolling = true;
         try {
             using var doc = JsonDocument.Parse(await _codexHttp.GetStringAsync(_bridgeUrl + "/claude-auth"));

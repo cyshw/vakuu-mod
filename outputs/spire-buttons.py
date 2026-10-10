@@ -247,6 +247,26 @@ def auto_decision(state, opened=None):
             return _auto('手上已無可出之牌。\n建議：結束回合。', 'end_turn')
     return None
 
+def hard_screen(state):
+    """Situations worth a stronger model: bosses, elites, danger, and close card picks."""
+    kind = state.get('state_type')
+    if kind in ('boss', 'elite'): return True
+    if kind in COMBAT:
+        player = state.get('player') or {}
+        facts = combat_facts(state)
+        return facts['lethal_if_no_more_block'] or (player.get('hp') or 0) < 0.3 * (player.get('max_hp') or 1)
+    if kind == 'card_reward':
+        rows = advise(state).get('ranked_cards', [])
+        return len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] <= 5
+    return False
+
+def undecided(state, decision):
+    """A model gave up or answered with a move the screen does not allow."""
+    if decision.get('action') == 'none' or decision.get('stop'): return True
+    try: validate(state, decision['action'], json.loads(decision['parameters_json']))
+    except (ValueError, TypeError): return True
+    return False
+
 class Controller:
     def __init__(self, report):
         self.report = report
@@ -285,7 +305,25 @@ class Controller:
             state = api.request('/api/v1/singleplayer?format=json')
         return state
 
-    def decide(self, state):
+    def decide_routed(self, state):
+        """Pick the model; in auto mode escalate to the next tier when one cannot decide."""
+        selection = models.settings()
+        if not selection['model_key'].startswith('auto:'):
+            return self.decide(state, selection)
+        tiers = models.AUTO_TIERS[1 if hard_screen(state) else 0:]
+        for tier, stronger in zip(tiers, tiers[1:] + (None,)):
+            try:
+                decision = self.decide(state, {**selection, 'model_key': 'claude:' + tier})
+                reason = '沒有給出可執行的動作' if undecided(state, decision) else None
+            except ValueError as exc:  # Malformed answer; login, quota or network errors are not retried.
+                if stronger is None: raise
+                reason = str(exc)
+            if reason is None or stronger is None:
+                decision['advice'] += f'\n（{tier.title()} 判斷）'
+                return decision  # The top tier's answer stands even if it gives up, so takeover stops.
+            self.report(f'{tier.title()} {reason}，改由 {stronger.title()} 判斷……')
+
+    def decide(self, state, selection=None):
         prune_runs()
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
         run_dir.mkdir(parents=True)
@@ -325,8 +363,7 @@ class Controller:
             '輸出 action=none、stop=true。你看不到這個按鈕以外的聊天。'
             '可用動作與參數：' + json.dumps(FIELDS, default=list) + '\n遊戲狀態：' + json.dumps(compact,ensure_ascii=False)
         )
-        selection=models.settings()
-        command,provider=models.build_command(selection,run_dir,SCHEMA)
+        command,provider=models.build_command(selection or models.settings(),run_dir,SCHEMA)
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         with self.lock:
             if self.stop_event.is_set(): raise InterruptedError('已停止')
@@ -360,7 +397,7 @@ class Controller:
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
                 decision = (auto_decision(state, opened_cards) or plan_decision(plan, state)) if takeover else None
                 if decision is None:
-                    decision = self.decide(state)
+                    decision = self.decide_routed(state)
                     plan = start_plan(state, decision)
                 elif plan and not plan['queue']: plan = None
                 self.report(decision['advice'])
