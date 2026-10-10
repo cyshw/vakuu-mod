@@ -22,7 +22,7 @@ from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, ene
 from spire_codex import event_advice, monster_intel
 from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
-from vakuu_search import search_turn
+from vakuu_search import search_turn, turn_candidates
 from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
                          transitional, validate)
 
@@ -53,6 +53,7 @@ class Controller:
         self.strategy = None  # {'fight': fight_key, 'text': battle plan} in auto:brief mode.
         self.route = None  # Planned map route; kept across takeovers until something calls for a re-plan.
         self.want_strategy = False
+        self.local_search = None  # (state fingerprint, result), shared with the model prompt.
 
     def stop(self):
         self.stop_event.set()
@@ -158,6 +159,10 @@ class Controller:
         if self.want_strategy: compact['request_strategy'] = True
         elif self.strategy and self.strategy['fight'] == fight_key(state): compact['fight_strategy'] = self.strategy['text']
         if state.get('state_type') in COMBAT:
+            cached = self.local_search
+            result = cached[1] if cached and cached[0] == fingerprint(state) else None
+            candidates = turn_candidates(state, result)
+            if candidates: compact['turn_candidates'] = candidates
             compact['combat_facts'] = combat_facts(state)
             piles = pile_contents(state.get('player') or {})
             if piles: compact['pile_contents'] = piles
@@ -206,8 +211,11 @@ class Controller:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
                 decision = auto_decision(state, opened_cards) if takeover else None
+                self.local_search = None
                 if takeover and decision is None and state.get('state_type') in COMBAT:
-                    decision = search_turn(state)['decision']
+                    result = search_turn(state, include_candidates=True)
+                    self.local_search = (fingerprint(state), result)
+                    decision = result['decision']
                     if decision is not None: plan = None  # Re-read and search after each executed move.
                 if takeover and decision is None:
                     decision = route_decision(self.route, state) or plan_decision(plan, state)

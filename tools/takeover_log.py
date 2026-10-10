@@ -49,8 +49,8 @@ def main():
     controller = engine.Controller(lambda m: (write('report', message=m), print(m.replace('\n', ' | '), flush=True)),
                                    allow_model=not args.no_ai)
     raw_search = engine.search_turn
-    def logged_search(state):
-        result = raw_search(state)
+    def logged_search(state, **kwargs):
+        result = raw_search(state, **kwargs)
         write('search', result=result)
         return result
     engine.search_turn = logged_search

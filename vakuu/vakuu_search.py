@@ -91,7 +91,7 @@ def card_move(card):
     return None
 
 
-def search_turn(state, max_nodes=20000, max_seconds=0.05):
+def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False):
     """Return a decision and diagnostics; decision=None is an explicit model fallback."""
     def decline(reason, nodes=0): return {'decision': None, 'reason': reason, 'nodes': nodes}
     if max_nodes <= 0 or max_seconds <= 0: return decline('search_limit')
@@ -166,6 +166,7 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05):
 
     start = time.perf_counter()
     visited, count, best = set(), 0, None
+    portfolios = {'減傷': [], '輸出': [], '保留能量': []}
     initial_hp = tuple(e['hp'] for e in enemies)
     initial_block = tuple(e['block'] for e in enemies)
 
@@ -198,6 +199,21 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05):
         direct_win = not any(hps)
         eligible = complete or direct_win
         rank = (win, loss < player['hp'], -loss, -sum(end_hp), energy, -len(sequence))
+        if include_candidates:
+            rankings = {'減傷': (win, loss < player['hp'], -loss, -sum(end_hp), energy, -len(sequence)),
+                        '輸出': (win, -sum(end_hp), -loss, energy, -len(sequence)),
+                        '保留能量': (win, loss < player['hp'], energy, -loss, -sum(end_hp), -len(sequence))}
+            outcome = {'sequence': list(sequence), 'predicted_hp_loss': loss,
+                       'predicted_enemy_hp': list(end_hp), 'remaining_energy': energy,
+                       'end_turn': not direct_win,
+                       'confidence': 'simulated' if complete or direct_win else 'partial',
+                       'unmodeled_effects': [] if complete or direct_win else
+                           ['未評估未打出的特殊牌在回合結束時的效果，也未評估抽牌與後續回合收益。']}
+            for style, score in rankings.items():
+                portfolio = portfolios[style]
+                portfolio.append((score, outcome))
+                portfolio.sort(key=lambda row: row[0], reverse=True)
+                del portfolio[3:]
         if eligible and (best is None or rank > best[0]):
             best = (rank, sequence, loss, end_hp, direct_win)
         if direct_win: return
@@ -222,12 +238,24 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05):
 
     try: walk(0, player['energy'], player['block'], initial_hp, initial_block, orbs, ())
     except TimeoutError: return decline('search_limit', count)
-    if best is None: return decline('unsupported_hand', count)
+    candidates, seen_outcomes = [], set()
+    if include_candidates:
+        for style, portfolio in portfolios.items():
+            for _, outcome in portfolio:
+                signature = (tuple(outcome['predicted_enemy_hp']), outcome['predicted_hp_loss'],
+                             outcome['remaining_energy'])
+                if signature in seen_outcomes: continue
+                seen_outcomes.add(signature)
+                candidates.append({'style': style, **outcome})
+                break
+    def fallback(reason):
+        return {**decline(reason, count), 'candidates': candidates}
+    if best is None: return fallback('unsupported_hand')
     rank, sequence, loss, end_hp, direct_win = best
     if not direct_win:
-        if loss >= player['hp']: return decline('needs_survival_strategy', count)
+        if loss >= player['hp']: return fallback('needs_survival_strategy')
         if loss > 0 and any(p.get('can_use_in_combat') for p in player.get('potions') or []):
-            return decline('needs_potion_evaluation', count)
+            return fallback('needs_potion_evaluation')
     params = sequence[0] if sequence else {}
     name = next((c.get('name') or key(c) for c in player.get('hand') or []
                  if c.get('index') == params.get('card_index')), '') if sequence else ''
@@ -237,7 +265,77 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05):
                           (f'打出{name}。' if sequence else '結束回合。') +
                           (f'預估本回合掉血 {loss}。' if not direct_win else '可直接結束戰鬥。')}
     return {'decision': decision, 'reason': 'direct_win' if direct_win else 'supported_turn', 'nodes': count,
-            'predicted_hp_loss': loss, 'predicted_enemy_hp': list(end_hp), 'sequence': list(sequence)}
+            'predicted_hp_loss': loss, 'predicted_enemy_hp': list(end_hp), 'sequence': list(sequence),
+            **({'candidates': candidates} if include_candidates else {})}
+
+
+def turn_candidates(state, search_result=None):
+    """Small diverse menu for the model. Unsimulated proposals carry no invented forecasts.
+
+    Known states get search-ranked sequences. Other states get short heuristic
+    proposals to verify, not assertions that the turn's effects were simulated.
+    The model can reject all of them and use any legal action, including potions.
+    """
+    if state.get('state_type') not in COMBAT: return None
+    battle = state.get('battle') or {}
+    if battle.get('turn') != 'player' or battle.get('is_play_phase') is not True: return None
+    result = search_result if search_result is not None else search_turn(state, include_candidates=True)
+    player = state.get('player') or {}
+    hand = {c.get('index'): c for c in player.get('hand') or [] if type(c.get('index')) is int}
+    candidates = [dict(candidate) for candidate in result.get('candidates') or []]
+    enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
+    energy = player.get('energy')
+
+    def propose(style, cards, target=None):
+        if len(candidates) >= 5 or type(energy) is not int: return
+        budget, sequence, barrier = energy, [], False
+        for card in cards:
+            if type(card.get('index')) is not int or card.get('can_play') is not True: continue
+            # X-cost / stars / negative costs need their own rules, not int truncation.
+            if not re.fullmatch(r'\d+', str(card.get('cost'))) or card.get('star_cost') not in (None, 0): continue
+            cost = int(card['cost'])
+            if cost > budget: continue
+            target_type = card.get('target_type')
+            if target_type not in {'AnyEnemy', 'Self', 'AllEnemies', 'None'}: continue
+            params = {'card_index': card['index']}
+            if target_type == 'AnyEnemy':
+                if target is None or not target.get('entity_id'): continue
+                params['target'] = target['entity_id']
+            sequence.append(params); budget -= cost
+            move = card_move(card)
+            # After any unsupported effect, ask the model to reassess instead of
+            # pretending the rest of the starting hand/energy is unchanged.
+            barrier = move is None or bool(move.channel or move.evokes)
+            if barrier or len(sequence) == 3: break
+        if not sequence or any(c['sequence'] == sequence for c in candidates): return
+        candidates.append({'style': style, 'sequence': sequence, 'confidence': 'unverified',
+                           'requires_replan': barrier, 'end_turn': False,
+                           'unmodeled_effects': ['這是依牌型與目前費用提出的起手順序；未模擬傷害、格擋、觸發效果或後續局面。']})
+
+    playable = [c for c in hand.values() if c.get('can_play') is True]
+    def price(c):
+        value = str(c.get('cost'))
+        return int(value) if value.isdigit() else 999
+    attacks = sorted((c for c in playable if c.get('type') == 'Attack'), key=price)
+    defenses = sorted((c for c in playable if re.search(r'格[挡擋]|冰霜', str(c.get('description') or ''))
+                        and c.get('type') != 'Attack'), key=price)
+    weakest = min(enemies, key=lambda e: (e.get('hp') or 0) + (e.get('block') or 0), default=None)
+    threat = max(enemies, key=lambda e: sum(incoming_damage(i) for i in e.get('intents') or []), default=None)
+    setup = sorted((c for c in playable if c.get('type') == 'Power'), key=price)
+    if setup: propose('能力牌起手', setup + defenses, threat)
+    draws = sorted((c for c in playable if re.search(r'抽\d+张牌|抽\d+張牌', str(c.get('description') or ''))), key=price)
+    if draws: propose('抽牌後重算', draws, threat)
+    propose('防禦起手', defenses + attacks, threat)
+    propose('集火低血量敵人', attacks + defenses, weakest)
+    if threat is not weakest: propose('集火攻擊威脅', attacks + defenses, threat)
+    for i, candidate in enumerate(candidates):
+        candidate['id'] = f'P{i + 1}'
+        candidate['cards'] = [hand[p['card_index']].get('name') or key(hand[p['card_index']])
+                              for p in candidate['sequence']]
+    return {'search_reason': result['reason'], 'plans': candidates,
+            'instructions': '比較候選並驗算未計效果；可修改或全部拒絕。sequence 是目前手牌 index，'
+                            '不是必須執行的命令。end_turn=false 表示僅起手方案。'
+                            '抽牌或未確定效果後停止列出；可另外使用藥水。'} if candidates else None
 
 
 def search_decision(state):
