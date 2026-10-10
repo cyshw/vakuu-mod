@@ -396,6 +396,9 @@ def hard_screen(state):
     """Situations worth a stronger model: bosses, elites, danger, and close card picks."""
     kind = state.get('state_type')
     if kind in ('boss', 'elite'): return True
+    # Route choice decides which fights happen at all (an elite at 43% HP lost a run), so it gets
+    # the stronger model; single-path maps never reach the model.
+    if kind == 'map': return len((state.get('map') or {}).get('next_options') or []) > 1
     if kind in COMBAT:
         player = state.get('player') or {}
         facts = combat_facts(state)

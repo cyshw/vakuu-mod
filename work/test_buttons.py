@@ -204,6 +204,7 @@ class Tests(unittest.TestCase):
         easy['battle']['enemies'][0]['intents']=[]
         hard=self.combat(['打擊'])  # Boss.
         self.assertFalse(b.hard_screen(easy)); self.assertTrue(b.hard_screen(hard))
+        self.assertTrue(b.hard_screen({'state_type':'map','map':{'next_options':[{'index':0},{'index':1}]}}))
         good={'advice':'打','stop':False,'action':'end_turn','parameters_json':'{}','next_cards':[]}
         gave_up={'advice':'不知道','stop':True,'action':'none','parameters_json':'{}','next_cards':[]}
         c=b.Controller(lambda message: None)
@@ -362,7 +363,7 @@ class Tests(unittest.TestCase):
         prompts=[]
         def fake(state, selection):
             prompts.append((selection['model_key'], c.want_strategy))
-            if state.get('state_type') == 'map': return dict(good, action='choose_map_node', parameters_json='{"index":0}')
+            if state.get('state_type') == 'event': return dict(good, action='choose_event_option', parameters_json='{"index":0}')
             return dict(good)
         with patch.object(b.models,'settings',return_value={'model_key':'auto:brief','effort':'low'}), patch.object(c,'decide',side_effect=fake):
             c.decide_routed(fight); c.decide_routed(fight)
@@ -370,7 +371,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(c.strategy,{'fight':(1,5),'text':'先殺左邊'})
         prompts.clear()
         with patch.object(b.models,'settings',return_value={'model_key':'auto:combat','effort':'low'}), patch.object(c,'decide',side_effect=fake):
-            c.decide_routed(fight); c.decide_routed({'state_type':'map','map':{'next_options':[{'index':0},{'index':1}]}})
+            c.decide_routed(fight); c.decide_routed({'state_type':'event','event':{'options':[{'index':0},{'index':1}]}})
         self.assertEqual([m for m,_ in prompts],['claude:sonnet','claude:haiku'])
 
 if __name__=='__main__': unittest.main()
