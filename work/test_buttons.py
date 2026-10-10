@@ -360,7 +360,10 @@ class Tests(unittest.TestCase):
         good={'advice':'','stop':False,'action':'end_turn','parameters_json':'{}','next_cards':[],'next_purchases':[],'strategy':'先殺左邊'}
         c=b.Controller(lambda message: None)
         prompts=[]
-        def fake(state, selection): prompts.append((selection['model_key'], c.want_strategy)); return dict(good)
+        def fake(state, selection):
+            prompts.append((selection['model_key'], c.want_strategy))
+            if state.get('state_type') == 'map': return dict(good, action='choose_map_node', parameters_json='{"index":0}')
+            return dict(good)
         with patch.object(b.models,'settings',return_value={'model_key':'auto:brief','effort':'low'}), patch.object(c,'decide',side_effect=fake):
             c.decide_routed(fight); c.decide_routed(fight)
         self.assertEqual(prompts,[('claude:sonnet',True),('claude:haiku',False)])  # Plan once, then Haiku follows it.
