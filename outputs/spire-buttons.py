@@ -26,6 +26,10 @@ from sts2_advisor import advise
 import spire_models as models
 import spire_quota
 
+# Tuned for the game's Instant fast mode; wait_until_settled covers screens that still animate.
+ACTION_PAUSE = 0.5
+POLL_INTERVAL = 0.25
+
 FIELDS = {
     'play_card': {'card_index', 'target'}, 'end_turn': set(),
     'use_potion': {'slot', 'target'}, 'discard_potion': {'slot'},
@@ -196,7 +200,7 @@ class Controller:
                 announced = True
             if time.monotonic() >= deadline:
                 raise RuntimeError('等待出牌階段超過 45 秒，已停止；請確認遊戲是否需要手動處理。')
-            if self.stop_event.wait(0.5): raise InterruptedError('已停止')
+            if self.stop_event.wait(POLL_INTERVAL): raise InterruptedError('已停止')
             state = api.request('/api/v1/singleplayer?format=json')
         return state
 
@@ -205,7 +209,7 @@ class Controller:
         # proceed button is still animating in; asking the model then makes it give up.
         deadline = time.monotonic() + timeout
         while transitional(state) and time.monotonic() < deadline:
-            if self.stop_event.wait(0.5): raise InterruptedError('已停止')
+            if self.stop_event.wait(POLL_INTERVAL): raise InterruptedError('已停止')
             state = api.request('/api/v1/singleplayer?format=json')
         return state
 
@@ -286,7 +290,7 @@ class Controller:
                     result = api.request('/api/v1/singleplayer', body)
                 if result.get('status') != 'ok': raise RuntimeError(str(result))
                 self.report(decision['advice'] + '\n〔已執行〕')
-                self.stop_event.wait(1.2)
+                self.stop_event.wait(ACTION_PAUSE)
             else:
                 self.report(f'這份契約，暫且履行到此。\n已完成 {max_steps} 步並停止；需要時可再次呼叫。')
         except InterruptedError:
