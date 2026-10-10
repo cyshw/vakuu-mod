@@ -9,7 +9,7 @@
 | BoberInSpire | https://github.com/S0ul3r/BoberInSpire ，commit 67263f2a7328783bbce201a064a90565f6a1447e；本倉庫保留當時使用的 python_app 子集與 data 快照 |
 | Spire Codex | https://spire-codex.com 公開 API `/api/runs/metrics/cards?bracket=a10&character=<角色>`；每天最多抓一次，快取於 `outputs/button-runtime/spire-codex/`（不提交）。依[使用條款](https://spire-codex.com/terms)使用文件化的公開 API，不爬網頁 |
 | .NET | SDK 9.0.318，net9.0；不提交 SDK 或編譯結果 |
-| Python | 3.12，標準庫；需要 Tk，沒有額外 pip 依賴 |
+| Python | 3.12，標準庫；沒有額外 pip 依賴 |
 | Claude Code | 官方原生 Windows CLI 2.1.295，訂閱登入；不提交執行檔或登入資料 |
 | Codex | 本機已登入 CLI；預設模型依本機設定，指定模型由 spire_models.py 控制 |
 

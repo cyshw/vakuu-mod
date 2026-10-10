@@ -10,13 +10,14 @@
 - `outputs`：Python 控制器、模型設定、Bober 抓牌轉接器、資料及使用說明。
 - `work/test_*.py`：控制器、模型與抓牌轉接器測試。
 - `scripts`：建置、測試與安裝工具。
+- `tools`：開發測試工具：`takeover_log.py` 用磁碟上的最新程式接手並記錄每一步（不必重開遊戲），`reload_room.py` 強制重啟遊戲並按「繼續」，重打目前房間（可用來比較不同設定，死亡後存檔會被刪除，無法重打）。
 - `docs/DEPENDENCIES.md`：外部來源、固定版本與重建需求。
 
 這裡是後續維護的原始碼倉庫，遊戲目前也使用這裡的 Python 程式；上層原本的 outputs 保留為舊部署副本。Python 修改在遊戲重開後載入，C# 修改需要重建與安裝，再重開遊戲。
 
 ## 重建與安裝
 
-需要合法 Steam 遊戲安裝、.NET 9 SDK、Python 3.12（含 Tk）與本機 Codex CLI。Claude 可使用已安裝的 Claude Code，或將官方原生執行檔放到 `outputs/claude/claude.exe`；程式與帳號登入資料不納入 Git。
+需要合法 Steam 遊戲安裝、.NET 9 SDK、Python 3.12與本機 Codex CLI。Claude 可使用已安裝的 Claude Code，或將官方原生執行檔放到 `outputs/claude/claude.exe`；程式與帳號登入資料不納入 Git。
 
 在倉庫根目錄執行：
 
