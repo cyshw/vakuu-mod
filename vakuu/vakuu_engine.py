@@ -67,10 +67,17 @@ class Controller:
         if session: session.close()
 
     def sync_combat(self, state):
+        previous_key = self.combat_key
         key = fight_key(state)
         # Exhaust/discard prompts are still part of the fight. The API supplies
         # battle data on hand_select, even though ordinary combat actions pause.
         if state.get('state_type') == 'hand_select' and state.get('battle'):
+            run = state.get('run') or {}
+            key = (run.get('act'), run.get('floor'))
+        player = state.get('player') or {}
+        # Grid overlays (e.g. Hologram's discard-pile selection) omit battle.
+        # The API only includes hand/energy while CombatManager is in progress.
+        if state.get('state_type') in {'card_select', 'bundle_select', 'relic_select'} and 'hand' in player and 'energy' in player:
             run = state.get('run') or {}
             key = (run.get('act'), run.get('floor'))
         round_number = (state.get('battle') or {}).get('round')
@@ -79,7 +86,8 @@ class Controller:
                      and round_number < self.combat_round)
         if key != self.combat_key or restarted: self.close_combat_session()
         self.combat_key = key
-        self.combat_round = round_number if key is not None else None
+        if key is None: self.combat_round = None
+        elif round_number is not None or key != previous_key: self.combat_round = round_number
 
     def stop(self):
         self.stop_event.set()

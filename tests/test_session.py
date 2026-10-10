@@ -106,6 +106,11 @@ class LifecycleTests(unittest.TestCase):
             selecting = {**state, 'state_type': 'hand_select'}
             c.sync_combat(selecting)
             self.assertIs(c.combat_session, session)
+            grid = {**state, 'state_type': 'card_select', 'battle': None,
+                    'card_select': {'screen_type': 'NCombatPileCardSelectScreen'}}
+            c.sync_combat(grid)
+            self.assertIs(c.combat_session, session)
+            self.assertEqual(c.combat_round, 2)
             state['battle']['round'] = 1
             c.sync_combat(state)
             session.close.assert_called_once()
@@ -114,6 +119,15 @@ class LifecycleTests(unittest.TestCase):
             second = c.combat_session
             c.sync_combat({'state_type': 'card_reward'})
             second.close.assert_called_once()
+
+    def test_shop_grid_with_no_combat_player_fields_closes_session(self):
+        c = engine.Controller(lambda m: None)
+        c.combat_key = (1, 4)
+        c.combat_session = session = Mock()
+        c.sync_combat({'state_type': 'card_select', 'run': {'act': 1, 'floor': 4},
+                       'player': {'hp': 40, 'deck': []}})
+        session.close.assert_called_once()
+        self.assertIsNone(c.combat_key)
 
     def test_stop_model_change_and_failure_close_session(self):
         c = engine.Controller(lambda m: None)
