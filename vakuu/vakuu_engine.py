@@ -21,7 +21,7 @@ from spire_session import CombatSession
 import spire_quota
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
-from vakuu_plans import auto_decision, first_card, plan_decision, route_decision, start_plan, start_route
+from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_search import search_turn, turn_candidates
 from vakuu_choices import choice_offer, chosen_decision
@@ -104,7 +104,7 @@ class Controller:
             state = api.request('/api/v1/singleplayer?format=json')
         return state
 
-    def wait_for_change(self, before, timeout=5):
+    def wait_for_change(self, before, timeout=10, body=None):
         # Some actions (e.g. map travel) keep showing the old screen for a moment; acting on it
         # repeats the move or trips the stale-state check.
         # Effects also land in stages (Capacitor updates the hand first and orb slots later), so after
@@ -113,12 +113,26 @@ class Controller:
         if self.stop_event.wait(ACTION_PAUSE): return
         previous = fingerprint(before)
         changed = False
+        stable_since = time.monotonic()
+        pending_card = False
+        if body and body.get('action') == 'play_card':
+            card = next((c for c in (before.get('player') or {}).get('hand') or []
+                         if c.get('index') == body['card_index']), None)
+            pending_card = card is not None and not wastes_energy_card(before, card)
+        old_hand = hand_signatures(before) if pending_card else None
+        resolved = not pending_card
         while time.monotonic() < deadline:
-            current = fingerprint(api.request('/api/v1/singleplayer?format=json'))
-            if changed and current == previous: return
+            state = api.request('/api/v1/singleplayer?format=json')
+            current = fingerprint(state)
+            # Energy can be spent before the card leaves the hand or its block
+            # lands. Playability flags alone do not mean resolution is finished.
+            resolved = resolved or state.get('state_type') != before.get('state_type') or hand_signatures(state) != old_hand
+            if current != previous or not resolved: stable_since = time.monotonic()
+            if changed and resolved and current == previous and time.monotonic() - stable_since >= (.75 if pending_card else 0): return
             changed = changed or current != previous
             previous = current
             if self.stop_event.wait(POLL_INTERVAL): return
+        if not resolved: raise RuntimeError('出牌仍未完成結算，已停止，避免重複出牌。')
 
     def wait_until_settled(self, state, timeout=10):
         # Right after resting or claiming the last reward, the screen has nothing to choose and the
@@ -333,7 +347,7 @@ class Controller:
                     result = api.request('/api/v1/singleplayer', body)
                 if result.get('status') != 'ok': raise RuntimeError(str(result))
                 self.report(decision['advice'] + '\n〔已執行〕')
-                self.wait_for_change(current)
+                self.wait_for_change(current, body=body)
                 if self.combat_session:
                     self.sync_combat(api.request('/api/v1/singleplayer?format=json'))
             else:

@@ -15,7 +15,7 @@ from vakuu_rules import COMBAT
 # These only act on pickup, room entry, or turn start (already reflected in state).
 PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',
                   'FESTIVE_POPPER', 'MERCURY_HOURGLASS', 'PAELS_FLESH', 'MEAL_TICKET',
-                  'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD'}
+                  'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF'}
 PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER', 'FOCUS_POWER',
                  # Supported moves never draw cards; these triggers cannot fire in the search.
                  'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER'}

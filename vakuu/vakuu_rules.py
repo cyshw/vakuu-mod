@@ -67,6 +67,17 @@ def still_valid(before, now, body):
     Anything else must match exactly, so a player acting by hand still stops takeover.
     """
     if fingerprint(before) == fingerprint(now): return True
+    if body.get('action') == 'confirm_selection' and before.get('state_type') == now.get('state_type') == 'card_select':
+        old = before.get('card_select') or {}
+        new = now.get('card_select') or {}
+        # Transform previews can reroll between API reads. Confirming applies
+        # to the selected original card; it does not choose the preview result.
+        if (old.get('screen_type') == new.get('screen_type') == 'transform'
+                and old.get('can_confirm') and new.get('can_confirm')
+                and selection_complete(before) and selection_complete(now)):
+            without_preview = lambda s: {**s, 'card_select': {
+                k: v for k, v in s['card_select'].items() if k != 'preview_cards'}}
+            return fingerprint(without_preview(before)) == fingerprint(without_preview(now))
     if body.get('action') not in ('play_card', 'use_potion') or now.get('state_type') != before.get('state_type'): return False
     old_hand = (before.get('player') or {}).get('hand') or []
     new_hand = (now.get('player') or {}).get('hand') or []

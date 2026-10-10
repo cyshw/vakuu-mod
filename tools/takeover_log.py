@@ -55,12 +55,15 @@ def main():
         return result
     engine.search_turn = logged_search
     raw_request = engine.api.request
+    fight_started = False
 
     def request(path, body=None):
+        nonlocal fight_started
         result = raw_request(path, body)
         if body is None:
             write('state', state=result)
-            if args.one_fight and result.get('state_type') in ('rewards', 'card_reward', 'game_over', 'map'):
+            if result.get('state_type') in engine.COMBAT: fight_started = True
+            if args.one_fight and fight_started and result.get('state_type') in ('rewards', 'card_reward', 'game_over', 'map'):
                 controller.stop_event.set()
         else:
             write('post', body=body, result=result)
@@ -81,7 +84,11 @@ def main():
         return answer
     engine.Controller.call_model = logged_call
 
-    controller.run(True, args.steps)
+    try:
+        controller.run(True, args.steps)
+    finally:
+        controller.stop()  # The command exits here; do not leave an idle app-server behind.
+        log.close()
 
 
 if __name__ == '__main__':
