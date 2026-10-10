@@ -1905,6 +1905,16 @@ public static partial class McpMod
         return state;
     }
 
+    private static object? PrivateField(object target, string name)
+    {
+        for (var type = target.GetType(); type != null; type = type.BaseType)
+        {
+            var field = type.GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (field != null) return field.GetValue(target);
+        }
+        return null;
+    }
+
     private static Dictionary<string, object?> BuildCardSelectState(NCardGridSelectionScreen screen, RunState runState)
     {
         var state = new Dictionary<string, object?>();
@@ -1929,6 +1939,28 @@ public static partial class McpMod
             state["prompt"] = prompt;
         }
 
+        // Selection progress lives in private fields of each screen subclass. Without it a client
+        // cannot tell a finished selection from an empty one on screens whose preview is not in
+        // the containers checked below (e.g. enchanting), and keeps toggling the same card.
+        var selected = (PrivateField(screen, "_selectedCards") as System.Collections.IEnumerable)?
+            .Cast<object>().ToHashSet(ReferenceEqualityComparer.Instance);
+        if (selected != null) state["selected_count"] = selected.Count;
+        if (PrivateField(screen, "_prefs") is { } prefs)
+        {
+            state["min_select"] = prefs.GetType().GetProperty("MinSelect")?.GetValue(prefs);
+            state["max_select"] = prefs.GetType().GetProperty("MaxSelect")?.GetValue(prefs);
+        }
+        if (PrivateField(screen, "_enchantment") is { } enchantment)
+        {
+            state["enchantment"] = new Dictionary<string, object?>
+            {
+                ["name"] = SafeGetText(() => enchantment.GetType().GetProperty("Title")?.GetValue(enchantment)?.ToString()),
+                ["description"] = SafeGetText(() => StripRichTextTags(
+                    enchantment.GetType().GetProperty("DynamicDescription")?.GetValue(enchantment)?.ToString() ?? "")),
+                ["amount"] = PrivateField(screen, "_enchantmentAmount")
+            };
+        }
+
         // Cards in the grid (sorted by visual position - MoveToFront can reorder children)
         var cardHolders = FindAllSortedByPosition<NGridCardHolder>(screen);
         var cards = new List<Dictionary<string, object?>>();
@@ -1940,6 +1972,7 @@ public static partial class McpMod
 
             var cardInfo = BuildCardInfo(card);
             cardInfo["index"] = index;
+            if (selected != null) cardInfo["selected"] = selected.Contains(card);
             cards.Add(cardInfo);
             index++;
         }
@@ -1952,7 +1985,10 @@ public static partial class McpMod
         var previewGeneric = screen.GetNodeOrNull<Godot.Control>("%PreviewContainer");
         bool previewShowing = (previewSingle?.Visible ?? false)
                             || (previewMulti?.Visible ?? false)
-                            || (previewGeneric?.Visible ?? false);
+                            || (previewGeneric?.Visible ?? false)
+                            // Enchant screens keep their previews in differently named containers.
+                            || (PrivateField(screen, "_enchantSinglePreviewContainer") as Godot.Control)?.Visible == true
+                            || (PrivateField(screen, "_enchantMultiPreviewContainer") as Godot.Control)?.Visible == true;
         state["preview_showing"] = previewShowing;
         if (previewShowing)
         {

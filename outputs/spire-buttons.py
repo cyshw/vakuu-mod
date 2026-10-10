@@ -143,8 +143,11 @@ def fingerprint(state):
 
 def selection_complete(state):
     # select_card toggles a card; once the preview opens the choice is made and only confirm/cancel are safe.
+    # Screens without a recognised preview (e.g. enchanting) report how many cards are chosen instead.
     select = state.get('card_select') or {}
-    return state.get('state_type') == 'card_select' and bool(select.get('preview_showing'))
+    if state.get('state_type') != 'card_select': return False
+    chosen, most = select.get('selected_count'), select.get('max_select')
+    return bool(select.get('preview_showing')) or (isinstance(most, int) and most > 0 and isinstance(chosen, int) and chosen >= most)
 
 def validate(state, action, params):
     allowed = ALLOWED.get(state.get('state_type'), set()) | {'use_potion', 'discard_potion'}
@@ -355,6 +358,8 @@ class Controller:
             '戰鬥數字以 combat_facts 為準，不要自行重算傷害與格擋；lethal_if_no_more_block 為 true 時優先保命。'
             'card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，'
             '只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。'
+            'cards 的 selected 表示已選取，selected_count、min_select、max_select 是已選與可選張數；'
+            '附魔畫面的 enchantment 說明附魔效果，依效果選最能發揮的牌（例如每段傷害加成適合多段攻擊）。'
             '商店沒有想買或買不起的商品時用 proceed 離開；proceed 會自動先關閉商品欄。'
             '防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。'
             '抓牌採用 BoberInSpire 評分；前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；'

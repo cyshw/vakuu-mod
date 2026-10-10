@@ -224,4 +224,12 @@ class Tests(unittest.TestCase):
             c.decide_routed(hard)
         self.assertEqual(decide.call_args.args[1]['model_key'],'claude:haiku')  # Manual choice is respected.
 
+    def test_enchant_selection_without_preview_is_confirmed(self):
+        pick=lambda n: {'state_type':'card_select','card_select':{'preview_showing':False,'can_confirm':True,
+                        'selected_count':n,'min_select':1,'max_select':1,'cards':[{'index':0,'selected':bool(n)}]}}
+        self.assertIsNone(b.auto_decision(pick(0)))
+        self.assertEqual(b.auto_decision(pick(1))['action'],'confirm_selection')
+        with self.assertRaises(ValueError): b.validate(pick(1),'select_card',{'index':0})
+        self.assertFalse(b.selection_complete({'state_type':'card_select','card_select':{'selected_count':1,'max_select':3}}))
+
 if __name__=='__main__': unittest.main()
