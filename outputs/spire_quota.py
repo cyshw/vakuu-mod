@@ -5,7 +5,9 @@ import queue
 import subprocess
 import threading
 import time
+import urllib.request
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from spire_models import find_cli
 
 _lock=threading.Lock()
@@ -67,14 +69,41 @@ def read_codex_limits():
         except subprocess.TimeoutExpired: process.kill(); process.wait()
         process.stdout.close()
 
+CLAUDE_WINDOWS=(('five_hour','5 小時'),('seven_day','7 天'),('seven_day_opus','7 天 · Opus'),('seven_day_sonnet','7 天 · Sonnet'))
+
+def format_claude_limits(result):
+    lines=[]
+    for key,label in CLAUDE_WINDOWS:
+        item=result.get(key)
+        if not isinstance(item,dict): continue
+        used=item.get('utilization')
+        if type(used) not in (int,float): continue
+        try: stamp=datetime.fromisoformat(item['resets_at']).astimezone(timezone(timedelta(hours=8))).strftime('%m/%d %H:%M')
+        except (KeyError,TypeError,ValueError): stamp='未知'
+        lines.append(f'Claude · {label}：剩餘 {max(0,min(100,100-used)):g}%\n重置：{stamp}（台灣時間）')
+    return '\n'.join(lines) if lines else '目前無法取得 Claude 剩餘額度。'
+
+def read_claude_limits():
+    # Same read-only endpoint Claude Code's /usage uses; never refreshes the token so the CLI keeps owning it.
+    oauth=json.loads((Path.home()/'.claude/.credentials.json').read_text(encoding='utf-8'))['claudeAiOauth']
+    if oauth['expiresAt']/1000<time.time(): raise RuntimeError('登入憑證已過期')
+    request=urllib.request.Request('https://api.anthropic.com/api/oauth/usage',headers={
+        'Authorization':'Bearer '+oauth['accessToken'],'anthropic-beta':'oauth-2025-04-20','User-Agent':'vakuu-quota'})
+    with urllib.request.urlopen(request,timeout=15) as response: return json.load(response)
+
+def read_limits(provider):
+    if provider=='claude':
+        try: return format_claude_limits(read_claude_limits())
+        except RuntimeError: return 'Claude 登入憑證已過期，完成一次 Claude 呼叫後再展開面板。'
+        except (OSError,ValueError,KeyError,TypeError): return '目前無法取得 Claude 剩餘額度，可開啟官方額度頁面查看。'
+    try: return format_limits(read_codex_limits())
+    except (OSError,RuntimeError,ValueError,KeyError,queue.Empty,TimeoutError): return '目前無法取得 Codex 剩餘額度，稍後再展開面板重試。'
+
 def quota(model_key):
     provider=model_key.split(':',1)[0]
-    if provider=='claude':
-        return {'message':'Claude 剩餘額度：請查看官方額度頁面。\n目前背景呼叫無法讀取百分比。','provider':provider}
     with _lock:
-        if _cache and time.monotonic()-_cache['time']<60: return _cache['value']
-        try: message=format_limits(read_codex_limits())
-        except (OSError,RuntimeError,ValueError,KeyError,queue.Empty,TimeoutError): message='目前無法取得 Codex 剩餘額度，稍後再展開面板重試。'
-        result={'message':message,'provider':provider}
-        _cache.update(time=time.monotonic(),value=result)
+        cached=_cache.get(provider)
+        if cached and time.monotonic()-cached['time']<60: return cached['value']
+        result={'message':read_limits(provider),'provider':provider}
+        _cache[provider]={'time':time.monotonic(),'value':result}
         return result
