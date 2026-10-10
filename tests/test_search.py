@@ -155,18 +155,21 @@ class SearchTests(unittest.TestCase):
         s = state(); s['battle']['enemies'][0]['intents'][0]['type'] = 'DeathBlow'
         self.assertIsNone(search_turn(s)['decision'])
 
-    def test_controller_searches_again_after_hand_changes_without_calling_ai(self):
-        first = state([card(0)], [enemy(hp=30)], energy=1)
-        # Simulates the newly read hand after a draw/creation; no previous queue is reused.
-        second = state([card(9, damage=40)], [enemy(hp=24)], energy=1)
+    def test_controller_plays_found_kills_and_asks_the_model_otherwise(self):
+        kill = state([card(9, damage=40)], [enemy(hp=24)], energy=1)
         c = engine.Controller(lambda m: None)
-        with patch.object(engine.api, 'request', side_effect=[first, first, {'status': 'ok'},
-                          second, second, {'status': 'ok'}]) as api, \
-             patch.object(c, 'decide_routed') as model, patch.object(c, 'wait_for_change'):
-            c.run(True, 2)
+        with patch.object(engine.api, 'request', side_effect=[kill, kill, {'status': 'ok'}]) as api,              patch.object(c, 'decide_routed') as model, patch.object(c, 'wait_for_change'):
+            c.run(True, 1)
         model.assert_not_called()
-        posts = [call.args[1] for call in api.call_args_list if len(call.args) == 2]
-        self.assertEqual([p['card_index'] for p in posts], [0, 9])
+        self.assertEqual([call.args[1]['card_index'] for call in api.call_args_list if len(call.args) == 2], [9])
+        # A searched turn that does not win values this turn only (no setup, no held cards): the model decides.
+        plain = state([card(0)], [enemy(hp=30)], energy=1)
+        answer = {'advice': '打', 'stop': False, 'action': 'play_card', 'parameters_json': '{"card_index":0,"target":"a"}',
+                  'next_cards': []}
+        c = engine.Controller(lambda m: None)
+        with patch.object(engine.api, 'request', side_effect=[plain, plain, {'status': 'ok'}]),              patch.object(c, 'decide_routed', return_value=answer) as model, patch.object(c, 'wait_for_change'):
+            c.run(True, 1)
+        model.assert_called_once()
 
     def test_no_ai_mode_stops_without_model_or_game_action(self):
         c = engine.Controller(lambda m: None, allow_model=False)

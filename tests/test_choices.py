@@ -197,4 +197,29 @@ class ChoiceTests(unittest.TestCase):
                                  {'action': 'play_card', 'card_index': 0}])
 
 
+    def test_claude_gets_the_full_state_without_a_candidate_round(self):
+        c = engine.Controller(lambda m: None)
+        full = {'advice': '', 'stop': False, 'action': 'end_turn', 'parameters_json': '{}', 'next_cards': []}
+        with patch.object(engine, 'choice_offer') as offer, patch.object(engine.api, 'compact', side_effect=lambda x: copy.deepcopy(x)),              patch.object(c, 'call_model', return_value=full) as call:
+            c.decide(sample(), {'model_key': 'claude:sonnet', 'effort': 'low'})
+        offer.assert_not_called()
+        self.assertEqual(call.call_count, 1)
+
+    def test_a_non_winning_search_does_not_replace_the_models_turn_plan(self):
+        s = sample()
+        plan = {'advice': '', 'stop': False, 'action': 'play_card', 'parameters_json': json.dumps({'card_index': 0, 'target': 'a'}),
+                'next_cards': [{'hand_index': 1, 'target': '', 'potion_slot': -1}]}
+        second = copy.deepcopy(s); second['player']['hand'] = second['player']['hand'][1:]
+        for i, card in enumerate(second['player']['hand']): card['index'] = i
+        second['player']['energy'] = 1
+        searched = {'decision': {'action': 'end_turn', 'stop': False, 'parameters_json': '{}', 'advice': ''},
+                    'reason': 'supported_turn'}
+        c = engine.Controller(lambda m: None)
+        with patch.object(engine.api, 'request', side_effect=[s, s, {'status': 'ok'}, second, second, {'status': 'ok'}]) as api,              patch.object(engine, 'search_turn', return_value=searched),              patch.object(c, 'decide_routed', return_value=plan) as model, patch.object(c, 'wait_for_change'):
+            c.run(True, 2)
+        self.assertEqual(model.call_count, 1)
+        posts = [call.args[1] for call in api.call_args_list if len(call.args) == 2]
+        self.assertEqual(posts, [{'action': 'play_card', 'card_index': 0, 'target': 'a'}, {'action': 'play_card', 'card_index': 0}])
+
+
 if __name__ == '__main__': unittest.main()

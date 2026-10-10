@@ -186,7 +186,10 @@ class Controller:
         selection = selection or models.settings()
         cached = self.local_search
         result = cached[1] if cached and cached[0] == fingerprint(state) else None
-        offer = None if self.want_strategy else choice_offer(state, result)
+        # Candidate-only prompts hide the full hand and cost a second call when rejected; they stay
+        # limited to Codex, whose per-battle conversation makes that follow-up cheap, until measured live.
+        candidate_mode = selection['model_key'].startswith('codex:') and not self.want_strategy
+        offer = choice_offer(state, result) if candidate_mode else None
         rejection = None
         if offer:
             try:
@@ -327,8 +330,12 @@ class Controller:
                 if takeover and decision is None and state.get('state_type') in COMBAT:
                     result = search_turn(state, include_candidates=True)
                     self.local_search = (fingerprint(state), result)
-                    decision = result['decision']
-                    if decision is not None: plan = None  # Re-read and search after each executed move.
+                    # Only a found kill is played without the model: it is exact and ends the fight. Other
+                    # searched turns value this turn alone (not setup or held cards), so they only inform
+                    # the model, and the model's own turn plan keeps running.
+                    if result['reason'] == 'direct_win':
+                        decision = result['decision']
+                        plan = None  # Re-read and search after each executed move.
                 if takeover and decision is None:
                     decision = route_decision(self.route, state) or plan_decision(plan, state)
                 if decision is None:
