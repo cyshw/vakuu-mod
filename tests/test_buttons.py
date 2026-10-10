@@ -452,4 +452,14 @@ class Tests(unittest.TestCase):
             with patch.object(facts,'ENEMY_NOTES',Path(directory)/'missing.md'):
                 self.assertEqual(facts.enemy_notes(fight),{})
 
+    def test_hand_pick_confirms_when_the_prompted_count_is_chosen(self):
+        pick=lambda chosen, prompt='选择1张牌来消耗。': {'state_type':'hand_select','hand_select':{
+            'prompt':prompt,'can_confirm':True,'cards':[{'index':0,'name':'打击'}],'selected_cards':[{'name':'打击'}]*chosen}}
+        self.assertEqual(plans.auto_decision(pick(1))['action'],'combat_confirm_selection')
+        self.assertIsNone(plans.auto_decision(pick(0)))
+        self.assertIsNone(plans.auto_decision(pick(1,'选择2张牌来消耗。')))
+        self.assertIsNone(plans.auto_decision(pick(1,'选择任意张牌。')))  # No count: the model decides.
+        self.assertEqual(rules.validate(pick(0),'play_card',{'card_index':0,'target':'SEWER_CLAM_0'}),
+                         {'action':'combat_select_card','card_index':0})
+
 if __name__=='__main__': unittest.main()

@@ -1,6 +1,7 @@
 """Game action rules: what each screen allows, validating model moves, and comparing states."""
 import hashlib
 import json
+import re
 
 FIELDS = {
     'play_card': {'card_index', 'target'}, 'end_turn': set(),
@@ -83,6 +84,15 @@ def fingerprint(state):
     if isinstance(player, dict): state = {**state, 'player': {k: v for k, v in player.items() if k not in PILES}}
     return hashlib.sha256(json.dumps(state, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
+HAND_PICK_COUNT = re.compile(r'[选選]择\s*(\d+)\s*[张張]')
+
+def hand_selection_complete(state):
+    """In-hand picks (e.g. "选择1张牌来消耗") report no count; read it from the prompt."""
+    if state.get('state_type') != 'hand_select': return False
+    select = state.get('hand_select') or {}
+    wanted = HAND_PICK_COUNT.search(str(select.get('prompt') or ''))
+    return bool(wanted) and len(select.get('selected_cards') or []) >= int(wanted.group(1)) and bool(select.get('can_confirm'))
+
 def selection_complete(state):
     # select_card toggles a card; once the preview opens the choice is made and only confirm/cancel are safe.
     # Screens without a recognised preview (e.g. enchanting) report how many cards are chosen instead.
@@ -98,6 +108,8 @@ ALIASES = {
     ('card_select', 'combat_confirm_selection'): ('confirm_selection', {}),
     ('hand_select', 'select_card'): ('combat_select_card', {'index': 'card_index'}),
     ('hand_select', 'confirm_selection'): ('combat_confirm_selection', {}),
+    # Haiku answered "play" on Exhaust-a-card prompts; a hand pick takes no target (None drops a key).
+    ('hand_select', 'play_card'): ('combat_select_card', {'target': None}),
 }
 
 def allowed_actions(state):
@@ -111,7 +123,7 @@ def validate(state, action, params):
     alias = ALIASES.get((state.get('state_type'), action))
     if alias and isinstance(params, dict):
         action, renames = alias
-        params = {renames.get(key, key): value for key, value in params.items()}
+        params = {renames.get(key, key): value for key, value in params.items() if renames.get(key, key) is not None}
     allowed = allowed_actions(state)
     if action not in allowed or action not in FIELDS:
         raise ValueError('不允許在目前畫面執行這個操作：' + action)

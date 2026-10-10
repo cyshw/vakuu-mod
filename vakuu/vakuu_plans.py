@@ -4,7 +4,7 @@ from collections import Counter
 
 from sts2_advisor import advise
 from vakuu_facts import wastes_energy_card
-from vakuu_rules import COMBAT, END_TURN, LEAVE_SHOP, selection_complete
+from vakuu_rules import COMBAT, END_TURN, LEAVE_SHOP, hand_selection_complete, selection_complete
 
 def hand_names(state):
     return Counter(c.get('name') for c in (state.get('player') or {}).get('hand') or [])
@@ -93,6 +93,8 @@ def auto_decision(state, opened=None):
     """Takeover steps with exactly one sensible move; skipping the model saves a full CLI call."""
     kind = state.get('state_type')
     player = state.get('player') or {}
+    if hand_selection_complete(state):
+        return _auto('選好了，落筆。\n建議：確認選擇的牌。', 'combat_confirm_selection')
     if selection_complete(state) and state['card_select'].get('can_confirm'):
         return _auto('契約已定，落筆為證。\n建議：確認剛才的選擇。', 'confirm_selection')
     if kind == 'card_reward':
