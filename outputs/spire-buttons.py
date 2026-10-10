@@ -69,6 +69,8 @@ def validate(state, action, params):
         raise ValueError('不允許在目前畫面執行這個操作：' + action)
     if not isinstance(params, dict) or set(params) - FIELDS[action]:
         raise ValueError('操作參數不符合遊戲 API')
+    # An optional null target means no target (e.g. Block cards), not an entity ID.
+    params = {key:value for key,value in params.items() if not (key == 'target' and value is None)}
     required = FIELDS[action] - {'target'}
     if not required.issubset(params):
         raise ValueError('操作缺少必要參數')
@@ -129,7 +131,8 @@ class Controller:
             '總共最多3句，戰術理由必須清楚；危急時先給關鍵操作。'
             '只根據下列 JSON 決策，不呼叫工具，不讀寫檔案，不操作電腦。'
             '輸出一個遊戲 API 動作。parameters_json 是參數物件的 JSON 字串。'
-            '卡牌 index 會隨出牌改變，只決定當前的一個動作。target 使用敵人 entity_id。'
+            '卡牌 index 會隨出牌改變，只決定當前的一個動作。target 使用敵人 entity_id 字串。'
+            '防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。'
             '抓牌採用 BoberInSpire 評分；前兩名分差5分以內，依牌組、遺物、血量、頭目判斷並考慮跳過；'
             '資料未知或不完整時自行判斷。分數是規則分數，不是勝率。'
             '優先減少失血、完成目前遊戲。不要放棄遊戲或重開。若無有效動作、在主選單、或需要人工協助，'

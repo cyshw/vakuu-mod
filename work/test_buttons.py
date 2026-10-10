@@ -7,6 +7,14 @@ spec=importlib.util.spec_from_file_location('buttons',path)
 b=importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
 
 class Tests(unittest.TestCase):
+    def test_optional_null_target_is_omitted(self):
+        params={'card_index':1,'target':None}
+        self.assertEqual(b.validate({'state_type':'monster'},'play_card',params),
+                         {'action':'play_card','card_index':1})
+        self.assertIn('target',params)  # Validation does not mutate model output.
+        with self.assertRaises(ValueError):
+            b.validate({'state_type':'monster'},'play_card',{'card_index':1,'target':0})
+
     def test_takeover_continues_into_next_player_turn(self):
         player1={'state_type':'monster','battle':{'round':1,'turn':'player','is_play_phase':True}}
         enemy={'state_type':'monster','battle':{'round':1,'turn':'enemy','is_play_phase':False}}
