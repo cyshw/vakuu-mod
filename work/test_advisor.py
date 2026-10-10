@@ -1,8 +1,12 @@
 import copy
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'outputs'))
+import spire_codex
+import sts2_advisor
 from sts2_advisor import advise
 
 def card(key, name, index=0, upgraded=False):
@@ -24,6 +28,11 @@ def sample():
     }
 
 class AdapterTests(unittest.TestCase):
+    # These cover the offline BoberInSpire fallback; never touch the network.
+    def setUp(self):
+        patcher = patch.object(sts2_advisor, 'codex_metrics', return_value=None)
+        patcher.start(); self.addCleanup(patcher.stop)
+
     def test_shop_cards_are_scored_with_shop_indices(self):
         state = sample()
         state['state_type'] = 'shop'
@@ -67,6 +76,39 @@ class AdapterTests(unittest.TestCase):
 
     def test_menu_never_scores(self):
         self.assertEqual(advise({'state_type': 'menu'})['status'], 'not_card_reward')
+
+
+METRICS = {'data_through': '2026-10-10', 'bracket': 'a10', 'character': 'IRONCLAD', 'baseline_win_rate': 30.0,
+           'character_runs': 1000, 'cards': {'DARK_EMBRACE': {'score': 40, 'tier': 'B', 'win_rate': 31.0, 'lift': 1.0},
+                                             'BODY_SLAM': {'score': 75, 'tier': 'A', 'win_rate': 38.0, 'lift': 5.5}}}
+
+class CodexTests(unittest.TestCase):
+    def test_codex_scores_rank_offers_and_keep_indices(self):
+        with patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS):
+            result = advise(sample())
+        self.assertEqual(result['engine'], 'Spire Codex')
+        self.assertEqual([(c['index'], c['score']) for c in result['ranked_cards']], [(7, 75), (9, 75), (2, 40)])
+        self.assertEqual(result['ranked_cards'][1]['name'], '全身撞擊+')
+
+    def test_unrated_offer_is_incomplete_and_sorted_last(self):
+        state = sample(); state['card_reward']['cards'].append(card('NEW_CARD', '新卡', 11))
+        with patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS):
+            result = advise(state)
+        self.assertEqual(result['status'], 'incomplete_data')
+        self.assertIsNone(result['best_scored_index'])
+        self.assertEqual(result['ranked_cards'][-1]['index'], 11)
+
+    def test_cache_refreshes_daily_and_survives_outages(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory,              patch.object(spire_codex, 'CACHE', Path(directory)):
+            with patch.object(spire_codex, 'fetch', return_value={'cards': {}}) as fetch:
+                spire_codex.card_metrics('DEFECT', now=lambda: 1000)
+                spire_codex.card_metrics('DEFECT', now=lambda: 1000 + 3600)  # Same day: cached.
+            self.assertEqual(fetch.call_count, 1)
+            with patch.object(spire_codex, 'fetch', side_effect=OSError('offline')):
+                stale = spire_codex.card_metrics('DEFECT', now=lambda: 1000 + 2 * 86400)
+            self.assertEqual(stale['fetched_at'], 1000)  # Yesterday's copy instead of nothing.
+            with patch.object(spire_codex, 'fetch', side_effect=OSError('offline')):
+                self.assertIsNone(spire_codex.card_metrics('SILENT', now=lambda: 1000))
 
 if __name__ == '__main__':
     unittest.main()
