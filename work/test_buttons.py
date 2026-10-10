@@ -254,4 +254,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(b.fingerprint(before),b.fingerprint(after))
         self.assertNotEqual(b.fingerprint(hand),b.fingerprint(self.combat(['引雷针'])))
 
+    def test_new_fight_waits_for_the_opening_hand(self):
+        loading={'state_type':'unknown'}
+        dealing={'state_type':'monster','battle':{'round':1,'turn':'player','is_play_phase':False},'player':{'hand':[]}}
+        ready={'state_type':'monster','battle':{'round':1,'turn':'player','is_play_phase':True},'player':{'hand':[{'name':'打擊'}]}}
+        c=b.Controller(lambda message: None)
+        with patch.object(b.api,'request',side_effect=[dealing,ready]), patch.object(c.stop_event,'wait',return_value=False):
+            state=c.wait_until_settled(c.wait_for_play_phase(c.wait_until_settled(loading)))
+        self.assertEqual(state,ready)
+
 if __name__=='__main__': unittest.main()

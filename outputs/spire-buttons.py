@@ -423,7 +423,9 @@ class Controller:
             for step in range(max_steps if takeover else 1):
                 if self.stop_event.is_set(): break
                 state = api.request('/api/v1/singleplayer?format=json')
-                if takeover: state = self.wait_until_settled(self.wait_for_play_phase(state))
+                # Settle first: a room that is still loading would skip the play-phase wait, and a fight
+                # that just began has no hand yet.
+                if takeover: state = self.wait_until_settled(self.wait_for_play_phase(self.wait_until_settled(state)))
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
                 self.report('我有一份提案……容我看看你的牌。' if not takeover else f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
