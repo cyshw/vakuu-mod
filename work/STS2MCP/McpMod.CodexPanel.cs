@@ -21,6 +21,10 @@ public static partial class McpMod
     private static OptionButton? _effortPicker;
     private static Button? _claudeLoginButton;
     private static bool _authPolling;
+    private static Label? _quotaLabel;
+    private static Button? _quotaPage;
+    private static bool _quotaPolling;
+    private static readonly System.Net.Http.HttpClient _quotaHttp = new() { Timeout = TimeSpan.FromSeconds(38) };
     private static readonly List<string> _modelKeys = new();
     private static readonly string[] _effortKeys = { "", "low", "medium", "high" };
     private static bool _loadingModels;
@@ -169,6 +173,11 @@ public static partial class McpMod
         var footer = new Label { Text = "按下才呼叫 · 使用所選服務的額度", MouseFilter = Control.MouseFilterEnum.Ignore };
         footer.AddThemeFontSizeOverride("font_size", 14);
         footer.AddThemeColorOverride("font_color", new Color("a79577")); box.AddChild(footer);
+        _quotaLabel = new Label { Text = "額度：讀取中…", AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            MouseFilter = Control.MouseFilterEnum.Ignore };
+        _quotaLabel.AddThemeFontSizeOverride("font_size", 14); box.AddChild(_quotaLabel);
+        _quotaPage = new Button { Text = "查看 Claude 額度", Visible = false, FocusMode = Control.FocusModeEnum.None };
+        _quotaPage.Pressed += () => OS.ShellOpen("https://claude.ai/settings/usage"); box.AddChild(_quotaPage);
         _codexTimer = new Godot.Timer { WaitTime = 0.5, OneShot = false };
         _codexLayer.AddChild(_codexTimer);
         _codexTimer.Timeout += () => { _ = PollCodexStatus(); };
@@ -229,6 +238,7 @@ public static partial class McpMod
 
     private static async Task RefreshClaudeLogin()
     {
+        _ = RefreshQuota();
         string key = "";
         await RunOnMainThread(() => {
             if (_modelPicker != null && _modelPicker.Selected >= 0 && _modelPicker.Selected < _modelKeys.Count)
@@ -247,6 +257,26 @@ public static partial class McpMod
         }
         catch { }
         finally { _authPolling = false; }
+    }
+
+    private static async Task RefreshQuota()
+    {
+        if (_quotaPolling) return;
+        _quotaPolling = true;
+        bool retry = false;
+        try {
+            using var doc = JsonDocument.Parse(await _quotaHttp.GetStringAsync(_bridgeUrl + "/quota"));
+            string message = doc.RootElement.GetProperty("message").GetString()!;
+            bool claude = doc.RootElement.GetProperty("provider").GetString() == "claude";
+            await RunOnMainThread(() => {
+                bool selectedClaude = _modelPicker!.Selected >= 0 && _modelKeys[_modelPicker.Selected].StartsWith("claude:");
+                if (selectedClaude != claude) { retry = true; return; }
+                _quotaLabel!.Text = message; _quotaPage!.Visible = claude;
+            });
+        }
+        catch { await RunOnMainThread(() => { _quotaLabel!.Text = "額度：暫時無法讀取，稍後再展開面板重試。"; }); }
+        finally { _quotaPolling = false; }
+        if (retry) await RefreshQuota();
     }
 
     private static async Task SendCodexCommand(string command)
@@ -295,6 +325,7 @@ public static partial class McpMod
         ["takeover_enabled"] = !(_takeoverButton?.Disabled ?? true),
         ["model_count"] = _modelKeys.Count,
         ["claude_login_visible"] = _claudeLoginButton?.Visible,
+        ["quota_message"] = _quotaLabel?.Text,
         ["model_key"] = _modelPicker != null && _modelKeys.Count > _modelPicker.Selected && _modelPicker.Selected >= 0 ? _modelKeys[_modelPicker.Selected] : null,
         ["panel_rect"] = _codexPanel?.GetGlobalRect().ToString()
     };

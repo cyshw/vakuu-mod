@@ -23,6 +23,7 @@ api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api)
 from sts2_advisor import advise
 import spire_models as models
+import spire_quota
 
 FIELDS = {
     'play_card': {'card_index', 'target'}, 'end_turn': set(),
@@ -215,6 +216,8 @@ def bridge_server(port):
             self.send_response(code); self.send_header('Content-Type','application/json; charset=utf-8')
             self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
         def do_GET(self):
+            if self.path=='/quota':
+                self.respond(spire_quota.quota(models.settings()['model_key'])); return
             if self.path=='/claude-auth':
                 self.respond(models.claude_auth_status()); return
             if self.path=='/models':
