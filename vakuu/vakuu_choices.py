@@ -19,10 +19,11 @@ def choice_offer(state, search_result=None):
     if state.get('state_type') not in COMBAT: return None
     menu = turn_candidates(state, search_result)
     if not menu: return None
-    # Missing/unknown combat rules need the full state immediately. It is unsafe
-    # to make the model infer these from a bare list of card names.
+    # Missing/unknown rules need the full state. Random lightning targets are a
+    # known uncertainty exposed by the orb/enemy payload; offer unverified
+    # prefixes without inventing a damage forecast or auto-ending the turn.
     if menu['search_reason'] not in {'supported_turn', 'unsupported_hand', 'no_supported_moves',
-                                     'needs_potion_evaluation'}:
+                                     'needs_potion_evaluation', 'random_orb_targets'}:
         return None
     player = state.get('player') or {}
     facts = combat_facts(state)

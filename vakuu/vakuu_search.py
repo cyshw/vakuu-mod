@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from vakuu_facts import incoming_damage
 from vakuu_rules import COMBAT
+from vakuu_relics import tuning_fork_counter
 
 # These only act on pickup, room entry, or turn start (already reflected in state).
 PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',
@@ -18,14 +19,28 @@ PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',
                   'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF'}
 PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER', 'FOCUS_POWER',
                  # Supported moves never draw cards; these triggers cannot fire in the search.
-                 'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER'}
-ENEMY_STATUS = {'STRENGTH_POWER', 'WEAK_POWER'}
+                 'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER', 'LIGHTNING_ROD_POWER',
+                 'ENERGY_NEXT_TURN_POWER',
+                 # Search moves never play Power cards, so Storm cannot fire.
+                 'STORM_POWER'}
+# Supported moves do not apply debuffs, so Artifact cannot trigger here.
+ENEMY_STATUS = {'STRENGTH_POWER', 'WEAK_POWER', 'ARTIFACT_POWER', 'RITUAL_POWER'}
 INERT_HAND = {'ASCENDERS_BANE', 'CLUMSY', 'INJURY'}
 INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
               'CLUMSY': '不能被打出。虚无。', 'INJURY': '不能被打出。'}
 # These known descriptions have no trigger when another card is played. Their
 # own effects are unsupported, so they still prevent a non-winning turn plan.
 HELD_SAFE = {
+    # Spending energy changes this held card's damage display, not other cards'
+    # effects. It remains unsupported to play; the queue's exact-hand guard will
+    # stop if its displayed description changes during a selected prefix.
+    'HELIX_DRILL': r'在本回合中，这张牌以外使用的每个\[defect_energy_icon.png\]，都会使此牌造成\d+点伤害一次。(?:（命中\d+次）)?',
+    'STORM': r'每当你打出一张能力牌时，生成1个闪电充能球。',
+    'CHARGE_BATTERY': r'获得\d+点格挡。在下个回合获得\[defect_energy_icon.png\]。',
+    'SWEEPING_BEAM': r'对所有敌人造成\d+点伤害。抽\d+张牌。',
+    'SKIM': r'抽\d+张牌。',
+    'HOLOGRAM': r'获得\d+点格挡。将弃牌堆中的一张牌放入你的手牌。(?:消耗。)?',
+    'LIGHTNING_ROD': r'获得\d+点格挡。在下\d+个回合开始时,生成1个闪电充能球。',
     'COOLHEADED': r'生成1个冰霜充能球。抽\d+张牌。',
     'OVERCLOCK': r'抽\d+张牌。将一张灼伤加入你的弃牌堆。',
     'ITERATION': r'每回合你第一次抽到状态牌时，抽\d+张牌。',
@@ -98,7 +113,9 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     if state.get('state_type') not in COMBAT: return decline('not_combat')
     player, battle = state.get('player') or {}, state.get('battle') or {}
     if battle.get('turn') != 'player' or battle.get('is_play_phase') is not True: return decline('not_play_phase')
-    if any(key(r) not in PASSIVE_RELICS for r in player.get('relics') or []): return decline('unknown_relic')
+    if any(key(r) not in PASSIVE_RELICS | {'TUNING_FORK'} for r in player.get('relics') or []): return decline('unknown_relic')
+    try: fork_counter = tuning_fork_counter(player.get('relics') or [])
+    except ValueError: return decline('unknown_relic')
     if any(key(s) not in PLAYER_STATUS for s in player.get('status') or []): return decline('unknown_player_status')
     enemies = [e for e in battle.get('enemies') or [] if (e.get('hp') or 0) > 0]
     if not enemies: return decline('no_enemies')
@@ -143,6 +160,10 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
             # A card blocked for a reason other than energy may unlock later.
             complete = False
     if not moves: return decline('no_supported_moves')
+    skill_indices = {c['index'] for c in player.get('hand') or [] if c.get('type') == 'Skill' and 'index' in c}
+    if fork_counter is not None and any(c.get('type') not in {'Attack', 'Skill'} for c in player.get('hand') or []
+                                        if card_move(c) is not None):
+        return decline('missing_card_type')
     if len(moves) > 12: return decline('too_many_cards')
     orbs = tuple((key(o), o.get('passive_val'), o.get('evoke_val')) for o in player.get('orbs') or [])
     if any(o[0] not in {'LIGHTNING_ORB', 'FROST_ORB'} or type(o[1]) is not int or type(o[2]) is not int for o in orbs):
@@ -222,6 +243,9 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
             targets = [j for j, hp in enumerate(hps) if hp > 0] if move.damage else [None]
             for target in targets:
                 hp2, blocks2, block2, balls2 = hps, blocks, block + move.block, balls
+                if fork_counter is not None and move.index in skill_indices:
+                    skills_played = sum(bool(mask & (1 << j)) and m.index in skill_indices for j, m in enumerate(moves))
+                    if (fork_counter + skills_played + 1) % 10 == 0: block2 += 7
                 if target is not None: hp2, blocks2 = hit(hp2, blocks2, target, move.damage)
                 if move.evokes and balls2:
                     # The live STS2 description says rightmost; do not assume STS1 ordering.
@@ -325,7 +349,7 @@ def turn_candidates(state, search_result=None):
     if setup: propose('能力牌起手', setup + defenses, threat)
     draws = sorted((c for c in playable if re.search(r'抽\d+张牌|抽\d+張牌', str(c.get('description') or ''))), key=price)
     if draws: propose('抽牌後重算', draws, threat)
-    propose('防禦起手', defenses + attacks, threat)
+    if defenses: propose('防禦起手', defenses + attacks, threat)
     propose('集火低血量敵人', attacks + defenses, weakest)
     if threat is not weakest: propose('集火攻擊威脅', attacks + defenses, threat)
     for i, candidate in enumerate(candidates):

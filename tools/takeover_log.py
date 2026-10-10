@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--effort', choices=['low', 'medium', 'high'])
     parser.add_argument('--one-fight', action='store_true', help='Stop as soon as the current fight ends')
     parser.add_argument('--no-ai', action='store_true', help='Use local decisions only; stop when a model would be needed')
+    parser.add_argument('--stop-after-candidate', action='store_true', help='Stop after executing one accepted candidate prefix; stop if its queue is invalidated')
     args = parser.parse_args()
 
     engine = load_engine()
@@ -49,7 +50,12 @@ def main():
     controller = engine.Controller(lambda m: (write('report', message=m), print(m.replace('\n', ' | '), flush=True)),
                                    allow_model=not args.no_ai)
     raw_search = engine.search_turn
+    candidate_remaining = None
     def logged_search(state, **kwargs):
+        if args.stop_after_candidate and candidate_remaining is not None and candidate_remaining > 0:
+            write('candidate_aborted', remaining=candidate_remaining)
+            controller.stop_event.set()
+            raise InterruptedError('候選隊列已失效，停止驗證')
         result = raw_search(state, **kwargs)
         write('search', result=result)
         return result
@@ -58,7 +64,7 @@ def main():
     fight_started = False
 
     def request(path, body=None):
-        nonlocal fight_started
+        nonlocal fight_started, candidate_remaining
         result = raw_request(path, body)
         if body is None:
             write('state', state=result)
@@ -67,22 +73,35 @@ def main():
                 controller.stop_event.set()
         else:
             write('post', body=body, result=result)
+            if candidate_remaining is not None and result.get('status') == 'ok': candidate_remaining -= 1
         return result
     engine.api.request = request
 
     decide = engine.Controller.decide
     def logged_decide(self, state, selection=None):
+        nonlocal candidate_remaining
         start = time.time()
         decision = decide(self, state, selection)
         write('model', seconds=round(time.time() - start, 1), model=(selection or {}).get('model_key'), decision=decision)
+        if args.stop_after_candidate and decision.get('candidate_id'):
+            candidate_remaining = 1 + len(decision.get('next_cards') or [])
         return decision
     engine.Controller.decide = logged_decide
     raw_call = engine.Controller.call_model
     def logged_call(self, *args, **kwargs):
+        write('model_input', stage='candidate_choice' if kwargs.get('candidate') else 'full_state',
+              prompt=args[0], schema=args[1])
         answer = raw_call(self, *args, **kwargs)
-        write('model_call', **self.last_call_metrics)
+        write('model_call', answer=answer, **self.last_call_metrics)
         return answer
     engine.Controller.call_model = logged_call
+    raw_wait = controller.wait_for_change
+    def wait_for_change(*args_, **kwargs):
+        raw_wait(*args_, **kwargs)
+        if args.stop_after_candidate and candidate_remaining == 0:
+            write('candidate_completed')
+            controller.stop_event.set()
+    controller.wait_for_change = wait_for_change
 
     try:
         controller.run(True, args.steps)

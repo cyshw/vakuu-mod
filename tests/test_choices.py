@@ -24,6 +24,20 @@ def sample():
 
 
 class ChoiceTests(unittest.TestCase):
+    def test_random_lightning_offers_unverified_prefixes_without_forecasts(self):
+        s = sample()
+        s['battle']['enemies'].append(enemy(hp=40, attack=4, name='b'))
+        s['player'].update(orb_slots=3, orbs=[{'id': 'LIGHTNING_ORB', 'passive_val': 3, 'evoke_val': 8}])
+        offer = choice_offer(s)
+        self.assertIsNotNone(offer)
+        self.assertEqual(offer['menu']['search_reason'], 'random_orb_targets')
+        for plan in offer['menu']['plans']:
+            self.assertEqual(plan['confidence'], 'unverified')
+            self.assertFalse(plan['end_turn'])
+            self.assertNotIn('predicted_hp_loss', plan)
+        decision = chosen_decision(s, offer, {'choice': offer['menu']['plans'][0]['id'], 'reject_reason': '', 'reason': '起手'})
+        self.assertNotIn(-1, [c['hand_index'] for c in decision['next_cards']])
+
     def test_offer_has_relevant_cards_but_no_full_hand_or_deck(self):
         s = sample(); before = copy.deepcopy(s)
         offer = choice_offer(s)

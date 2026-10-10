@@ -5,6 +5,7 @@ from collections import Counter
 from sts2_advisor import advise
 from vakuu_facts import project_route, route_damage, wastes_energy_card
 from vakuu_rules import COMBAT, END_TURN, LEAVE_SHOP, hand_selection_complete, selection_complete
+from vakuu_relics import after_card_relics
 
 def hand_names(state):
     return Counter(c.get('name') for c in (state.get('player') or {}).get('hand') or [])
@@ -72,7 +73,8 @@ def start_turn_plan(state, decision):
         if decision['action'] == 'play_card': guarded[card_signature(hand[index])] -= 1
         player = state.get('player') or {}
         plan.update(candidate_id=decision['candidate_id'], guarded_hand=guarded,
-                    guarded_status=player.get('status') or [], guarded_relics=player.get('relics') or [],
+                    guarded_status=player.get('status') or [],
+                    guarded_relics=after_card_relics(player.get('relics') or [], hand[index]) if decision['action'] == 'play_card' else player.get('relics') or [],
                     guarded_energy=player.get('energy', 0) - (int(hand[index]['cost']) if decision['action'] == 'play_card' else 0))
     return plan
 
@@ -124,6 +126,7 @@ def plan_decision(plan, state):
     if plan.get('candidate_id'):
         plan['guarded_hand'][card_signature(card)] -= 1
         plan['guarded_energy'] -= int(card['cost'])
+        plan['guarded_relics'] = after_card_relics(plan['guarded_relics'], card)
     return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
 # Auto-pick a card reward only when its Codex Score is at least this; guides warn that taking every
