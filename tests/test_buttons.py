@@ -381,6 +381,21 @@ class Tests(unittest.TestCase):
         plan=plans.start_plan(shop(),dict(buy,parameters_json='{"index":0}',next_purchases=[13]))
         self.assertIsNone(plans.plan_decision(plan,shop(removal_stocked=False)))  # Sold out: ask again.
 
+    def test_full_potion_belt_rejects_potion_claims_and_repeats_stop_takeover(self):
+        rewards={'state_type':'rewards','player':{'potions':[{},{}],'max_potion_slots':2},
+                 'rewards':{'items':[{'index':0,'type':'potion'},{'index':1,'type':'gold'}],'can_proceed':True}}
+        with self.assertRaises(ValueError): rules.validate(rewards,'claim_reward',{'index':0})
+        self.assertEqual(rules.validate(rewards,'claim_reward',{'index':1}),{'action':'claim_reward','index':1})
+        self.assertFalse(rules.potion_belt_full({'player':{'potions':[{}]}}))  # Unknown slot count: not full.
+        same={'advice':'領','stop':False,'action':'claim_reward','parameters_json':'{"index":1}'}
+        c=b.Controller(lambda message: None)
+        with patch.object(b.api,'request',side_effect=lambda *args: {'status':'ok'} if len(args)==2 else rewards) as api, \
+             patch.object(c,'decide_routed',return_value=same), patch.object(b,'auto_decision',return_value=None), \
+             patch.object(c,'wait_for_change'), patch.object(c.stop_event,'wait',return_value=False):
+            c.run(True,10)
+        posts=[call for call in api.call_args_list if len(call.args)==2]
+        self.assertEqual(len(posts),b.REPEAT_LIMIT-1)  # The third identical send is not made.
+
     def test_late_draw_keeps_the_chosen_play(self):
         before=self.combat(['黏液','打擊'])
         drew=self.combat(['黏液','打擊','集中打擊'])

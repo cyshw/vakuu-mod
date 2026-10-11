@@ -26,8 +26,11 @@ from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_search import search_turn, turn_candidates
 from vakuu_choices import choice_offer, chosen_decision
 from vakuu_deck import deck_direction
-from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, still_valid,
-                         transitional, validate)
+from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, potion_belt_full,
+                         still_valid, transitional, validate)
+
+# The same action sent this many times on an unchanged screen means the game is ignoring it.
+REPEAT_LIMIT = 3
 
 # Tuned for the game's Instant fast mode; wait_until_settled covers screens that still animate.
 ACTION_PAUSE = 0.5
@@ -222,6 +225,8 @@ class Controller:
             # doubled the map prompt (about 4.6k characters).
             compact.get('map', {}).pop('nodes', None)
         if state.get('state_type') == 'rest_site': compact['rest_facts'] = rest_facts(state, self.route)
+        if state.get('state_type') == 'rewards' and potion_belt_full(state):
+            compact['potion_belt_full'] = '藥水欄已滿：要領藥水得先 discard_potion 丟掉一瓶較差的，否則不領，proceed 離開'
         if state.get('state_type') == 'event':
             event = state.get('event') or {}
             advice = event_advice(event.get('event_id'), event.get('options') or [],
@@ -334,6 +339,7 @@ class Controller:
     def run(self, takeover=False, max_steps=30, finish_candidate=False):
         opened_cards = set()
         plan = None
+        repeats = (None, 0)  # (screen fingerprint and action sent, times in a row)
         try:
             # Test runs may drain a selected bounded prefix after the step cap,
             # but may not ask another model or start a new plan in these steps.
@@ -390,6 +396,13 @@ class Controller:
                     break
                 if not takeover: break
                 body = validate(state, decision['action'], json.loads(decision['parameters_json']))
+                key = (fingerprint(state), json.dumps(body, sort_keys=True))
+                repeats = (key, repeats[1] + 1 if repeats[0] == key else 1)
+                if repeats[1] >= REPEAT_LIMIT:
+                    # A claimed potion with a full belt left the screen unchanged and was asked for again
+                    # every 15 seconds; stop instead of spending model calls on an action the game ignores.
+                    self.close_combat_session()
+                    self.report('同一個動作送了幾次，畫面都沒有變化。\n已停止接手，請手動處理這個畫面。'); break
                 current = api.request('/api/v1/singleplayer?format=json')
                 if not still_valid(state, current, body):
                     self.close_combat_session()

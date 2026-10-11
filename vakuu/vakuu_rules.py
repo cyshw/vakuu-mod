@@ -155,7 +155,16 @@ def validate(state, action, params):
             if not isinstance(value, str): raise ValueError('目標 ID 格式錯誤')
         elif type(value) is not int or value < 0:
             raise ValueError('卡牌或選項索引格式錯誤')
+    if action == 'claim_reward' and potion_belt_full(state):
+        # The game ignores the claim; Sonnet asked for the same Fruit Juice five times in a row.
+        item = next((i for i in (state.get('rewards') or {}).get('items') or [] if i.get('index') == params['index']), {})
+        if item.get('type') == 'potion': raise ValueError('藥水欄已滿，先用 discard_potion 丟掉一瓶才能領取，或 proceed 離開')
     return {'action': action, **params}
+
+def potion_belt_full(state):
+    player = state.get('player') or {}
+    slots = player.get('max_potion_slots')
+    return isinstance(slots, int) and len(player.get('potions') or []) >= slots
 
 def transitional(state):
     """Screens caught mid-animation: nothing to choose yet, so asking the model only makes it give up."""
