@@ -6,13 +6,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "bober"))
-from python_app.reward_advisor import recommend
+# BoberInSpire's offline rules have no license for redistribution, so release packages leave them
+# out; community ratings and the deck direction then carry the advice on their own.
+try: from python_app.reward_advisor import recommend
+except ImportError: recommend = None
 from spire_codex import card_metrics as codex_metrics
 from vakuu_deck import deck_direction
 
 DATA = ROOT / "bober" / "data"
-CARDS = {row["id"]: row["name"] for row in json.loads((DATA / "spire_codex_cards.json").read_text(encoding="utf-8"))}
-RELICS = {row["id"]: row["name"] for row in json.loads((DATA / "spire_codex_relics.json").read_text(encoding="utf-8"))}
+
+
+def _catalog(name):
+    try: return {row["id"]: row["name"] for row in json.loads((DATA / name).read_text(encoding="utf-8"))}
+    except OSError: return {}
+
+
+CARDS = _catalog("spire_codex_cards.json")
+RELICS = _catalog("spire_codex_relics.json")
 CHARACTERS = {name.upper(): name for name in ("Ironclad", "Silent", "Defect", "Necrobinder", "Regent")}
 
 
@@ -80,6 +90,13 @@ def advise(state):
     if not offered:
         return {"status": "no_offers"}
     metrics = codex_metrics(character)
+    if recommend is None:  # Release package without the offline rules.
+        if not metrics: return {"status": "no_ratings", "message": "還沒取得社群評分（需要連網一次）。"}
+        community = codex_advice(state, offered, metrics)
+        direction, fits = deck_direction(state, offered, None)
+        for row in community['ranked_cards']: row['deck_fit'] = fits[row['index']]
+        community.update(archetype=None, deck_direction=direction, skip_evaluated=False, warnings=[])
+        return community
     unknown = []
     deck = names(player["deck"], CARDS, unknown, "deck")
     relics = names(player.get("relics", []), RELICS, unknown, "relic")

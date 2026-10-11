@@ -151,7 +151,7 @@ class Tests(unittest.TestCase):
             (runtime/'model-settings.json').write_text('{}')
             for i in range(5):
                 run=runtime/f'0000000{i}-0000-0000-0000-000000000000'; run.mkdir(); os.utime(run,(i,i))
-            with patch.object(b,'ROOT',Path(directory)): b.prune_runs(keep=2)
+            with patch.object(b,'RUNTIME',runtime): b.prune_runs(keep=2)
             self.assertEqual(sorted(p.name[7] for p in runtime.iterdir() if p.is_dir()),['3','4'])
             self.assertTrue((runtime/'model-settings.json').exists())
 

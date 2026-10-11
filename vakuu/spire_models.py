@@ -5,7 +5,8 @@ import subprocess
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
-PREFS=ROOT/'button-runtime'/'model-settings.json'
+from vakuu_paths import RUNTIME
+PREFS=RUNTIME/'model-settings.json'
 # Verified against Claude Code 2.1.295 and official model configuration.
 # Pin IDs so the displayed version and the requested version stay consistent.
 CLAUDE_MODEL_IDS={m:'claude-'+m+'-5-5' for m in ('sonnet','opus','haiku')}
@@ -73,6 +74,37 @@ def save_settings(value):
     temporary.write_text(json.dumps(value),encoding='utf-8')
     temporary.replace(PREFS)
     return value
+
+_provider_cache={}
+
+def forget_provider_status():
+    _provider_cache.clear()
+
+def provider_status(max_age=60):
+    """Which model tools this player has installed and signed in to, for the panel's setup hints.
+
+    Each check runs the tool's own status command; nothing reads or returns account details.
+    """
+    import time
+    cached=_provider_cache.get('value')
+    if cached and time.monotonic()-_provider_cache['time']<max_age: return cached
+    def run(provider,args):
+        try:
+            result=subprocess.run([find_cli(provider),*args],capture_output=True,text=True,encoding='utf-8',
+                errors='replace',timeout=20,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+            return result
+        except RuntimeError: return None  # Not installed.
+        except (OSError,subprocess.TimeoutExpired): return False
+    status={}
+    claude=run('claude',['auth','status'])
+    try: status['claude']={'installed':claude is not None,'logged_in':bool(claude and json.loads(claude.stdout).get('loggedIn'))}
+    except ValueError: status['claude']={'installed':True,'logged_in':None}
+    codex=run('codex',['login','status'])
+    status['codex']={'installed':codex is not None,'logged_in':bool(codex and codex.returncode==0 and 'Logged in' in codex.stdout+codex.stderr)}
+    agy=run('agy',['models'])
+    status['agy']={'installed':agy is not None,'logged_in':bool(agy and agy.returncode==0)}
+    _provider_cache.update(value=status,time=time.monotonic())
+    return status
 
 def find_cli(provider):
     if provider=='agy':

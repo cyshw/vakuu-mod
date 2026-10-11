@@ -2,7 +2,11 @@
 
 《殺戮尖塔 2》的本機遊戲助手：遊戲內模型選單、瓦庫風格文案、只給建議、幫我選（只處理眼前這一步）、接手這場戰鬥或整局與停止。透過 STS2MCP 本機 API 讀取及操作遊戲，不依賴 Computer Use。
 
-目前基準：Windows、遊戲 v0.111.0、.NET SDK 9.0.318、Python 3.12、Claude Code 2.1.295。Claude 模型固定為 Sonnet／Opus／Haiku 5.5；各模型是否可用依帳號而定。完整戰鬥接手尚未驗證。
+目前基準：Windows、遊戲 v0.111.0、.NET SDK 9.0.318、Python 3.12、Claude Code 2.1.295。模型可用 Claude（Sonnet／Opus／Haiku 5.5）、Codex、Gemini（透過 Antigravity CLI）；各模型是否可用依帳號而定。2026-10-11 已完整通關一局進階 9（見 docs/run-20261011-victory.md）。
+
+## 玩家安裝
+
+一般玩家不需要建置：下載 Releases 的 `vakuu-mod-版本.zip`，解壓縮到遊戲的 `mods` 資料夾，照 [docs/安裝說明.md](docs/安裝說明.md) 安裝 Python 與至少一個 AI 命令列工具即可。發行包由 `scripts/package.ps1` 產生，不含 BoberInSpire 離線資料（無再散布授權）與任何 Claude Code 程式；模組會自行尋找 `vakuu` 資料夾與 Python，設定寫入遊戲資料夾或 `%LOCALAPPDATA%akuu`。
 
 ## 資料夾
 

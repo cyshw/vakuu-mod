@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from vakuu_paths import RUNTIME
 import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
@@ -73,7 +74,7 @@ def prune_runs(keep=40, exclude=(), min_age=600):
     def modified(path):
         try: return path.stat().st_mtime
         except OSError: return None  # Removed meanwhile by another call pruning in parallel.
-    runs = sorted(((modified(p), p) for p in (ROOT / 'button-runtime').glob('*-*-*-*-*') if p.is_dir()),
+    runs = sorted(((modified(p), p) for p in RUNTIME.glob('*-*-*-*-*') if p.is_dir()),
                   key=lambda item: item[0] or 0)
     cutoff = time.time() - min_age
     for stamp, old in runs[:-keep]:
@@ -322,7 +323,7 @@ class Controller:
             session.close()
         if not persistent and self.parked_sessions: self.close_combat_session()
         prune_runs(exclude=tuple(s.directory for s in [self.combat_session, *self.parked_sessions.values()] if s))
-        run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
+        run_dir = RUNTIME / str(uuid.uuid4())
         run_dir.mkdir(parents=True)
         schema_path = run_dir / 'schema.json'
         answer_path = run_dir / 'answer.json'
@@ -526,6 +527,8 @@ def bridge_server(port):
                 self.respond(spire_quota.quota(key)); return
             if self.path=='/claude-auth':
                 self.respond(models.claude_auth_status()); return
+            if self.path=='/providers':
+                self.respond(models.provider_status()); return
             if self.path=='/models':
                 self.respond({'models':models.MODELS,'selection':models.settings()}); return
             if self.path!='/status': self.respond({'error':'unknown endpoint'},404); return
@@ -550,12 +553,16 @@ def bridge_server(port):
                     self.respond(result)
                 except (ValueError,KeyError) as exc: self.respond({'error':str(exc)},400)
                 return
-            if self.path=='/login-claude':
+            if self.path in ('/login-claude','/login-codex','/login-agy'):
+                # Each player signs in to their own subscription in the tool's official flow.
+                provider=self.path.split('-',1)[1]
                 try:
-                    executable=models.find_cli('claude')
-                    launcher=ROOT/'登入Claude.cmd'
-                    launcher.write_text('@echo off\r\n"'+executable+'" auth login --claudeai\r\npause\r\n',encoding='utf-8')
+                    executable=models.find_cli(provider)
+                    args={'claude':'auth login --claudeai','codex':'login','agy':''}[provider]
+                    launcher=RUNTIME/f'login-{provider}.cmd'
+                    launcher.write_text('@echo off\r\nchcp 65001 >nul\r\n"'+executable+'" '+args+'\r\npause\r\n',encoding='utf-8')
                     subprocess.Popen(['cmd.exe','/c',str(launcher)],creationflags=subprocess.CREATE_NEW_CONSOLE)
+                    models.forget_provider_status()
                     self.respond({'status':'ok'})
                 except Exception as exc: self.respond({'error':str(exc)},500)
                 return

@@ -11,7 +11,8 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-CACHE = ROOT / 'button-runtime' / 'spire-codex'
+from vakuu_paths import RUNTIME
+CACHE = RUNTIME / 'spire-codex'
 URL = 'https://spire-codex.com/api/runs/metrics/cards?bracket={bracket}&character={character}'
 MAX_AGE = 24 * 3600
 # A10+ plays closest to the user's high-ascension runs; "all" is dominated by low ascensions.

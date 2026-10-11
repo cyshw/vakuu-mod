@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -77,18 +78,50 @@ public static partial class McpMod
         return theme;
     }
 
+    /// <summary>pythonw.exe on PATH, in the python.org per-user install folder, or the py launcher's pyw.exe.</summary>
+    private static string? FindPythonw()
+    {
+        foreach (string dir in (System.Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+        {
+            try { string candidate = Path.Combine(dir.Trim(), "pythonw.exe"); if (File.Exists(candidate) && !candidate.Contains("WindowsApps")) return candidate; }
+            catch (ArgumentException) { }
+        }
+        string programs = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Programs", "Python");
+        if (Directory.Exists(programs))
+            foreach (string dir in Directory.GetDirectories(programs, "Python3*").OrderByDescending(d => d))
+                if (File.Exists(Path.Combine(dir, "pythonw.exe"))) return Path.Combine(dir, "pythonw.exe");
+        string launcher = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Windows), "pyw.exe");
+        return File.Exists(launcher) ? launcher : null;
+    }
+
     private static void InitializeCodexPanel(SceneTree tree)
     {
         try
         {
             string modDir = Path.GetDirectoryName(typeof(McpMod).Assembly.Location)!;
             string configFile = Path.Combine(modDir, "STS2_CodexPanel.conf");
-            if (!File.Exists(configFile)) { GD.Print("[STS2 Codex] No panel config; panel disabled."); return; }
-            using var config = JsonDocument.Parse(File.ReadAllText(configFile));
-            string python = config.RootElement.GetProperty("python").GetString()!;
-            string script = config.RootElement.GetProperty("script").GetString()!;
-            int port = config.RootElement.GetProperty("port").GetInt32();
-            if (config.RootElement.TryGetProperty("preview_path", out var preview)) _codexPreviewPath = preview.GetString();
+            // A developer install writes this config; a downloaded release ships vakuu/ beside the mod
+            // and finds Python on its own.
+            string? python = null, script = null;
+            int port = 15527;
+            if (File.Exists(configFile))
+            {
+                using var config = JsonDocument.Parse(File.ReadAllText(configFile));
+                python = config.RootElement.GetProperty("python").GetString()!;
+                script = config.RootElement.GetProperty("script").GetString()!;
+                port = config.RootElement.GetProperty("port").GetInt32();
+                if (config.RootElement.TryGetProperty("preview_path", out var preview)) _codexPreviewPath = preview.GetString();
+            }
+            else
+            {
+                script = Path.Combine(modDir, "vakuu", "vakuu_engine.py");
+                python = FindPythonw();
+                if (!File.Exists(script) || python == null)
+                {
+                    GD.PrintErr($"[STS2 Codex] Panel disabled: {(python == null ? "Python 3 (pythonw.exe) not found" : "vakuu folder missing beside the mod")}.");
+                    return;
+                }
+            }
             _bridgeUrl = $"http://127.0.0.1:{port}";
             var start = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(script)! };
@@ -151,7 +184,7 @@ public static partial class McpMod
         settingsRow.AddChild(_effortPicker);
         _claudeLoginButton = new Button { Text = "登入 Claude", Visible = false, FocusMode = Control.FocusModeEnum.None };
         settingsRow.AddChild(_claudeLoginButton);
-        _claudeLoginButton.Pressed += () => { _ = SendCodexCommand("login-claude"); };
+        _claudeLoginButton.Pressed += () => { _ = SendCodexCommand(_loginCommand); };
         _modelPicker.ItemSelected += index => { if (!_loadingModels) _ = SaveModelSelection(); };
         _effortPicker.ItemSelected += index => { if (!_loadingModels) _ = SaveModelSelection(); };
         var buttons = new HBoxContainer(); buttons.AddThemeConstantOverride("separation", 8); box.AddChild(buttons);
@@ -244,6 +277,15 @@ public static partial class McpMod
     // Auto mode dispatches between Claude models, so it needs the same login.
     private static bool UsesClaude(string key) => key.StartsWith("claude:") || key.StartsWith("auto:");
 
+    private static string _loginCommand = "login-claude";
+
+    // Which CLI a model key runs on: claude (and auto), codex or agy (Gemini through Antigravity).
+    private static string ProviderOf(string key) => key.StartsWith("codex:") ? "codex" : key.StartsWith("agy:") ? "agy" : "claude";
+
+    private static readonly Dictionary<string, string> _providerNames = new() {
+        ["claude"] = "Claude", ["codex"] = "Codex", ["agy"] = "Gemini（Antigravity）" };
+
+    /// <summary>Show a login button, or an install hint, for the selected model's tool.</summary>
     private static async Task RefreshClaudeLogin()
     {
         _ = RefreshQuota();
@@ -251,16 +293,22 @@ public static partial class McpMod
         await RunOnMainThread(() => {
             if (_modelPicker != null && _modelPicker.Selected >= 0 && _modelPicker.Selected < _modelKeys.Count)
                 key = _modelKeys[_modelPicker.Selected];
-            if (!UsesClaude(key)) _claudeLoginButton!.Visible = false;
         });
-        if (!UsesClaude(key) || _authPolling) return;
+        if (_authPolling) return;
         _authPolling = true;
         try {
-            using var doc = JsonDocument.Parse(await _codexHttp.GetStringAsync(_bridgeUrl + "/claude-auth"));
-            bool needsLogin = doc.RootElement.GetProperty("logged_in").ValueKind == JsonValueKind.False;
+            string provider = ProviderOf(key);
+            using var doc = JsonDocument.Parse(await _codexHttp.GetStringAsync(_bridgeUrl + "/providers"));
+            var tool = doc.RootElement.GetProperty(provider);
+            bool installed = tool.GetProperty("installed").GetBoolean();
+            bool loggedIn = tool.GetProperty("logged_in").ValueKind == JsonValueKind.True;
             await RunOnMainThread(() => {
-                if (_modelPicker!.Selected >= 0 && _modelKeys[_modelPicker.Selected] == key)
-                    _claudeLoginButton!.Visible = needsLogin;
+                if (_modelPicker!.Selected < 0 || _modelKeys[_modelPicker.Selected] != key) return;
+                _loginCommand = "login-" + provider;
+                _claudeLoginButton!.Text = "登入 " + _providerNames[provider];
+                _claudeLoginButton.Visible = installed && !loggedIn;
+                if (!installed && _codexMessage != null)
+                    _codexMessage.Text = "這台電腦還沒安裝 " + _providerNames[provider] + " 的命令列工具。\n請看 vakuu 資料夾的「安裝說明.md」，或改選其他模型。";
             });
         }
         catch { }
