@@ -258,3 +258,20 @@ class AgySessionTests(unittest.TestCase):
         s._answer(event(24000))
         self.assertEqual(s.last_metrics['usage'], {'input_tokens': 4000, 'output_tokens': 0})
         self.assertEqual(json.loads(s._message('hi')), {'event': 'user', 'message': {'content': 'hi'}})
+
+
+class ParkedSessionTests(unittest.TestCase):
+    def setUp(self): FakeClaudeSession.made = []
+
+    def test_auto_mode_switches_keep_each_models_conversation(self):
+        haiku, sonnet = {'model_key': 'claude:haiku', 'effort': 'low'}, {'model_key': 'claude:sonnet', 'effort': 'low'}
+        c = engine.Controller(lambda m: None); c.combat_key = (1, 9)
+        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+            for selection in (haiku, sonnet, haiku, sonnet):
+                c.call_model(engine.instructions() + '\n局面', engine.SCHEMA, selection)
+        self.assertEqual(len(FakeClaudeSession.made), 2)  # One per model, reused after each switch.
+        first, second = FakeClaudeSession.made
+        self.assertEqual((len(first.sent), len(second.sent)), (2, 2))
+        self.assertTrue(first.sent[1].startswith(engine.REPEATED_RULES))  # Haiku resumed its own conversation.
+        c.close_combat_session()
+        self.assertTrue(first.closed and second.closed)

@@ -100,13 +100,18 @@ class Controller:
         self.want_strategy = False
         self.local_search = None  # (state fingerprint, result), shared with the model prompt.
         self.combat_session = None
+        # Auto mode switches Haiku/Sonnet within a fight; each keeps its conversation for when it returns.
+        self.parked_sessions = {}
         self.combat_key = None
         self.combat_round = None
 
     def close_combat_session(self):
+        """End this fight's conversations: the active one and any parked by a model switch."""
         with self.lock:
-            session, self.combat_session = self.combat_session, None
-        if session: session.close()
+            sessions = [self.combat_session] + list(self.parked_sessions.values())
+            self.combat_session, self.parked_sessions = None, {}
+        for session in sessions:
+            if session: session.close()
 
     def sync_combat(self, state):
         previous_key = self.combat_key
@@ -295,12 +300,19 @@ class Controller:
         # "claude" below means a stream-json CLI kept open per fight: Claude Code or Antigravity's agy.
         claude = selection['model_key'].startswith('claude:') or agy
         persistent = self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))
+        if persistent and self.combat_session and self.combat_session.selection != selection:
+            with self.lock:  # Another model's turn: park the active conversation, resume this model's own.
+                parked = self.combat_session
+                self.parked_sessions[parked.selection['model_key'] + '@' + parked.selection.get('effort', '')] = parked
+                self.combat_session = self.parked_sessions.pop(selection['model_key'] + '@' + selection.get('effort', ''), None)
         if self.combat_session and (not persistent or self.combat_session.selection != selection
                                     or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
                                     or (claude and self.combat_session.turns >= SESSION_MAX_TURNS)):
             # Claude's CLI keeps its bounded sessions; Codex retains one thread per battle.
-            self.close_combat_session()
-        prune_runs(exclude=(self.combat_session.directory,) if self.combat_session else ())
+            with self.lock: session, self.combat_session = self.combat_session, None
+            session.close()
+        if not persistent and self.parked_sessions: self.close_combat_session()
+        prune_runs(exclude=tuple(s.directory for s in [self.combat_session, *self.parked_sessions.values()] if s))
         run_dir = ROOT / 'button-runtime' / str(uuid.uuid4())
         run_dir.mkdir(parents=True)
         schema_path = run_dir / 'schema.json'
