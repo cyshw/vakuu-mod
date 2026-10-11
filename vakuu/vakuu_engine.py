@@ -211,7 +211,9 @@ class Controller:
             # Energy can be spent before the card leaves the hand or its block
             # lands. Playability flags alone do not mean resolution is finished.
             resolved = resolved or state.get('state_type') != before.get('state_type') or hand_signatures(state) != old_hand
-            if has_execution and changed and resolved and (not execution_busy(state) or combat_choice(state)):
+            # A draw can replace the played card with an identical copy, leaving
+            # hand signatures unchanged. The completed queue is authoritative.
+            if has_execution and (changed or current != previous) and (not execution_busy(state) or combat_choice(state)):
                 return
             if pending_discount:
                 hand = (state.get('player') or {}).get('hand') or []

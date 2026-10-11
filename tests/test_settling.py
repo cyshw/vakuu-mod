@@ -6,6 +6,17 @@ from test_choices import sample
 
 
 class SettlingTests(unittest.TestCase):
+    def test_finished_queue_accepts_draw_replacing_played_card_with_identical_copy(self):
+        before = sample()
+        done = copy.deepcopy(before)
+        done['player']['energy'] += 2
+        done['player']['hp'] -= 6
+        done['execution'] = {'queue_empty': True, 'running': False}
+        c = engine.Controller(lambda m: None)
+        with patch.object(engine.api, 'request', return_value=done) as read:
+            c.wait_for_change(before, body={'action': 'play_card', 'card_index': 1})
+        self.assertEqual(read.call_count, 1)
+
     def test_queue_busy_survives_long_quiet_gap_until_late_draw_and_energy(self):
         before = sample()
         removed = copy.deepcopy(before); removed['player']['hand'].pop(1)
