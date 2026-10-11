@@ -6,6 +6,39 @@ from test_choices import sample
 
 
 class SettlingTests(unittest.TestCase):
+    def test_mummified_hand_waits_for_delayed_discount(self):
+        before = sample()
+        before['player']['relics'] = [{'id': 'MUMMIFIED_HAND'}]
+        before['player']['hand'][1]['type'] = 'Power'
+        before['player']['hand'][0]['cost'] = '1'
+        removed = copy.deepcopy(before); removed['player']['hand'].pop(1)
+        done = copy.deepcopy(removed); done['player']['hand'][0]['cost'] = '0'
+        states = [removed] * 12 + [done] * 8
+        clock = [0]
+        def wait(seconds): clock[0] += seconds; return False
+        c = engine.Controller(lambda m: None)
+        with patch.object(c.stop_event, 'wait', side_effect=wait), \
+             patch.object(engine.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(engine.api, 'request', side_effect=states) as read:
+            c.wait_for_change(before, body={'action': 'play_card', 'card_index': 1})
+        self.assertGreater(read.call_count, 12)
+        self.assertGreaterEqual(clock[0], 1.2 + engine.CARD_SETTLE_WINDOW)
+
+    def test_mummified_hand_missing_discount_stops_safely(self):
+        before = sample()
+        before['player']['relics'] = [{'id': 'MUMMIFIED_HAND'}]
+        before['player']['hand'][1]['type'] = 'Power'
+        before['player']['hand'][0]['cost'] = '1'
+        removed = copy.deepcopy(before); removed['player']['hand'].pop(1)
+        clock = [0]
+        def wait(seconds): clock[0] += seconds; return False
+        c = engine.Controller(lambda m: None)
+        with patch.object(c.stop_event, 'wait', side_effect=wait), \
+             patch.object(engine.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(engine.api, 'request', return_value=removed):
+            with self.assertRaisesRegex(RuntimeError, '干癟之手'):
+                c.wait_for_change(before, timeout=2, body={'action': 'play_card', 'card_index': 1})
+
     def test_energy_spent_before_hand_and_block_settle_does_not_finish_wait(self):
         before = sample()
         spent = copy.deepcopy(before); spent['player']['energy'] -= 1
@@ -27,6 +60,21 @@ class SettlingTests(unittest.TestCase):
         done = copy.deepcopy(before)
         done['player']['hand'].pop(1)
         done['player']['block'] = 5
+        clock = [0]
+        def wait(seconds): clock[0] += seconds; return False
+        c = engine.Controller(lambda m: None)
+        with patch.object(c.stop_event, 'wait', side_effect=wait), \
+             patch.object(engine.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(engine.api, 'request', return_value=done):
+            c.wait_for_change(before, body={'action': 'play_card', 'card_index': 1})
+        self.assertLess(clock[0], .5)
+
+    def test_mummified_hand_with_only_free_cards_keeps_fast_wait(self):
+        before = sample()
+        before['player']['relics'] = [{'id': 'MUMMIFIED_HAND'}]
+        before['player']['hand'][1]['type'] = 'Power'
+        for card in before['player']['hand']: card['cost'] = '0'; card['star_cost'] = 0
+        done = copy.deepcopy(before); done['player']['hand'].pop(1)
         clock = [0]
         def wait(seconds): clock[0] += seconds; return False
         c = engine.Controller(lambda m: None)

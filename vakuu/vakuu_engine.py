@@ -175,10 +175,19 @@ class Controller:
         changed = False
         stable_since = time.monotonic()
         pending_card = False
+        pending_discount = False
+        discount_hand = []
         if playing_card:
             card = next((c for c in (before.get('player') or {}).get('hand') or []
                          if c.get('index') == body['card_index']), None)
             pending_card = card is not None and not wastes_energy_card(before, card)
+            relics = (before.get('player') or {}).get('relics') or []
+            if card and card.get('type') == 'Power' and any(
+                    str(r.get('id') or '').split('.')[-1] == 'MUMMIFIED_HAND' for r in relics):
+                discount_hand = [c for c in before['player']['hand'] if c is not card]
+                # An already-free hand has no observable discount to wait for.
+                pending_discount = any(str(c.get('cost') or '0').isdigit() and int(c.get('cost') or 0) > 0
+                                       or (c.get('star_cost') or 0) > 0 for c in discount_hand)
         old_hand = hand_signatures(before) if pending_card else None
         resolved = not pending_card
         while time.monotonic() < deadline:
@@ -187,12 +196,24 @@ class Controller:
             # Energy can be spent before the card leaves the hand or its block
             # lands. Playability flags alone do not mean resolution is finished.
             resolved = resolved or state.get('state_type') != before.get('state_type') or hand_signatures(state) != old_hand
+            if pending_discount:
+                hand = (state.get('player') or {}).get('hand') or []
+                # The relic resolves after the power leaves the hand. Require an
+                # actual free-cost update, not merely energy spent/card removal.
+                if state.get('state_type') != before.get('state_type') or any(
+                        old.get('id') == new.get('id') and old.get('name') == new.get('name')
+                        and (old.get('cost'), old.get('star_cost')) != (new.get('cost'), new.get('star_cost'))
+                        and str(new.get('cost') or '0') == '0' and not new.get('star_cost')
+                        for old, new in zip(discount_hand, hand)):
+                    pending_discount = False
+                    stable_since = time.monotonic()
             if current != previous or not resolved: stable_since = time.monotonic()
-            if changed and resolved and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
+            if changed and resolved and not pending_discount and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
             changed = changed or current != previous
             previous = current
             if self.stop_event.wait(poll_interval): return
         if not resolved: raise RuntimeError('出牌仍未完成結算，已停止，避免重複出牌。')
+        if pending_discount: raise RuntimeError('干癟之手費用效果仍未完成結算，已停止，避免使用過期局面。')
 
     def wait_until_settled(self, state, timeout=10):
         # Right after resting or claiming the last reward, the screen has nothing to choose and the
