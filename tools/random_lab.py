@@ -1,4 +1,4 @@
-"""Choose a source-verified practice encounter, favoring slow/difficult fights.
+"""Choose a source-verified practice encounter uniformly for bug testing.
 
 Selection only: no game commands and no model calls.
 """
@@ -62,16 +62,20 @@ def candidates(run):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preview', action='store_true', help='Show probabilities without choosing')
-    parser.add_argument('--output', type=Path, default=ROOT / 'vakuu/button-runtime/lab/weighted-random-config.json')
+    parser.add_argument('--grindy', action='store_true', help='Explicitly opt in to difficulty-weighted sampling')
+    parser.add_argument('--output', type=Path, default=ROOT / 'vakuu/button-runtime/lab/random-config.json')
     args = parser.parse_args()
     run = json.loads((ROOT / f'build/spire-lab/{SOURCE_HASH}.json').read_text(encoding='utf-8'))
     pool = candidates(run)
-    total = sum(c['weight'] for c in pool)
+    weights = [c['weight'] if args.grindy else 1 for c in pool]
+    total = sum(weights)
     probabilities = [{'floor': c['spec']['floor'], 'encounter': c['spec']['encounter'],
-                      'weight': c['weight'], 'probability': c['weight'] / total} for c in pool]
+                      'weight': weight, 'probability': weight / total} for c, weight in zip(pool, weights)]
     if args.preview:
         print(json.dumps(probabilities, indent=2)); return
-    chosen = random.SystemRandom().choices(pool, weights=[c['weight'] for c in pool], k=1)[0]
+    chosen = random.SystemRandom().choices(pool, weights=weights, k=1)[0]
+    chosen = {**chosen, 'difficulty_weight': chosen['weight'], 'weight': chosen['weight'] if args.grindy else 1,
+              'sampling': 'grindy' if args.grindy else 'uniform'}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps({**chosen, 'source': f'https://spire-codex.com/runs/{SOURCE_HASH}',
                                       'pool': probabilities}, ensure_ascii=False, indent=2), encoding='utf-8')
