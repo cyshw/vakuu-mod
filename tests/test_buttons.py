@@ -101,6 +101,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(play('fight',[turn1,turn1,turn2,turn2,rewards,rewards]),[{'action':'end_turn'},{'action':'end_turn'}])
         self.assertEqual(play('fight',[rewards]),[])  # Not in a fight: nothing to do.
 
+    def test_a_malformed_model_answer_is_asked_again_once(self):
+        state=self.combat(['防禦','打擊'])
+        broken={'advice':'先打防禦','stop':False,'action':'play_card','parameters_json':'{}','next_cards':[]}
+        fixed={**broken,'parameters_json':'{"card_index":0}'}
+        c=b.Controller(lambda message: None)
+        with patch.object(b.api,'request',side_effect=lambda *args: {'status':'ok'} if len(args)==2 else state) as api, \
+             patch.object(c,'decide_routed',side_effect=[broken,fixed]) as model, \
+             patch.object(b,'search_turn',return_value={'decision':None,'reason':'x'}), \
+             patch.object(c,'wait_for_change'), patch.object(c.stop_event,'wait',return_value=False):
+            c.run(True,1)
+        self.assertEqual(model.call_count,2)
+        self.assertIn('previous_answer_error',model.call_args_list[1].args[0])
+        self.assertEqual([call.args[1] for call in api.call_args_list if len(call.args)==2],[{'action':'play_card','card_index':0}])
+
     def test_enchant_preview_with_confirm_disabled_is_waited_out(self):
         applying={'state_type':'card_select','card_select':{'screen_type':'NDeckEnchantSelectScreen','preview_showing':True,
                   'can_confirm':False,'selected_count':1,'min_select':1,'max_select':1}}

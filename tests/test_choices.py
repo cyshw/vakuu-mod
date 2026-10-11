@@ -184,7 +184,7 @@ class ChoiceTests(unittest.TestCase):
         reject = {'choice': 'reject', 'reject_reason': 'insufficient_information', 'reason': '需要看其他手牌'}
         with patch.object(c, 'call_model', side_effect=[reject, alternative]) as call, \
              patch.object(engine, 'enemy_notes', return_value=None), patch.object(engine, 'monster_intel', return_value=None):
-            self.assertEqual(c.decide(s), alternative)
+            self.assertEqual(c.decide(s, {'model_key': 'codex:gpt-6.1-sol', 'effort': 'low'}), alternative)
         self.assertEqual(call.call_count, 2)
         full = json.loads(call.call_args_list[1].args[0].split('遊戲狀態：', 1)[1])
         self.assertEqual(len(full['player']['hand']), 3)
@@ -195,10 +195,10 @@ class ChoiceTests(unittest.TestCase):
         alternative = {'action': 'end_turn', 'parameters_json': '{}', 'advice': '另一方案', 'stop': False}
         with patch.object(c, 'call_model', side_effect=[{'choice': 'bad'}, alternative]) as call, \
              patch.object(engine, 'enemy_notes', return_value=None), patch.object(engine, 'monster_intel', return_value=None):
-            self.assertEqual(c.decide(s), alternative)
+            self.assertEqual(c.decide(s, {'model_key': 'codex:gpt-6.1-sol', 'effort': 'low'}), alternative)
         self.assertEqual(call.call_count, 2)
         with patch.object(c, 'call_model', side_effect=RuntimeError('quota')) as call:
-            with self.assertRaises(RuntimeError): c.decide(s)
+            with self.assertRaises(RuntimeError): c.decide(s, {'model_key': 'codex:gpt-6.1-sol', 'effort': 'low'})
         self.assertEqual(call.call_count, 1)
 
     def test_guarded_queue_survives_index_shift_but_stops_on_changed_cost_or_draw(self):

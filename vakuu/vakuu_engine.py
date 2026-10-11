@@ -400,6 +400,7 @@ class Controller:
                 self.report('完成已選候選的剩餘動作。' if draining else
                             '我有一份提案……容我看看你的牌。' if not takeover else
                             f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
+                asked_model = False  # Only a model's answer is worth asking again when it is malformed.
                 # A selected candidate owns its queue. Verify it before any new
                 # local optimization can replace the model's selected order.
                 decision = plan_decision(plan, state) if takeover and plan and plan.get('candidate_id') else None
@@ -424,6 +425,7 @@ class Controller:
                         self.report('程式無法可靠處理目前局面，已停止接手。\n此模式不會呼叫 AI，請手動選擇。')
                         break
                     decision = self.decide_routed(state)
+                    asked_model = True
                     if state.get('state_type') == 'map': self.route = start_route(state, decision)
                     # Buying card removal opens a selection screen; keep the shopping list for afterwards.
                     keep = plan and plan['kind'] == 'shop' and state.get('state_type') == 'card_select'
@@ -438,7 +440,17 @@ class Controller:
                     self.close_combat_session()
                     break
                 if not takeover: break
-                body = validate(state, decision['action'], json.loads(decision['parameters_json']))
+                try: body = validate(state, decision['action'], json.loads(decision['parameters_json'] or '{}'))
+                except ValueError as exc:
+                    if not self.allow_model or not asked_model: raise
+                    # Gemini 3.8 Flash once sent play_card with parameters_json "{}" (the card was only in its
+                    # advice). One retry that names the mistake costs a call; stopping takeover costs the fight.
+                    self.report('答案格式有誤，請模型重答一次：' + str(exc))
+                    decision = self.decide_routed({**state, 'previous_answer_error':
+                        f"上一個答案無法執行（{exc}）：{decision['action']} {decision['parameters_json']}。請重新回答，parameters_json 要包含這個動作的必要參數。"})
+                    if state.get('state_type') == 'map': self.route = start_route(state, decision)
+                    plan = start_plan(state, decision)
+                    body = validate(state, decision['action'], json.loads(decision['parameters_json'] or '{}'))
                 key = (fingerprint(state), json.dumps(body, sort_keys=True))
                 repeats = (key, repeats[1] + 1 if repeats[0] == key else 1)
                 if repeats[1] >= REPEAT_LIMIT:
