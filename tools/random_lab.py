@@ -12,6 +12,25 @@ SOURCE_HASH = 'af89e3c82bb6f873'
 FLOORS = (2, 5, 6, 8, 11, 12, 15)
 
 
+def encounter_groups(pool):
+    groups = {}
+    for candidate in pool:
+        name = candidate['spec']['encounter']
+        for suffix in ('_WEAK', '_NORMAL'):
+            if name.endswith(suffix): name = name[:-len(suffix)]; break
+        groups.setdefault(name, []).append(candidate)
+    return groups
+
+
+def sample_pool(pool, rng=None, grindy=False):
+    rng = rng or random.SystemRandom()
+    groups = encounter_groups(pool)
+    names = list(groups)
+    weights = [max(c['weight'] for c in groups[name]) if grindy else 1 for name in names]
+    name = rng.choices(names, weights=weights, k=1)[0]
+    return rng.choice(groups[name])
+
+
 def difficulty_weight(hp, max_hp, damage, turns):
     """Observable proxies for a grind; not a prediction of optimal play."""
     health = hp / max_hp
@@ -67,15 +86,19 @@ def main():
     args = parser.parse_args()
     run = json.loads((ROOT / f'build/spire-lab/{SOURCE_HASH}.json').read_text(encoding='utf-8'))
     pool = candidates(run)
-    weights = [c['weight'] if args.grindy else 1 for c in pool]
-    total = sum(weights)
+    groups = encounter_groups(pool)
+    weights = {name: max(c['weight'] for c in group) if args.grindy else 1
+               for name, group in groups.items()}
+    total = sum(weights.values())
     probabilities = [{'floor': c['spec']['floor'], 'encounter': c['spec']['encounter'],
-                      'weight': weight, 'probability': weight / total} for c, weight in zip(pool, weights)]
+                      'family': name, 'family_probability': weights[name] / total,
+                      'probability': weights[name] / total / len(group)}
+                     for name, group in groups.items() for c in group]
     if args.preview:
         print(json.dumps(probabilities, indent=2)); return
-    chosen = random.SystemRandom().choices(pool, weights=weights, k=1)[0]
+    chosen = sample_pool(pool, grindy=args.grindy)
     chosen = {**chosen, 'difficulty_weight': chosen['weight'], 'weight': chosen['weight'] if args.grindy else 1,
-              'sampling': 'grindy' if args.grindy else 'uniform'}
+              'sampling': 'grindy_encounter' if args.grindy else 'uniform_encounter'}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps({**chosen, 'source': f'https://spire-codex.com/runs/{SOURCE_HASH}',
                                       'pool': probabilities}, ensure_ascii=False, indent=2), encoding='utf-8')
