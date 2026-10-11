@@ -411,6 +411,10 @@ class Controller:
                 self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
+                if takeover and state.get('game_mode') == 'multiplayer':
+                    # Co-op turns, map votes and shared rewards need their own handling; until then
+                    # only advice is offered there.
+                    self.report('多人對局我只給建議，不代你出手。\n請按「只給建議」，操作由你來。'); break
                 if start is None:
                     start = state
                     if scope == 'fight' and not in_fight(state):
