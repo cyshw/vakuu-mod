@@ -1,8 +1,24 @@
 import unittest
-from tools.random_lab import difficulty_weight, encounter_groups, sample_pool
+from tools.random_lab import difficulty_weight, encounter_groups, sample_pool, formed_candidates
 
 
 class RandomLabTests(unittest.TestCase):
+    def test_formed_pool_preserves_character_decks_and_audit_notes(self):
+        pool = formed_candidates()
+        sizes = {c['spec']['character']: len(c['spec']['deck']) for c in pool}
+        self.assertEqual(sizes, {'IRONCLAD': 24, 'SILENT': 35, 'DEFECT': 30})
+        for candidate in pool:
+            spec = candidate['spec']
+            self.assertIn(spec['act'], (2, 3))
+            self.assertTrue(candidate['diagnostic'])
+            self.assertTrue(candidate['notes'])
+            if spec['character'] == 'SILENT':
+                self.assertIn('RING_OF_THE_SNAKE', spec['relics'])
+                self.assertIn('BLADE_DANCE', [c['id'] for c in spec['deck']])
+            if spec['character'] == 'DEFECT':
+                self.assertIn('CRACKED_CORE', spec['relics'])
+                self.assertIn('ECHO_FORM', [c['id'] for c in spec['deck']])
+
     def test_multiple_floors_do_not_add_weight_to_same_encounter(self):
         pool = [{'spec': {'encounter': name}, 'weight': 1} for name in
                 ('CORPSE_SLUGS_WEAK', 'CORPSE_SLUGS_NORMAL', 'HAUNTED_SHIP_NORMAL')]

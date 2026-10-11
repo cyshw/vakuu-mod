@@ -1,0 +1,228 @@
+{
+  "name": "Spire Codex DEFECT 成形牌組互動診斷（30 張）",
+  "source": "https://spire-codex.com/runs/7b83eb70c5c7b31d",
+  "source_version": "v0.111.0",
+  "notes": "卡牌與升級使用最終牌組，HP 補滿、金幣 0、藥水清空，只保留工具支援的遺物。這是互動診斷配置，非該樓層精確還原；排除遺物可能改變牌組強度，不能比較來源扣血或勝率。",
+  "omitted_relics": [
+    "LEAFY_POULTICE",
+    "STRAWBERRY",
+    "HAPPY_FLOWER",
+    "BAG_OF_PREPARATION",
+    "PETRIFIED_TOAD",
+    "PAELS_EYE",
+    "GIRYA",
+    "BOWLER_HAT",
+    "BREAD",
+    "RED_MASK",
+    "STRIKE_DUMMY",
+    "ROYAL_POISON"
+  ],
+  "encounters": [
+    {
+      "encounter": "TUNNELER_WEAK",
+      "act": 2,
+      "floor": 19,
+      "act_floor": 2
+    },
+    {
+      "encounter": "BOWLBUGS_WEAK",
+      "act": 2,
+      "floor": 21,
+      "act_floor": 4
+    },
+    {
+      "encounter": "THE_OBSCURA_NORMAL",
+      "act": 2,
+      "floor": 22,
+      "act_floor": 5
+    },
+    {
+      "encounter": "ENTOMANCER_ELITE",
+      "act": 2,
+      "floor": 24,
+      "act_floor": 7
+    },
+    {
+      "encounter": "SPINY_TOAD_NORMAL",
+      "act": 2,
+      "floor": 25,
+      "act_floor": 8
+    },
+    {
+      "encounter": "DECIMILLIPEDE_ELITE",
+      "act": 2,
+      "floor": 28,
+      "act_floor": 11
+    },
+    {
+      "encounter": "CHOMPERS_NORMAL",
+      "act": 2,
+      "floor": 30,
+      "act_floor": 13
+    },
+    {
+      "encounter": "DEVOTED_SCULPTOR_WEAK",
+      "act": 3,
+      "floor": 35,
+      "act_floor": 2
+    },
+    {
+      "encounter": "SCROLLS_OF_BITING_WEAK",
+      "act": 3,
+      "floor": 38,
+      "act_floor": 5
+    },
+    {
+      "encounter": "FROG_KNIGHT_NORMAL",
+      "act": 3,
+      "floor": 39,
+      "act_floor": 6
+    },
+    {
+      "encounter": "KNIGHTS_ELITE",
+      "act": 3,
+      "floor": 43,
+      "act_floor": 10
+    }
+  ],
+  "spec": {
+    "character": "DEFECT",
+    "encounter": "KNIGHTS_ELITE",
+    "act": 3,
+    "floor": 43,
+    "act_floor": 10,
+    "ascension": 10,
+    "hp": 76,
+    "max_hp": 76,
+    "gold": 0,
+    "deck": [
+      {
+        "id": "STRIKE_DEFECT",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_DEFECT",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_DEFECT",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_DEFECT",
+        "upgrades": 0
+      },
+      {
+        "id": "ZAP",
+        "upgrades": 0
+      },
+      {
+        "id": "DUALCAST",
+        "upgrades": 0
+      },
+      {
+        "id": "ASCENDERS_BANE",
+        "upgrades": 0
+      },
+      {
+        "id": "OVERCLOCK",
+        "upgrades": 1
+      },
+      {
+        "id": "COMPILE_DRIVER",
+        "upgrades": 0
+      },
+      {
+        "id": "COMPACT",
+        "upgrades": 0
+      },
+      {
+        "id": "LIGHTNING_ROD",
+        "upgrades": 0
+      },
+      {
+        "id": "PROWESS",
+        "upgrades": 1
+      },
+      {
+        "id": "COLD_SNAP",
+        "upgrades": 1
+      },
+      {
+        "id": "GO_FOR_THE_EYES",
+        "upgrades": 1
+      },
+      {
+        "id": "HAILSTORM",
+        "upgrades": 1
+      },
+      {
+        "id": "SUPERCRITICAL",
+        "upgrades": 0
+      },
+      {
+        "id": "ROCKET_PUNCH",
+        "upgrades": 1
+      },
+      {
+        "id": "ECHO_FORM",
+        "upgrades": 0
+      },
+      {
+        "id": "COOLHEADED",
+        "upgrades": 1
+      },
+      {
+        "id": "BOOST_AWAY",
+        "upgrades": 1
+      },
+      {
+        "id": "HAILSTORM",
+        "upgrades": 0
+      },
+      {
+        "id": "LOOP",
+        "upgrades": 0
+      },
+      {
+        "id": "CHARGE_BATTERY",
+        "upgrades": 0
+      },
+      {
+        "id": "FLAK_CANNON",
+        "upgrades": 1
+      },
+      {
+        "id": "ITERATION",
+        "upgrades": 0
+      },
+      {
+        "id": "RAINBOW",
+        "upgrades": 0
+      },
+      {
+        "id": "DOUBLE_ENERGY",
+        "upgrades": 1
+      },
+      {
+        "id": "CHARGE_BATTERY",
+        "upgrades": 0
+      },
+      {
+        "id": "TURBO",
+        "upgrades": 0
+      },
+      {
+        "id": "ULTIMATE_DEFEND",
+        "upgrades": 0
+      }
+    ],
+    "relics": [
+      "CRACKED_CORE",
+      "GORGET",
+      "REGAL_PILLOW",
+      "DIAMOND_DIADEM"
+    ],
+    "potions": []
+  }
+}

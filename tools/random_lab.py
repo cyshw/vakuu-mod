@@ -39,6 +39,23 @@ def difficulty_weight(hp, max_hp, damage, turns):
             + (1 if turns >= 5 else 0))
 
 
+def formed_candidates():
+    """Audited final decks with explicit diagnostic resource substitutions."""
+    result = []
+    for filename in ('spire-ironclad-strength.json', 'spire-silent-formed.json',
+                     'spire-defect-formed.json'):
+        preset = json.loads((ROOT / 'tools/lab-presets' / filename).read_text(encoding='utf-8'))
+        spec = preset['spec']
+        encounters = preset.get('encounters') or [{key: spec[key] for key in
+                                                 ('encounter', 'act', 'floor', 'act_floor')}]
+        for encounter in encounters:
+            result.append({'spec': {**spec, **encounter}, 'weight': 1,
+                           'source': preset['source'], 'source_version': preset['source_version'],
+                           'diagnostic': True, 'notes': preset['notes'],
+                           'omitted_relics': preset.get('omitted_relics', [])})
+    return result
+
+
 def candidates(run):
     # This source's early history was audited: no transforms/enchants or
     # unsupported relics before these fights. Do not apply to arbitrary runs.
@@ -82,15 +99,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preview', action='store_true', help='Show probabilities without choosing')
     parser.add_argument('--grindy', action='store_true', help='Explicitly opt in to difficulty-weighted sampling')
+    parser.add_argument('--pool', choices=('early', 'formed'), default='early',
+                        help='Audited early snapshots or mixed-character formed-deck diagnostics')
     parser.add_argument('--output', type=Path, default=ROOT / 'vakuu/button-runtime/lab/random-config.json')
     args = parser.parse_args()
-    run = json.loads((ROOT / f'build/spire-lab/{SOURCE_HASH}.json').read_text(encoding='utf-8'))
-    pool = candidates(run)
+    if args.pool == 'formed':
+        pool = formed_candidates()
+    else:
+        run = json.loads((ROOT / f'build/spire-lab/{SOURCE_HASH}.json').read_text(encoding='utf-8'))
+        pool = candidates(run)
     groups = encounter_groups(pool)
     weights = {name: max(c['weight'] for c in group) if args.grindy else 1
                for name, group in groups.items()}
     total = sum(weights.values())
     probabilities = [{'floor': c['spec']['floor'], 'encounter': c['spec']['encounter'],
+                      'character': c['spec']['character'],
                       'family': name, 'family_probability': weights[name] / total,
                       'probability': weights[name] / total / len(group)}
                      for name, group in groups.items() for c in group]
@@ -100,7 +123,7 @@ def main():
     chosen = {**chosen, 'difficulty_weight': chosen['weight'], 'weight': chosen['weight'] if args.grindy else 1,
               'sampling': 'grindy_encounter' if args.grindy else 'uniform_encounter'}
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps({**chosen, 'source': f'https://spire-codex.com/runs/{SOURCE_HASH}',
+    args.output.write_text(json.dumps({**chosen, 'source': chosen.get('source', f'https://spire-codex.com/runs/{SOURCE_HASH}'),
                                       'pool': probabilities}, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f"Selected floor {chosen['spec']['floor']}; config: {args.output}")
 
