@@ -101,6 +101,15 @@ class Tests(unittest.TestCase):
         self.assertEqual(play('fight',[turn1,turn1,turn2,turn2,rewards,rewards]),[{'action':'end_turn'},{'action':'end_turn'}])
         self.assertEqual(play('fight',[rewards]),[])  # Not in a fight: nothing to do.
 
+    def test_elite_and_boss_turns_go_to_the_strong_model_only_when_they_matter(self):
+        quiet=self.combat(['打擊'],round_=3,hp=60); quiet['state_type']='elite'; quiet['player']['max_hp']=80
+        quiet['battle']['enemies'][0]['intents']=[{'type':'Attack','label':'5'}]
+        self.assertFalse(router.hard_screen(quiet))  # 5 of 80 HP at stake: Haiku plays it.
+        opening={**quiet,'battle':{**quiet['battle'],'round':1}}
+        self.assertTrue(router.hard_screen(opening))  # The first turn sets the plan.
+        heavy={**quiet,'battle':{**quiet['battle'],'enemies':[{**quiet['battle']['enemies'][0],'intents':[{'type':'Attack','label':'20'}]}]}}
+        self.assertTrue(router.hard_screen(heavy))  # 20 unblocked is a fifth of max HP.
+
     def test_a_malformed_model_answer_is_asked_again_once(self):
         state=self.combat(['防禦','打擊'])
         broken={'advice':'先打防禦','stop':False,'action':'play_card','parameters_json':'{}','next_cards':[]}

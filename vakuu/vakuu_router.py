@@ -5,10 +5,20 @@ from sts2_advisor import advise
 from vakuu_facts import combat_facts
 from vakuu_rules import COMBAT, validate
 
+# An elite or boss turn that would cost this share of max HP unblocked goes to the stronger model.
+DANGER_SHARE = 0.2
+
 def hard_screen(state):
     """Situations worth a stronger model: bosses, elites, danger, and close card picks."""
     kind = state.get('state_type')
-    if kind in ('boss', 'elite'): return True
+    if kind in ('boss', 'elite'):
+        # Sonnet took every turn of these fights (37 of 64 escalations in an Ironclad run). Haiku
+        # passes the exam; Sonnet keeps the opening turn (it sets the plan) and the dangerous ones.
+        player = state.get('player') or {}
+        facts = combat_facts(state)
+        return ((state.get('battle') or {}).get('round') or 1) <= 1 or facts['lethal_if_no_more_block'] \
+            or facts['block_needed_for_no_damage'] >= DANGER_SHARE * (player.get('max_hp') or 1) \
+            or (player.get('hp') or 0) < 0.3 * (player.get('max_hp') or 1)
     # Route choice decides which fights happen at all (an elite at 43% HP lost a run), so it gets
     # the stronger model; single-path maps never reach the model.
     if kind == 'map': return len((state.get('map') or {}).get('next_options') or []) > 1
