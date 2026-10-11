@@ -230,6 +230,7 @@ class ClaudeSessionTests(unittest.TestCase):
         c = engine.Controller(lambda m: None); c.combat_key = (1, 5)
         process = Mock(returncode=0); process.communicate.return_value = ('{}', '')
         with patch.object(engine, 'ClaudeCombatSession', Broken), patch.object(engine, 'prune_runs'), \
+             patch.object(engine.models, 'find_cli', return_value='claude.exe'), \
              patch.object(engine.subprocess, 'Popen', return_value=process), \
              patch.object(engine.models, 'parse_answer', return_value=ANSWER):
             self.assertEqual(c.call_model(engine.instructions() + '\n狀態', engine.SCHEMA, CLAUDE), ANSWER)
