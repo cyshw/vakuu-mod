@@ -21,7 +21,7 @@ from spire_session import ClaudeCombatSession, CombatSession
 import spire_quota
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
-from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decision, route_decision, start_plan, start_route
+from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decision, rest_decision, route_decision, start_plan, start_route
 from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_search import search_turn, turn_candidates
 from vakuu_choices import choice_offer, chosen_decision
@@ -37,11 +37,14 @@ CARD_SETTLE_WINDOW = 0.2
 def prune_runs(keep=40, exclude=(), min_age=600):
     # Each call leaves a schema/log folder; keep only recent ones for debugging. Folders younger than
     # min_age may belong to a call still running (replays ask several at once) and are never removed.
-    runs = sorted((p for p in (ROOT / 'button-runtime').glob('*-*-*-*-*') if p.is_dir()),
-                  key=lambda p: p.stat().st_mtime)
+    def modified(path):
+        try: return path.stat().st_mtime
+        except OSError: return None  # Removed meanwhile by another call pruning in parallel.
+    runs = sorted(((modified(p), p) for p in (ROOT / 'button-runtime').glob('*-*-*-*-*') if p.is_dir()),
+                  key=lambda item: item[0] or 0)
     cutoff = time.time() - min_age
-    for old in runs[:-keep]:
-        if old not in exclude and old.stat().st_mtime < cutoff: shutil.rmtree(old, ignore_errors=True)
+    for stamp, old in runs[:-keep]:
+        if old not in exclude and stamp is not None and stamp < cutoff: shutil.rmtree(old, ignore_errors=True)
 
 PROMPT = ROOT / 'vakuu_prompt.md'
 SESSION_MAX_TURNS = 8  # Model calls one combat conversation answers before a fresh one starts.
@@ -356,7 +359,8 @@ class Controller:
                         decision = result['decision']
                         plan = None  # Re-read and search after each executed move.
                 if takeover and decision is None:
-                    decision = route_decision(self.route, state) or plan_decision(plan, state)
+                    decision = (rest_decision(self.route, state) or route_decision(self.route, state)
+                                or plan_decision(plan, state))
                 if decision is None:
                     if not self.allow_model:
                         self.report('程式無法可靠處理目前局面，已停止接手。\n此模式不會呼叫 AI，請手動選擇。')

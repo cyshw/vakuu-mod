@@ -48,7 +48,9 @@ def combat_facts(state):
         'spare_energy_without_energy_cards': spare_energy(state),
         'timed_effects': timed_effects(player),
         # Sonnet kept a 0-cost "gain 10 block" card "for next turn" in two fights; it was discarded.
-        'unplayed_cards_are_discarded_at_end_of_turn': True,
+        # Runic Pyramid keeps the whole hand; saying otherwise would mislead the model's planning.
+        'unplayed_cards_are_discarded_at_end_of_turn': not any(r.get('id') in RETAIN_HAND_RELICS
+                                                               for r in player.get('relics') or []),
         **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
                                                                 if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),
@@ -67,6 +69,10 @@ def orb_end_of_turn(player):
 POTION_BLOCK = re.compile(r'(\d+)\s*[点點]\s*格[挡擋]')
 POTION_DAMAGE = re.compile(r'(\d+)\s*[点點]\s*[伤傷]害')
 
+RETAIN_HAND_RELICS = {'RUNIC_PYRAMID'}
+# Potions whose value grows with the length of the fight (Strength, upgrades, Thorns...). An act 2
+# boss lasted 11 turns while Strength and Blessing of the Forge stayed unused until death.
+SETUP_POTION = re.compile(r'力量|敏捷|集中|升级|升級|荆棘|荊棘|覆甲|人工制品')
 NORMAL_FIGHT_POTION_SAVE = 0.2  # Share of max HP a potion must save this turn to be drunk in an ordinary fight.
 
 def potion_facts(state, loss):
@@ -100,7 +106,11 @@ def potion_facts(state, loss):
             if saved: potion['hp_saved_this_turn'] = saved
             kills = weakest is not None and potion.get('damage', 0) >= weakest
             potion['worth_it_in_this_normal_fight'] = saved >= NORMAL_FIGHT_POTION_SAVE * (player.get('max_hp') or 0) or kills
+    setup = [p['name'] for p, raw in zip(usable, [q for q in player.get('potions') or [] if q.get('can_use_in_combat')])
+             if 'block' not in p and 'damage' not in p and SETUP_POTION.search(str(raw.get('description') or ''))]
+    hard = state.get('state_type') in ('elite', 'boss')
     return {
+        **({'setup_potions_drink_in_first_turns': setup} if setup and hard else {}),
         **({'normal_fight_potion_rule': '普通戰鬥且這回合不會死：只喝 worth_it_in_this_normal_fight 為 true 的藥水，其他留給菁英與頭目'}
            if normal else {}),
         'usable_potions': usable,

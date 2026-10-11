@@ -236,6 +236,27 @@ class Tests(unittest.TestCase):
         self.assertEqual(projected['hp_after_boss_if_average'],projected['hp_before_boss']-54)
         self.assertEqual(facts.deck_profile([{'id':'DEFEND_D','description':'获得5点格挡。'}],2)['short_of_block'],True)
 
+    def test_rest_is_taken_without_the_model_when_the_projection_says_so(self):
+        rest={'state_type':'rest_site','run':{'act':1,'floor':29},'player':{'hp':43,'max_hp':75,'character_id':'DEFECT'},
+              'rest_site':{'options':[{'index':0,'id':'HEAL','name':'休息','is_enabled':True},{'index':1,'id':'SMITH','is_enabled':True}]}}
+        route={'path':[(4,12),(5,13),(6,14)],'types':{(4,12):'Elite',(5,13):'Unknown',(6,14):'RestSite'}}
+        move=plans.rest_decision(route,rest)
+        self.assertEqual((move['action'],json.loads(move['parameters_json'])),('choose_rest_option',{'index':0}))
+        calm={'path':[(4,12),(5,13)],'types':{(4,12):'Shop',(5,13):'RestSite'}}
+        self.assertIsNone(plans.rest_decision(calm,rest))  # Safe ahead: the model weighs upgrading.
+        self.assertIsNone(plans.rest_decision(None,rest))
+
+    def test_runic_pyramid_keeps_the_hand_and_setup_potions_are_listed_in_hard_fights(self):
+        state=self.combat(['打擊'])
+        state['player']['relics']=[{'id':'RUNIC_PYRAMID'}]
+        state['player']['potions']=[{'slot':0,'name':'力量药水','description':'获得2点力量。','can_use_in_combat':True},
+                                    {'slot':1,'name':'火焰药水','description':'造成20点伤害。','can_use_in_combat':True}]
+        result=facts.combat_facts(state)
+        self.assertFalse(result['unplayed_cards_are_discarded_at_end_of_turn'])
+        self.assertEqual(result['setup_potions_drink_in_first_turns'],['力量药水'])  # combat() is a boss fight.
+        state['state_type']='monster'
+        self.assertNotIn('setup_potions_drink_in_first_turns',facts.combat_facts(state))
+
     def test_pile_contents_are_name_counts(self):
         player={'draw_pile':[{'name':'打擊'},{'name':'打擊'},{'name':'防禦'}],'discard_pile':[],'exhaust_pile':[{'name':'燃燒'}]}
         self.assertEqual(facts.pile_contents(player),{'draw_pile':{'打擊':2,'防禦':1},'exhaust_pile':{'燃燒':1}})

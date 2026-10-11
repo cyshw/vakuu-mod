@@ -3,7 +3,7 @@ import json
 from collections import Counter
 
 from sts2_advisor import advise
-from vakuu_facts import project_route, route_damage, wastes_energy_card
+from vakuu_facts import project_route, rest_facts, route_damage, wastes_energy_card
 from vakuu_rules import COMBAT, END_TURN, LEAVE_SHOP, hand_selection_complete, selection_complete
 from vakuu_relics import after_card_relics
 
@@ -229,6 +229,21 @@ def start_route(state, decision):
     return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path,
             'types': {node: kinds.get(node) for node in walk}, 'expected_hp': dict(zip(walk, curve)),
             'max_hp': player.get('max_hp') or 1}
+
+def rest_decision(route, state):
+    """Rest without asking when upgrading would leave the run below 30% HP before the next rest site.
+
+    The model was told so and still upgraded at 43/75 ("the next room is a rest site"; it was an
+    elite), then died in that elite. The projection is plain arithmetic, so the program follows it.
+    """
+    if state.get('state_type') != 'rest_site': return None
+    facts = rest_facts(state, route)
+    if not facts.get('rest_recommended'): return None
+    heal = next((o for o in (state.get('rest_site') or {}).get('options') or []
+                 if o.get('id') == 'HEAL' and o.get('is_enabled', True)), None)
+    if heal is None: return None
+    return _auto(f"照路線預估，升級的話到下一個休息點前會跌到 {facts['lowest_hp_before_next_rest_if_upgrade']} 血。"
+                 '\n建議：休息回血。', 'choose_rest_option', index=heal['index'])
 
 def route_decision(route, state):
     """Next node of the planned route; None asks the model to re-plan (route left, big HP loss, new act)."""
