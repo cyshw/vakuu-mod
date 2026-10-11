@@ -9,6 +9,10 @@ PREFS=ROOT/'button-runtime'/'model-settings.json'
 # Verified against Claude Code 2.1.295 and official model configuration.
 # Pin IDs so the displayed version and the requested version stay consistent.
 CLAUDE_MODEL_IDS={m:'claude-'+m+'-5-5' for m in ('sonnet','opus','haiku')}
+# Gemini CLI refuses personal Google accounts ("migrate to the Antigravity suite"), so Gemini goes
+# through Antigravity's agy. IDs as listed by `agy models` (2026-10-11).
+AGY_MODELS=[('gemini-3.8-flash-low','3.8 Flash Low'),('gemini-3.8-flash-medium','3.8 Flash Medium'),
+            ('gemini-3.8-flash-high','3.8 Flash High'),('gemini-3.1-pro-low','3.1 Pro Low'),('gemini-3.1-pro-high','3.1 Pro High')]
 
 def claude_auth_status():
     """Return only UI login state; never expose account fields or credentials."""
@@ -26,6 +30,8 @@ MODELS=[{'key':'codex:','label':'Codex · 預設模型'}]+[
     {'key':'codex:'+m,'label':'Codex · '+m} for m in
     ['gpt-6.1-sol','gpt-6-astra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna']
 ]+[{'key':'claude:'+m,'label':'Claude · '+m.title()+' 5.5'} for m in CLAUDE_MODEL_IDS]+[
+    # Antigravity CLI (Google AI Pro/Plus sign-in); the reasoning level is part of the model ID.
+    {'key':'agy:'+m,'label':'Gemini · '+label} for m,label in AGY_MODELS]+[
     {'key':'auto:','label':'Claude · 自動調度'},
     # Comparison variants: a Sonnet battle plan per fight for Haiku to follow, or Sonnet for every fight.
     {'key':'auto:brief','label':'Claude · 自動調度（Sonnet 作戰方針）'},
@@ -58,6 +64,10 @@ def save_settings(value):
     return value
 
 def find_cli(provider):
+    if provider=='agy':
+        found=shutil.which('agy') or str(Path(os.environ.get('LOCALAPPDATA',''))/'agy/bin/agy.exe')
+        if Path(found).exists(): return found
+        raise RuntimeError('找不到 Antigravity CLI（agy），請先安裝並登入')
     found=shutil.which('claude' if provider=='claude' else 'codex')
     if found and (os.name!='nt' or found.lower().endswith('.exe')): return found
     if provider=='claude':
@@ -81,6 +91,11 @@ def build_command(selection,run_dir,schema):
         if model: command+=['--model',model]
         if effort: command+=['-c','model_reasoning_effort='+json.dumps(effort)]
         return command+['-'],provider
+    if provider=='agy':
+        # Prompts go through stdin as one stream-json message: a ~14k-character -p argument would
+        # crowd the Windows command line. --sandbox and no auto-approval keep its tools from acting.
+        return [exe,'--model',model,'--input-format','stream-json','--output-format','stream-json',
+                '--json-schema',json.dumps(schema),'--disable-slash-commands','--sandbox'],provider
     command=[exe,'-p','--output-format','json','--json-schema',json.dumps(schema),
              '--model',CLAUDE_MODEL_IDS[model],'--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--no-session-persistence',
              # Skip user settings, hooks, plugins and skills: measured ~1.6s faster startup per call; OAuth still works.
@@ -88,8 +103,28 @@ def build_command(selection,run_dir,schema):
     if effort: command+=['--effort',effort]
     return command,provider
 
+def stdin_for(provider,prompt):
+    """What the CLI reads on stdin: the plain prompt, or for agy one stream-json user message."""
+    if provider=='agy': return json.dumps({'event':'user','message':{'content':prompt}},ensure_ascii=False)+'\n'
+    return prompt
+
+def agy_result(output):
+    """The last turn result of an agy stream-json run."""
+    result=None
+    for line in output.splitlines():
+        try: event=json.loads(line)
+        except ValueError: continue
+        if isinstance(event,dict) and event.get('event')=='result': result=event.get('result')
+    if not isinstance(result,dict): raise RuntimeError('Antigravity 沒有回傳結果')
+    if result.get('status') not in (None,'SUCCESS'): raise RuntimeError('Antigravity 回覆失敗：'+str(result.get('status')))
+    return result
+
 def parse_json_answer(provider,output,answer_path):
     if provider=='codex': return json.loads(answer_path.read_text(encoding='utf-8'))
+    if provider=='agy':
+        value=agy_result(output).get('structured_output')
+        if value is None: raise ValueError('Antigravity 沒有照格式回答')
+        return value
     envelope=json.loads(output)
     if envelope.get('is_error'): raise RuntimeError(str(envelope.get('result',envelope.get('errors'))))
     value=envelope.get('structured_output')
@@ -103,6 +138,9 @@ def token_usage(provider, output):
             try: event = json.loads(line)
             except ValueError: continue
             if isinstance(event, dict) and event.get('type') == 'turn.completed': usage = event.get('usage')
+    elif provider == 'agy':
+        try: usage = agy_result(output).get('usage')
+        except RuntimeError: usage = None
     else:
         try: usage = json.loads(output).get('usage')
         except (ValueError, AttributeError): usage = None

@@ -347,7 +347,7 @@ class Controller:
                                             errors='replace', creationflags=flags,cwd=run_dir)
             process = self.process
         try:
-            out, err = process.communicate(prompt, timeout=180)
+            out, err = process.communicate(models.stdin_for(provider, prompt), timeout=180)
         except subprocess.TimeoutExpired:
             process.kill(); process.communicate()
             raise RuntimeError('模型回覆逾時，請稍後重試')
