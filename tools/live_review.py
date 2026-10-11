@@ -68,7 +68,7 @@ def review(path, since_floor=0):
                     index = act_fights.get(run.get('act'), 0); act_fights[run.get('act')] = index + 1
                     fight = {'key': key, 'type': state['state_type'], 'start': state['player']['hp'], 'end': state['player']['hp'],
                              'rounds': 0, 'enemies': sorted({e['name'] for e in state['battle']['enemies']}),
-                             'encounter': encounter_for(state, index, stats), 'warnings': [],
+                             'encounter': encounter_for(state, index, stats), 'warnings': [], 'self_loss': 0, 'turn': None,
                              'character': state['player'].get('character_id')}
                     fights.append(fight)
                 fight['rounds'] = max(fight['rounds'], state['battle'].get('round') or 0)
@@ -79,7 +79,15 @@ def review(path, since_floor=0):
             # The state takeover decided this step on. States read right after a play can still show the
             # hand and energy from before it (the API lags), so judging the turn by the last read misfires.
             step_state = last
-        elif kind == 'post' and record['body'].get('action') == 'end_turn' and fight and step_state \
+        if kind == 'post' and fight and step_state and step_state.get('state_type') in COMBAT and step_state.get('battle'):
+            # HP lost between the first move of a turn and ending it happened on our own turn: enchant costs,
+            # self-damaging cards, enemy Thorns. A floor 46 "loss" of 10 against a community 1 was all this.
+            round_, hp = step_state['battle'].get('round'), (step_state.get('player') or {}).get('hp') or 0
+            if not fight['turn'] or fight['turn'][0] != round_: fight['turn'] = (round_, hp)
+            if record['body'].get('action') == 'end_turn':
+                if fight['turn'][1] is not None: fight['self_loss'] += max(0, fight['turn'][1] - hp)
+                fight['turn'] = (round_, None)
+        if kind == 'post' and record['body'].get('action') == 'end_turn' and fight and step_state \
                 and step_state.get('state_type') in COMBAT:
             turn_state = step_state
             flags, blockers = turn_flags(turn_state)
@@ -105,15 +113,21 @@ def review(path, since_floor=0):
     if fights and last and last.get('state_type') == 'game_over' and fights[-1].get('potions'):
         fights[-1]['warnings'].append(f"帶著藥水死亡：{'、'.join(fights[-1]['potions'])}")
     out = [f'# 接手檢視：{Path(path).name}', '', '## 戰鬥', '',
-           '| 層 | 類型 | 敵人 | 血量 | 掉血 | 社群平均掉血（同角色） | 回合（社群） | 警示 |', '|---|---|---|---|---|---|---|---|']
+           '| 層 | 類型 | 敵人 | 血量 | 掉血 | 其中出牌時 | 社群平均掉血（同角色） | 回合（社群） | 警示 |',
+           '|---|---|---|---|---|---|---|---|---|']
     for f in fights:
         if f['key'][1] < since_floor: continue
         avg, turns = community(stats, f['encounter'], f['character']) if f['encounter'] else (None, None)
         lost = f['start'] - (f['end'] or 0)
-        verdict = '' if avg is None else (' 🟢' if lost <= avg else (' 🟡' if lost <= avg * 1.5 else ' 🔴'))
+        own = f['self_loss']
+        if f['turn'] and f['turn'][1] is not None: own += max(0, f['turn'][1] - (f['end'] or 0))  # The killing turn.
+        own = min(own, max(lost, 0))
+        # Judged on what the enemies did; our own costs (enchants, self-damage) are shown apart.
+        verdict = '' if avg is None else (' 🟢' if lost - own <= avg else (' 🟡' if lost - own <= avg * 1.5 else ' 🔴'))
         out.append(f"| {f['key'][1]} | {f['type']} | {'、'.join(f['enemies'])} | {f['start']}→{f['end']} | {lost}{verdict} | "
-                   f"{avg if avg is not None else '?'} | {f['rounds']}（{turns if turns is not None else '?'}） | {len(f['warnings'])} |")
-    out += ['', '🟢 不高於社群平均、🟡 高出 50% 以內、🔴 高出 50% 以上。社群數據為 Spire Codex 進階10以上同角色對局。', '']
+                   f"{own or ''} | {avg if avg is not None else '?'} | {f['rounds']}（{turns if turns is not None else '?'}） | {len(f['warnings'])} |")
+    out += ['', '🟢 不高於社群平均、🟡 高出 50% 以內、🔴 高出 50% 以上；燈號只看敵人造成的部分（掉血扣掉出牌時掉的血）。',
+            '「其中出牌時」是自己回合出牌期間掉的血：附魔或卡牌的自傷、敵人荊棘反傷等。社群數據為 Spire Codex 進階10以上同角色對局。', '']
     warned = [f for f in fights if f['warnings'] and f['key'][1] >= since_floor]
     if warned:
         out += ['## 回合提示（值得檢查，不一定是錯誤）', '']
