@@ -11,14 +11,15 @@ PREFS=ROOT/'button-runtime'/'model-settings.json'
 CLAUDE_MODEL_IDS={m:'claude-'+m+'-5-5' for m in ('sonnet','opus','haiku')}
 # Gemini CLI refuses personal Google accounts ("migrate to the Antigravity suite"), so Gemini goes
 # through Antigravity's agy. IDs as listed by `agy models` (2026-10-11).
-AGY_MODELS=[('gemini-3.8-flash','3.8 Flash'),('gemini-3.1-pro','3.1 Pro')]
+# Antigravity's Claude models were left out: on Google AI Plus their weekly quota ran out after ~23 calls.
+AGY_MODELS=[('gemini-3.8-flash','Gemini · 3.8 Flash'),('gemini-3.1-pro','Gemini · 3.1 Pro')]
 # agy names the reasoning level in the model ID; the panel's effort picker chooses it. 3.1 Pro has
 # no medium. "Default" is low: it passed the exam (3.8 Flash Low 30/34) at the lowest cost.
 AGY_LEVELS={'gemini-3.8-flash':{'':'low','low':'low','medium':'medium','high':'high'},
             'gemini-3.1-pro':{'':'low','low':'low','medium':'high','high':'high'}}
 
 def agy_model_id(model,effort):
-    return model+'-'+AGY_LEVELS[model][effort or '']
+    return model+'-'+AGY_LEVELS[model][effort or ''] if model in AGY_LEVELS else model  # Claude IDs carry no level.
 
 def claude_auth_status():
     """Return only UI login state; never expose account fields or credentials."""
@@ -37,7 +38,7 @@ MODELS=[{'key':'codex:','label':'Codex · 預設模型'}]+[
     ['gpt-6.1-sol','gpt-6-astra','gpt-6-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna']
 ]+[{'key':'claude:'+m,'label':'Claude · '+m.title()+' 5.5'} for m in CLAUDE_MODEL_IDS]+[
     # Antigravity CLI (Google AI Pro/Plus sign-in); the reasoning level is part of the model ID.
-    {'key':'agy:'+m,'label':'Gemini · '+label} for m,label in AGY_MODELS]+[
+    {'key':'agy:'+m,'label':label} for m,label in AGY_MODELS]+[
     {'key':'auto:','label':'Claude · 自動調度'},
     # Comparison variants: a Sonnet battle plan per fight for Haiku to follow, or Sonnet for every fight.
     {'key':'auto:brief','label':'Claude · 自動調度（Sonnet 作戰方針）'},
