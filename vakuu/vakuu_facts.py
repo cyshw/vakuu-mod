@@ -410,7 +410,6 @@ STARTERS = ('STRIKE', 'DEFEND')
 # Block cards besides Defend a deck should have by each act; run 28 reached the act 2 boss with 3 of 27
 # cards and died to a 57-damage turn with no block in hand.
 BLOCK_TARGET = {1: 2, 2: 4, 3: 5}
-MIN_OTHER_ATTACKS = 3  # Damage cards besides Strikes a deck needs before a Strike is worth removing.
 
 def deck_profile(deck, act=None):
     """What the deck has and lacks, so card choices consider needs and not only general card ratings.
@@ -421,11 +420,6 @@ def deck_profile(deck, act=None):
     count = lambda pred: sum(1 for card in deck if pred(card))
     text = lambda card: str(card.get('description') or '')
     block = count(lambda c: (BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)) and not str(c.get('id', '')).startswith('DEFEND'))
-    # Removing Strikes thins a deck only when other attacks carry the damage: an overnight run cut two
-    # Strikes from a 13-card deck with 2 other attacks and took 14 turns over its first elite.
-    # Defect deals much of its damage through Lightning and Dark orbs, so cards channelling them count.
-    other_attacks = count(lambda c: not str(c.get('id', '')).startswith('STRIKE')
-                          and ('造成' in text(c) or re.search(r'生成\d*个?(闪电|黑暗)', text(c))))
     target = BLOCK_TARGET.get(act)
     return {
         'size': len(deck),
@@ -436,8 +430,6 @@ def deck_profile(deck, act=None):
         'block_sources': count(lambda c: BLOCK_TEXT.search(text(c)) or '冰霜' in text(c)),
         'block_sources_besides_defend': block,
         'starter_strikes': count(lambda c: str(c.get('id', '')).startswith('STRIKE')),
-        'damage_cards_besides_strikes': other_attacks,
-        'removing_a_strike_ok': other_attacks >= MIN_OTHER_ATTACKS,
         'starter_defends': count(lambda c: str(c.get('id', '')).startswith('DEFEND')),
         'unplayable': count(lambda c: '不能被打出' in text(c)),
     }
