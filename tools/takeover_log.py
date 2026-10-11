@@ -21,6 +21,10 @@ def load_engine():
     return vakuu_engine
 
 
+# Floors of the last rest row before each act's boss, used only when no route is planned.
+BOSS_REST_FLOORS = {1: (16,), 2: (32,), 3: (48,)}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--steps', type=int, default=50)
@@ -28,6 +32,8 @@ def main():
     parser.add_argument('--model', help='Model key for this run only, e.g. auto:, auto:brief, claude:sonnet')
     parser.add_argument('--effort', choices=['low', 'medium', 'high'])
     parser.add_argument('--one-fight', action='store_true', help='Stop as soon as the current fight ends')
+    parser.add_argument('--stop-at-boss-rest', action='store_true',
+                        help="Stop on reaching the rest site right before a boss, before anything is chosen there")
     parser.add_argument('--no-ai', action='store_true', help='Use local decisions only; stop when a model would be needed')
     parser.add_argument('--stop-after-candidate', action='store_true', help='Stop after executing one accepted candidate prefix; stop if its queue is invalidated')
     parser.add_argument('--candidate-min-cards', type=int, default=1, help='Only stop on accepted prefixes with at least this many cards')
@@ -72,11 +78,23 @@ def main():
             if result.get('state_type') in engine.COMBAT: fight_started = True
             if args.one_fight and fight_started and result.get('state_type') in ('rewards', 'card_reward', 'game_over', 'map'):
                 controller.stop_event.set()
+            if args.stop_at_boss_rest and boss_next(result):
+                write('stopped_at_boss_rest')
+                controller.stop_event.set()
         else:
             write('post', body=body, result=result)
             if candidate_remaining is not None and result.get('status') == 'ok': candidate_remaining -= 1
         return result
     engine.api.request = request
+
+    def boss_next(state):
+        """A rest site whose planned next room is the boss (row 14 of 15 when no route is planned)."""
+        if state.get('state_type') != 'rest_site': return False
+        route = controller.route or {}
+        path = route.get('path') or []
+        if path: return (route.get('types') or {}).get(path[0]) == 'Boss'
+        run = state.get('run') or {}
+        return run.get('floor') in BOSS_REST_FLOORS.get(run.get('act'), ())
 
     decide = engine.Controller.decide
     def logged_decide(self, state, selection=None):
