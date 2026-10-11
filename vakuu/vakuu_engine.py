@@ -452,9 +452,11 @@ class Controller:
                 draining = takeover and step >= max_steps
                 if draining and not (plan and plan.get('candidate_id') and plan.get('queue')): break
                 state = api.request('/api/v1/singleplayer?format=json')
+                if self.stop_event.is_set(): break
                 # Settle first: a room that is still loading would skip the play-phase wait, and a fight
                 # that just began has no hand yet.
                 if takeover: state = self.wait_until_settled(self.wait_for_play_phase(self.wait_until_settled(state)))
+                if self.stop_event.is_set(): break
                 self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
