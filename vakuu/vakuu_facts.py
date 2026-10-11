@@ -30,6 +30,7 @@ def combat_facts(state):
     loss = max(0, incoming - block - orbs.get('block', 0))
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
+        **({'poison_preview': poison} if (poison := poison_preview(state)) else {}),
         'incoming_attack_damage': incoming,
         **({'end_of_turn_orbs': orbs} if orbs else {}),
         # Unusual intents carry their own rules (timing, conditions); the model must read them itself.
@@ -58,6 +59,31 @@ def combat_facts(state):
         **potion_facts(state, loss),
         'note': '敵人傷害已含意圖顯示的修正，卡牌描述的數字已含力量、敏捷、虛弱等狀態；block_needed 與 hp_after 已扣掉 end_of_turn_orbs 的冰霜格擋，未計遺物的回合結束效果。',
     }
+
+def poison_preview(state):
+    """Current-state previews computed by the game, not a guessed damage formula."""
+    result = []
+    for enemy in (state.get('battle') or {}).get('enemies') or []:
+        hp = enemy.get('hp') or 0
+        if hp <= 0: continue
+        for status in enemy.get('status') or []:
+            damage = status.get('next_turn_hp_loss')
+            if status.get('id') != 'POISON_POWER' or not isinstance(damage, int) or isinstance(damage, bool): continue
+            if damage < 0: continue
+            result.append({'enemy': enemy.get('entity_id'), 'stacks': status.get('amount'),
+                           'next_own_turn_hp_loss': damage, 'hp_if_only_poison': max(0, hp - damage)})
+    return result
+
+
+def compact_poison(compact, state):
+    """Remove repeated Poison prose only when authoritative numeric previews replace it."""
+    ready = {entry['enemy'] for entry in poison_preview(state)}
+    for enemy in (compact.get('battle') or {}).get('enemies') or []:
+        if enemy.get('entity_id') in ready:
+            enemy['status'] = [s for s in enemy.get('status') or [] if s.get('id') != 'POISON_POWER']
+    if ready:
+        compact['combat_facts']['poison_preview_rule'] = '遊戲按目前狀態計算下次自身回合開始跳毒，無視格擋；未模擬之後出牌、其他觸發或死亡效果。'
+
 
 def orb_end_of_turn(player):
     """What channelled orbs do when the turn ends, before the enemies attack (passive_val includes Focus)."""

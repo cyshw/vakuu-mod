@@ -10,7 +10,7 @@ import urllib.request
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tools.random_lab import ROOT, formed_candidates, sample_pool
+from tools.random_lab import ROOT, formed_candidates, sample_pool, encounter_groups
 
 
 def request(url, body=None):
@@ -42,25 +42,42 @@ def main():
     parser.add_argument('--count', type=int, default=10)
     parser.add_argument('--model', default='claude:haiku')
     parser.add_argument('--effort', default='low', choices=('low', 'medium', 'high'))
+    parser.add_argument('--resume', type=Path, help='Resume a saved batch after its controller has stopped')
     args = parser.parse_args()
     if not 1 <= args.count <= 20:
         parser.error('count must be 1..20')
-    folder = ROOT / 'vakuu/button-runtime/lab' / ('formed-batch10-' + uuid.uuid4().hex[:8])
-    folder.mkdir(parents=True)
-    summary = {'sampling': 'uniform_encounter', 'pool': 'formed',
+    folder = args.resume or ROOT / 'vakuu/button-runtime/lab' / ('formed-batch10-' + uuid.uuid4().hex[:8])
+    folder.mkdir(parents=True, exist_ok=True)
+    summary = (json.loads((folder / 'summary.json').read_text(encoding='utf-8')) if args.resume else
+               {'sampling': 'uniform_encounter', 'pool': 'formed',
                'model': args.model, 'effort': args.effort, 'results': [], 'status': 'running'}
+               )
+    if summary.get('active'):
+        raise RuntimeError('An unfinished attempt exists; preserve and inspect it before resuming')
+    summary['status'] = 'running'
     def save():
         (folder / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
         (folder.parent / 'latest-batch.json').write_text(json.dumps({'folder': str(folder)}), encoding='utf-8')
     save()
     print('BATCH', folder, flush=True)
     pool = formed_candidates()
+    tested = set()
+    for path in (ROOT / 'vakuu/button-runtime/lab').glob('*/summary.json'):
+        previous = json.loads(path.read_text(encoding='utf-8'))
+        for entry in previous.get('results', []):
+            if entry.get('encounter'):
+                tested.update(encounter_groups([{'spec': {'encounter': entry['encounter']}}]))
+    summary['skip_previously_tested'] = True
+    summary['excluded_encounters'] = sorted(tested)
     game_url = 'http://127.0.0.1:15526/api/v1/singleplayer?format=json'
     try:
-        for number in range(1, args.count + 1):
+        for number in range(len(summary['results']) + 1, args.count + 1):
             if request('http://127.0.0.1:15527/status')['busy']:
                 raise RuntimeError('Another panel controller is active')
-            candidate = sample_pool(pool)
+            available = [c for family, group in encounter_groups(pool).items() if family not in tested for c in group]
+            if not available:
+                raise RuntimeError('No untested encounters remain in the audited pool')
+            candidate = sample_pool(available)
             spec = candidate['spec']
             start = request('http://127.0.0.1:15528/action', {'action': 'start', 'spec': spec})
             if start.get('error') or not start.get('attempt'):
@@ -95,6 +112,7 @@ def main():
             entry['outcome'] = ('win' if entry['state'] in ('rewards', 'card_reward') else
                                 'loss' if entry['state'] == 'game_over' else 'stopped')
             summary['results'].append(entry)
+            tested.update(encounter_groups([candidate]))
             summary.pop('active', None)
             save()
             print('RESULT', json.dumps(entry), flush=True)

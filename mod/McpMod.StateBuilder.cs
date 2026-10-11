@@ -2449,7 +2449,7 @@ public static partial class McpMod
                 }
                 resolvedDesc ??= SafeGetText(() => power.SmartDescription);
 
-                powers.Add(new Dictionary<string, object?>
+                var powerState = new Dictionary<string, object?>
                 {
                     ["id"] = power.Id.Entry,
                     ["name"] = SafeGetText(() => power.Title),
@@ -2457,7 +2457,11 @@ public static partial class McpMod
                     ["type"] = power.Type.ToString(),
                     ["description"] = resolvedDesc,
                     ["keywords"] = BuildHoverTips(extraTips)
-                });
+                };
+                // Use the game's own preview: Accelerant and damage hooks can change the result.
+                if (power is MegaCrit.Sts2.Core.Models.Powers.PoisonPower poison)
+                    powerState["next_turn_hp_loss"] = poison.CalculateTotalDamageNextTurn();
+                powers.Add(powerState);
             }
             catch { /* skip this power - game engine state may be inconsistent */ }
         }
