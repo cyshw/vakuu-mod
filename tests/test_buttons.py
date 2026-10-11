@@ -76,6 +76,31 @@ class Tests(unittest.TestCase):
             c.run(True,1)
         self.assertTrue(all(len(call.args)==1 for call in api.call_args_list))
 
+    def test_scoped_takeovers_stop_at_the_turn_screen_or_fight_end(self):
+        turn1=self.combat(['打擊'],round_=1); turn2=self.combat(['打擊'],round_=2)
+        rewards={'state_type':'rewards','rewards':{'items':[{'index':0,'type':'gold'}],'can_proceed':True}}
+        self.assertTrue(b.same_screen(turn1,self.combat([],round_=1)))
+        self.assertFalse(b.same_screen(turn1,turn2))  # "This turn" ends when the next turn starts.
+        shop={'state_type':'shop'}
+        self.assertTrue(b.same_screen(shop,{'state_type':'card_select'}))  # Removal is part of the shop visit.
+        self.assertFalse(b.same_screen(shop,{'state_type':'map'}))
+        self.assertEqual(b.screen_label({'state_type':'map'}),'幫我畫路線')
+        end={'advice':'','stop':False,'action':'end_turn','parameters_json':'{}','next_cards':[]}
+        def play(scope,states):
+            c=b.Controller(lambda message: None)
+            reads=iter(states)
+            def request(*args): return {'status':'ok'} if len(args)==2 else next(reads)
+            with patch.object(b.api,'request',side_effect=request) as api, patch.object(c,'decide_routed',return_value=end), \
+                 patch.object(b,'search_turn',return_value={'decision':None,'reason':'x'}), \
+                 patch.object(c,'wait_for_change'), patch.object(c.stop_event,'wait',return_value=False):
+                c.run(True,scope=scope)
+            return [call.args[1] for call in api.call_args_list if len(call.args)==2]
+        # This turn: one end_turn, then the next turn's state stops it.
+        self.assertEqual(play('screen',[turn1,turn1,turn2,turn2]),[{'action':'end_turn'}])
+        # This fight: plays both turns, stops at the rewards without claiming them.
+        self.assertEqual(play('fight',[turn1,turn1,turn2,turn2,rewards,rewards]),[{'action':'end_turn'},{'action':'end_turn'}])
+        self.assertEqual(play('fight',[rewards]),[])  # Not in a fight: nothing to do.
+
     def test_enchant_preview_with_confirm_disabled_is_waited_out(self):
         applying={'state_type':'card_select','card_select':{'screen_type':'NDeckEnchantSelectScreen','preview_showing':True,
                   'can_confirm':False,'selected_count':1,'min_select':1,'max_select':1}}

@@ -16,7 +16,9 @@ public static partial class McpMod
     private static PanelContainer? _codexPanel;
     private static Label? _codexMessage;
     private static Button? _adviceButton;
-    private static Button? _takeoverButton;
+    private static Button? _takeoverButton;  // "Help me choose": only the decision on screen now.
+    private static Button? _fightButton;
+    private static Button? _runButton;
     private static OptionButton? _modelPicker;
     private static OptionButton? _effortPicker;
     private static Button? _claudeLoginButton;
@@ -123,12 +125,12 @@ public static partial class McpMod
         toggle.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
         toggle.Text = "呼叫瓦庫";
         toggle.OffsetLeft = -170; toggle.OffsetRight = -20; toggle.OffsetTop = 120; toggle.OffsetBottom = 168;
-        toggle.Pressed += () => { if (_codexPanel != null) { _codexPanel.Visible = !_codexPanel.Visible; if (_codexPanel.Visible) _ = RefreshClaudeLogin(); } };
+        toggle.Pressed += () => { if (_codexPanel != null) { _codexPanel.Visible = !_codexPanel.Visible; if (_codexPanel.Visible) { _ = RefreshClaudeLogin(); _ = PollCodexStatus(); } } };
         _codexPanel = new PanelContainer { Name = "CodexPanel", Visible = true };
         root.AddChild(_codexPanel);
         _codexPanel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
         _codexPanel.OffsetLeft = -460; _codexPanel.OffsetRight = -20;
-        _codexPanel.OffsetTop = 180; _codexPanel.OffsetBottom = 560;
+        _codexPanel.OffsetTop = 180; _codexPanel.OffsetBottom = 610;
         var margin = new MarginContainer();
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side,6);
         _codexPanel.AddChild(margin);
@@ -154,18 +156,24 @@ public static partial class McpMod
         _effortPicker.ItemSelected += index => { if (!_loadingModels) _ = SaveModelSelection(); };
         var buttons = new HBoxContainer(); buttons.AddThemeConstantOverride("separation", 8); box.AddChild(buttons);
         _adviceButton = new Button { Text = "只給建議", FocusMode = Control.FocusModeEnum.None };
-        _takeoverButton = new Button { Text = "接手遊玩", FocusMode = Control.FocusModeEnum.None };
+        _takeoverButton = new Button { Text = "幫我選", FocusMode = Control.FocusModeEnum.None };
         var stop = new Button { Text = "停止", FocusMode = Control.FocusModeEnum.None };
         stop.AddThemeColorOverride("font_color", new Color("d9a499"));
         foreach (var button in new[] { _adviceButton, _takeoverButton, stop }) button.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         buttons.AddChild(_adviceButton); buttons.AddChild(_takeoverButton); buttons.AddChild(stop);
+        var longer = new HBoxContainer(); longer.AddThemeConstantOverride("separation", 8); box.AddChild(longer);
+        _fightButton = new Button { Text = "接手這場戰鬥", FocusMode = Control.FocusModeEnum.None };
+        _runButton = new Button { Text = "接手整局", FocusMode = Control.FocusModeEnum.None };
+        foreach (var button in new[] { _fightButton, _runButton }) { button.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; longer.AddChild(button); }
         _adviceButton.Pressed += () => { _ = SendCodexCommand("advice"); };
-        _takeoverButton.Pressed += () => { _ = SendCodexCommand("takeover"); };
+        _takeoverButton.Pressed += () => { _ = SendCodexCommand("takeover-screen"); };
+        _fightButton.Pressed += () => { _ = SendCodexCommand("takeover-fight"); };
+        _runButton.Pressed += () => { _ = SendCodexCommand("takeover-run"); };
         stop.Pressed += () => { _ = SendCodexCommand("stop"); };
         var messageFrame = new PanelContainer();
         messageFrame.AddThemeStyleboxOverride("panel", SpireFrame("151411", "554732"));
         box.AddChild(messageFrame);
-        _codexMessage = new Label { Text = "又來尋求力量了？很好，我有一份提案。\n接手每次最多 30 步。",
+        _codexMessage = new Label { Text = "又來尋求力量了？很好，我有一份提案。\n「幫我選」只處理眼前這一步。",
             AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(360,110),
             MouseFilter = Control.MouseFilterEnum.Ignore };
         messageFrame.AddChild(_codexMessage);
@@ -217,7 +225,7 @@ public static partial class McpMod
     {
         string payload = JsonSerializer.Serialize(new { model_key = _modelKeys[_modelPicker!.Selected], effort = _effortKeys[_effortPicker!.Selected] });
         _modelPicker.Disabled = true; _effortPicker.Disabled = true;
-        _adviceButton!.Disabled = true; _takeoverButton!.Disabled = true;
+        _adviceButton!.Disabled = true; _takeoverButton!.Disabled = true; _fightButton!.Disabled = true; _runButton!.Disabled = true;
         try
         {
             using var response = await _codexHttp.PostAsync(_bridgeUrl + "/settings", new StringContent(payload, Encoding.UTF8, "application/json"));
@@ -229,7 +237,7 @@ public static partial class McpMod
             await LoadModelSelection();
             await RunOnMainThread(() => { _codexMessage!.Text = "設定未儲存：" + ex.Message; });
         }
-        finally { await RunOnMainThread(() => { _modelPicker!.Disabled = false; _effortPicker!.Disabled = false; _adviceButton!.Disabled = false; _takeoverButton!.Disabled = false; }); }
+        finally { await RunOnMainThread(() => { _modelPicker!.Disabled = false; _effortPicker!.Disabled = false; _adviceButton!.Disabled = false; _takeoverButton!.Disabled = false; _runButton!.Disabled = false; }); await PollCodexStatus(); }
         await RefreshClaudeLogin();
     }
 
@@ -307,10 +315,14 @@ public static partial class McpMod
             using var doc = JsonDocument.Parse(payload);
             bool busy = doc.RootElement.GetProperty("busy").GetBoolean();
             string message = doc.RootElement.GetProperty("message").GetString() ?? "";
+            string label = doc.RootElement.TryGetProperty("screen_label", out var screen) ? screen.GetString() ?? "幫我選" : "幫我選";
+            bool inFight = doc.RootElement.TryGetProperty("in_fight", out var fight) && fight.GetBoolean();
             await RunOnMainThread(() => {
                 if (_codexMessage != null) _codexMessage.Text = message;
                 if (_adviceButton != null) _adviceButton.Disabled = busy;
-                if (_takeoverButton != null) _takeoverButton.Disabled = busy;
+                if (_takeoverButton != null) { _takeoverButton.Disabled = busy; if (!busy) _takeoverButton.Text = label; }
+                if (_fightButton != null) _fightButton.Disabled = busy || !inFight;
+                if (_runButton != null) _runButton.Disabled = busy;
                 if (_modelPicker != null) _modelPicker.Disabled = busy;
                 if (_effortPicker != null) _effortPicker.Disabled = busy;
                 if (_claudeLoginButton != null) _claudeLoginButton.Disabled = busy;
@@ -328,6 +340,9 @@ public static partial class McpMod
         ["message"] = _codexMessage?.Text,
         ["advice_enabled"] = !(_adviceButton?.Disabled ?? true),
         ["takeover_enabled"] = !(_takeoverButton?.Disabled ?? true),
+        ["choose_label"] = _takeoverButton?.Text,
+        ["fight_enabled"] = !(_fightButton?.Disabled ?? true),
+        ["run_enabled"] = !(_runButton?.Disabled ?? true),
         ["model_count"] = _modelKeys.Count,
         ["claude_login_visible"] = _claudeLoginButton?.Visible,
         ["quota_message"] = _quotaLabel?.Text,

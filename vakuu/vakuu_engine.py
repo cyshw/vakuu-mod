@@ -32,6 +32,35 @@ from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_a
 # The same action sent this many times on an unchanged screen means the game is ignoring it.
 REPEAT_LIMIT = 3
 
+# Panel buttons: help with what is on screen, play this fight, or play the whole run.
+SCOPE_STEPS = {'screen': 40, 'fight': 400, 'run': 5000}
+# Screens that belong to one decision (a shop's removal opens card_select, a reward opens card_reward).
+SCREEN_GROUPS = {'shop': {'shop', 'card_select'}, 'rewards': {'rewards', 'card_reward', 'card_select'},
+                 'card_reward': {'card_reward', 'rewards'}, 'rest_site': {'rest_site', 'card_select'},
+                 'event': {'event', 'card_select', 'hand_select'}, 'treasure': {'treasure', 'relic_select'}}
+
+def in_fight(state):
+    """A fight screen, including prompts that open inside it (discard/exhaust picks, Hologram's grid)."""
+    kind = state.get('state_type')
+    player = state.get('player') or {}
+    return kind in COMBAT or kind == 'hand_select' or (
+        kind in ('card_select', 'bundle_select', 'relic_select') and 'hand' in player and 'energy' in player)
+
+def same_screen(start, now):
+    """Whether the decision begun on start is still going (same turn of a fight, same shop...)."""
+    kind = start.get('state_type')
+    if kind in COMBAT:
+        return in_fight(now) and (now.get('battle') or {}).get('round') in (None, (start.get('battle') or {}).get('round'))
+    if kind == 'map': return now.get('state_type') == 'map' and (now.get('run') or {}).get('floor') == (start.get('run') or {}).get('floor')
+    return now.get('state_type') in SCREEN_GROUPS.get(kind, {kind})
+
+def screen_label(state):
+    """What "help me choose" means on this screen, for the panel button."""
+    kind = state.get('state_type')
+    if kind in COMBAT or kind == 'hand_select': return '幫我打這回合'
+    return {'map': '幫我畫路線', 'card_reward': '幫我選牌', 'shop': '幫我逛商店', 'rest_site': '幫我選休息',
+            'event': '幫我選事件', 'rewards': '幫我領獎勵', 'card_select': '幫我選牌', 'treasure': '幫我開寶箱'}.get(kind, '幫我選')
+
 # Tuned for the game's Instant fast mode; wait_until_settled covers screens that still animate.
 ACTION_PAUSE = 0.5
 POLL_INTERVAL = 0.25
@@ -336,10 +365,13 @@ class Controller:
         parser = models.parse_json_answer if candidate else models.parse_answer
         return parser(provider,out,answer_path)
 
-    def run(self, takeover=False, max_steps=30, finish_candidate=False):
+    def run(self, takeover=False, max_steps=30, finish_candidate=False, scope=None):
+        """scope: None (max_steps), 'screen' (only the decision on screen now), 'fight' or 'run'."""
         opened_cards = set()
         plan = None
         repeats = (None, 0)  # (screen fingerprint and action sent, times in a row)
+        start = None  # The state a scoped takeover began on.
+        if scope in SCOPE_STEPS: max_steps = SCOPE_STEPS[scope]
         try:
             # Test runs may drain a selected bounded prefix after the step cap,
             # but may not ask another model or start a new plan in these steps.
@@ -354,6 +386,14 @@ class Controller:
                 self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
+                if start is None:
+                    start = state
+                    if scope == 'fight' and not in_fight(state):
+                        self.report('現在沒有戰鬥可接手。\n進入戰鬥後再按「接手這場戰鬥」。'); break
+                elif scope == 'screen' and not same_screen(start, state):
+                    self.report('這一步辦完了，控制權還你。\n已完成「' + screen_label(start) + '」。'); break
+                elif scope == 'fight' and not in_fight(state):
+                    self.report('這場戰鬥結束了，戰利品留給你挑。\n已停止接手。'); break
                 self.report('完成已選候選的剩餘動作。' if draining else
                             '我有一份提案……容我看看你的牌。' if not takeover else
                             f'把控制權交給我。你會喜歡結果的。\n接手中：第 {step+1} 步／{max_steps} 步')
@@ -454,6 +494,10 @@ def bridge_server(port):
                 self.respond({'models':models.MODELS,'selection':models.settings()}); return
             if self.path!='/status': self.respond({'error':'unknown endpoint'},404); return
             with guard: snapshot=dict(status)
+            try:  # The panel names its "help me choose" button after the screen.
+                state=api.request('/api/v1/singleplayer?format=json')
+                snapshot.update(screen=state.get('state_type'),screen_label=screen_label(state),in_fight=in_fight(state))
+            except Exception: snapshot.update(screen=None,screen_label='幫我選',in_fight=False)
             self.respond(snapshot)
         def do_POST(self):
             # No CORS support; JSON-only requests cannot be sent cross-origin by webpages.
@@ -484,13 +528,15 @@ def bridge_server(port):
             if self.path=='/shutdown':
                 controller.stop(); self.respond({'status':'ok'})
                 threading.Thread(target=self.server.shutdown,daemon=True).start(); return
-            if self.path not in ('/advice','/takeover'):
+            scopes={'/takeover-screen':'screen','/takeover-fight':'fight','/takeover-run':'run'}
+            if self.path not in ('/advice','/takeover',*scopes):
                 self.respond({'error':'unknown endpoint'},404); return
             with guard:
                 if status['busy']: self.respond({'error':'busy'},409); return
                 status.update(busy=True,mode=self.path[1:],message='讓我看看，你又把自己帶進了什麼局面……\n正在讀取遊戲狀態。')
                 controller.stop_event.clear()
-            threading.Thread(target=controller.run,args=(self.path=='/takeover',),daemon=True).start()
+            threading.Thread(target=controller.run,args=(self.path!='/advice',),
+                             kwargs={'scope':scopes.get(self.path)},daemon=True).start()
             self.respond({'status':'ok'})
     server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
     try: server.serve_forever()
