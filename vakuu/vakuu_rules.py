@@ -181,4 +181,6 @@ def transitional(state):
         return 'battle' not in state
     if kind == 'shop':  # Inventory not ready right after entering.
         return 'error' in screen and not screen.get('items')
+    if kind == 'card_select':  # An enchant preview with confirm still disabled is applying itself;
+        return screen.get('preview_showing') is True and screen.get('can_confirm') is False  # confirming failed.
     return False

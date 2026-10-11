@@ -76,6 +76,12 @@ class Tests(unittest.TestCase):
             c.run(True,1)
         self.assertTrue(all(len(call.args)==1 for call in api.call_args_list))
 
+    def test_enchant_preview_with_confirm_disabled_is_waited_out(self):
+        applying={'state_type':'card_select','card_select':{'screen_type':'NDeckEnchantSelectScreen','preview_showing':True,
+                  'can_confirm':False,'selected_count':1,'min_select':1,'max_select':1}}
+        self.assertTrue(rules.transitional(applying))
+        self.assertFalse(rules.transitional({**applying,'card_select':{**applying['card_select'],'can_confirm':True}}))
+
     def test_completed_card_selection_confirms_without_model(self):
         picking={'state_type':'card_select','card_select':{'preview_showing':False,'can_confirm':False,'cards':[{'index':0}]}}
         chosen={'state_type':'card_select','card_select':{'preview_showing':True,'can_confirm':True,'cards':[{'index':0}]}}
