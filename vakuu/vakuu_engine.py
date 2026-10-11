@@ -27,7 +27,7 @@ from vakuu_router import fight_key, hard_screen, undecided
 from vakuu_search import search_turn, turn_candidates
 from vakuu_choices import choice_offer, chosen_decision
 from vakuu_deck import deck_direction
-from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, potion_belt_full,
+from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, potion_belt_full, waiting_for_teammates,
                          still_valid, transitional, validate)
 
 # The same action sent this many times on an unchanged screen means the game is ignoring it.
@@ -193,6 +193,21 @@ class Controller:
             previous = current
             if self.stop_event.wait(poll_interval): return
         if not resolved: raise RuntimeError('出牌仍未完成結算，已停止，避免重複出牌。')
+
+    def wait_for_teammates(self, state, timeout=900):
+        """In co-op, wait while our end turn or vote is in and the teammates have not acted yet.
+
+        Our move is already submitted, so the screen stays the same; deciding again would resend it
+        (the repeat guard would then stop takeover) or undo a vote.
+        """
+        reported = False
+        deadline = time.monotonic() + timeout
+        while waiting_for_teammates(state) and time.monotonic() < deadline:
+            if not reported:
+                self.report('我這邊已經出手，等隊友行動……'); reported = True
+            if self.stop_event.wait(1): raise InterruptedError('已停止')
+            state = api.request('/api/v1/singleplayer?format=json')
+        return state
 
     def wait_until_settled(self, state, timeout=10):
         # Right after resting or claiming the last reward, the screen has nothing to choose and the
@@ -407,14 +422,10 @@ class Controller:
                 state = api.request('/api/v1/singleplayer?format=json')
                 # Settle first: a room that is still loading would skip the play-phase wait, and a fight
                 # that just began has no hand yet.
-                if takeover: state = self.wait_until_settled(self.wait_for_play_phase(self.wait_until_settled(state)))
+                if takeover: state = self.wait_until_settled(self.wait_for_play_phase(self.wait_for_teammates(self.wait_until_settled(state))))
                 self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
-                if takeover and state.get('game_mode') == 'multiplayer':
-                    # Co-op turns, map votes and shared rewards need their own handling; until then
-                    # only advice is offered there.
-                    self.report('多人對局我只給建議，不代你出手。\n請按「只給建議」，操作由你來。'); break
                 if start is None:
                     start = state
                     if scope == 'fight' and not in_fight(state):

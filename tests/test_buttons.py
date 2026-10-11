@@ -124,6 +124,30 @@ class Tests(unittest.TestCase):
         self.assertIn('previous_answer_error',model.call_args_list[1].args[0])
         self.assertEqual([call.args[1] for call in api.call_args_list if len(call.args)==2],[{'action':'play_card','card_index':0}])
 
+    def test_coop_waits_for_teammates_after_our_end_turn_or_vote(self):
+        fight=self.combat(['打擊']); fight['game_mode']='multiplayer'
+        fight['players']=[{'is_local':True,'is_ready_to_end_turn':True},{'is_local':False,'is_ready_to_end_turn':False}]
+        self.assertTrue(rules.waiting_for_teammates(fight))
+        fight['battle']['all_players_ready']=True
+        self.assertFalse(rules.waiting_for_teammates(fight))
+        vote={'state_type':'map','game_mode':'multiplayer','map':{'votes':[{'is_local':True,'voted':True},{'is_local':False,'voted':False}],'all_voted':False}}
+        self.assertTrue(rules.waiting_for_teammates(vote))
+        vote['map']['votes'][0]['voted']=False
+        self.assertFalse(rules.waiting_for_teammates(vote))  # Our turn to vote.
+        self.assertFalse(rules.waiting_for_teammates({**fight,'game_mode':None}))
+
+    def test_coop_runs_use_the_multiplayer_endpoint(self):
+        import io, urllib.error
+        api=b.api
+        calls=[]
+        def urlopen(req, timeout=0):
+            calls.append((req.full_url, req.data))
+            if '/singleplayer' in req.full_url: raise urllib.error.HTTPError(req.full_url,409,'Conflict',{},io.BytesIO(b'{}'))
+            return io.BytesIO(b'{"status":"ok"}')
+        with patch.object(api.urllib.request,'urlopen',side_effect=urlopen):
+            self.assertEqual(api.request('/api/v1/singleplayer',{'action':'end_turn'}),{'status':'ok'})
+        self.assertTrue(calls[-1][0].endswith('/api/v1/multiplayer') and calls[-1][1])
+
     def test_enchant_preview_with_confirm_disabled_is_waited_out(self):
         applying={'state_type':'card_select','card_select':{'screen_type':'NDeckEnchantSelectScreen','preview_showing':True,
                   'can_confirm':False,'selected_count':1,'min_select':1,'max_select':1}}

@@ -166,6 +166,19 @@ def potion_belt_full(state):
     slots = player.get('max_potion_slots')
     return isinstance(slots, int) and len(player.get('potions') or []) >= slots
 
+def waiting_for_teammates(state):
+    """Co-op: our end turn or vote is submitted and the others have not finished theirs."""
+    if state.get('game_mode') != 'multiplayer': return False
+    kind = state.get('state_type')
+    if kind in COMBAT:
+        me = next((p for p in state.get('players') or [] if p.get('is_local')), {})
+        return bool(me.get('is_ready_to_end_turn')) and not (state.get('battle') or {}).get('all_players_ready')
+    screen = state.get(kind) or {}
+    for votes, done in (('votes', 'all_voted'), ('bids', 'all_bid')):
+        mine = next((v for v in screen.get(votes) or [] if v.get('is_local')), None)
+        if mine and mine.get('voted') and not screen.get(done): return True
+    return False
+
 def transitional(state):
     """Screens caught mid-animation: nothing to choose yet, so asking the model only makes it give up."""
     kind = state.get('state_type')

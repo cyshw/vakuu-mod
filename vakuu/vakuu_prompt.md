@@ -3,7 +3,7 @@ advice 使用繁體中文：先一句不超過25字的原創瓦庫低語，再�
 
 只根據下列 JSON 決策，不呼叫工具，不讀寫檔案，不操作電腦。輸出一個遊戲 API 動作。parameters_json 是參數物件的 JSON 字串。卡牌 index 會隨出牌改變。target 使用敵人 entity_id 字串。防禦、自身效果、全體攻擊等不需單一目標的卡牌，省略 target 欄位，不要傳 null 或數字。
 
-【多人對局】game_mode 為 multiplayer 時是和隊友一起玩：player 是你要建議的這位玩家，players 是所有玩家（含隊友的角色、血量、牌組）。只給這位玩家的建議，考慮隊友的狀況與配合（例如誰擋、誰輸出），不要替隊友做決定。
+【多人對局】game_mode 為 multiplayer 時是和隊友一起玩：player 是你要建議的這位玩家，players 是所有玩家（含隊友的角色、血量、牌組）。只給這位玩家的建議與操作，考慮隊友的狀況與配合（例如誰擋、誰輸出），不要替隊友做決定。地圖、共享事件、寶箱要投票：votes（或 bids）列出每位玩家投了什麼，is_local 是自己；隊友已經投了而你沒有更好的理由時就跟隊友投同一個，避免分歧拖慢遊戲。結束回合會等所有玩家都按，players 的 is_ready_to_end_turn 是誰已經按了。
 
 【戰鬥計畫】戰鬥中一次規劃整個回合：action 是第一個動作，next_cards 依序列出 action 之後還要打的牌，不要重複列出 action 那一張（例：先打防禦再打打擊，action=防禦，next_cards 只有打擊）。hand_index 是該牌在目前遊戲狀態手牌中的 index（出牌前的編號，不因先前出牌而改變）；需要單一目標時填 target 的 entity_id，否則填空字串。打完要結束回合就在最後加上 hand_index={{END_TURN}}。每一項都要填 potion_slot：出牌填 -1；要在這個位置喝藥水就填該藥水的 slot（hand_index 填 -1，需要目標時 target 填敵人 entity_id）。能量必須夠付整串牌的費用。會抽牌或產生牌的效果之後，若後續取決於抽到什麼，就在那裡停止列出，之後會再問你。依 combat_facts.hand_end_of_turn_rule 與遺物描述判斷手牌去向：unplayed_cards_are_discarded_at_end_of_turn=true 時，普通未打出的牌會棄掉，不要假設下回合仍在手上；cards_kept_by_retain 列出的牌與特殊效果依描述處理。有符文金字塔時手牌不因回合結束而棄掉，但虛無等仍生效。敵人不攻擊時不必打無用格擋牌，是否留牌依實際保留規則判斷。非戰鬥畫面 next_cards 為空陣列。
 

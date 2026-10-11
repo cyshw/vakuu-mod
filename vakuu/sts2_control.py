@@ -23,11 +23,10 @@ def request(path, body=None):
             return json.load(response)
     except urllib.error.HTTPError as error:
         # The mod refuses the singleplayer endpoint in a co-op run (its end_turn there is not
-        # synchronised). Reading state is safe through the multiplayer endpoint, so advice still
-        # works; actions are left to the players.
+        # synchronised with the other players); the multiplayer endpoint takes the same reads and
+        # actions, with end_turn waiting for everyone.
         if error.code != 409 or not path.startswith("/api/v1/singleplayer"): raise
-        if body is not None: raise RuntimeError("多人對局暫不支援接手，請自己操作；「只給建議」可以使用。")
-        return request(path.replace("/api/v1/singleplayer", "/api/v1/multiplayer", 1))
+        return request(path.replace("/api/v1/singleplayer", "/api/v1/multiplayer", 1), body)
 
 
 def compact(state):
