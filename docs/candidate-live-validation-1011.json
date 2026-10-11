@@ -1,0 +1,96 @@
+{
+  "source_log": "vakuu/button-runtime/logs/codex-neow-guarded-candidate-check.jsonl",
+  "model": "codex:gpt-6.1-sol",
+  "effort": "low",
+  "run": {
+    "act": 1,
+    "floor": 3,
+    "ascension": 9
+  },
+  "selected_id": "P2",
+  "expected_actions": [
+    {
+      "action": "play_card",
+      "card_id": "STRIKE_DEFECT",
+      "target": "TOADPOLE_1"
+    },
+    {
+      "action": "play_card",
+      "card_id": "DEFEND_DEFECT",
+      "target": ""
+    },
+    {
+      "action": "play_card",
+      "card_id": "DEFEND_DEFECT",
+      "target": ""
+    }
+  ],
+  "expected_card_ids": [
+    "STRIKE_DEFECT",
+    "DEFEND_DEFECT",
+    "DEFEND_DEFECT"
+  ],
+  "executed_card_ids": [
+    "STRIKE_DEFECT",
+    "DEFEND_DEFECT",
+    "DEFEND_DEFECT"
+  ],
+  "completed_without_reasking": true,
+  "sequence_matches": true,
+  "post_intervals": [
+    0.55,
+    0.55
+  ],
+  "prompt_chars": 2983,
+  "has_full_hand": false,
+  "has_deck": false,
+  "hand_count": 5,
+  "hidden_hand_count": 2,
+  "seconds": 9.49,
+  "session_turn": 1,
+  "stage": "candidate_choice",
+  "posts": [
+    {
+      "t": 1791688428.13,
+      "body": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "TOADPOLE_1"
+      },
+      "card_id": "STRIKE_DEFECT",
+      "result": {
+        "status": "ok",
+        "message": "Playing '打击' targeting 蟾蜍蝌蚪"
+      }
+    },
+    {
+      "t": 1791688428.68,
+      "body": {
+        "action": "play_card",
+        "card_index": 2
+      },
+      "card_id": "DEFEND_DEFECT",
+      "result": {
+        "status": "ok",
+        "message": "Playing '防御'"
+      }
+    },
+    {
+      "t": 1791688429.23,
+      "body": {
+        "action": "play_card",
+        "card_index": 2
+      },
+      "card_id": "DEFEND_DEFECT",
+      "result": {
+        "status": "ok",
+        "message": "Playing '防御'"
+      }
+    }
+  ],
+  "limits": [
+    "單次三張起手驗證，未證明全局最優或胜率提升。",
+    "不直接推算額度節省，模型輸入仍含戰鬥摘要與候選涉及卡牌。",
+    "沒有自動結束回合，測試完成即停止。"
+  ]
+}
