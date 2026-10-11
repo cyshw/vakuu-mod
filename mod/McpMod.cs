@@ -128,6 +128,12 @@ public static partial class McpMod
 
     private static void ProcessMainThreadQueue()
     {
+        try { ObserveBattleLab(); }
+        catch (Exception ex)
+        {
+            _labError = $"Lab observer failed: {ex.Message}";
+            _labRecording = false;
+        }
         int processed = 0;
         while (_mainThreadQueue.TryDequeue(out var action) && processed < 10)
         {
@@ -203,6 +209,22 @@ public static partial class McpMod
                     SendJson(response, RunOnMainThread(CaptureCodexPreview).GetAwaiter().GetResult());
                 else
                     SendJson(response, RunOnMainThread(GetCodexPanelStatus).GetAwaiter().GetResult());
+            }
+            else if (path == "/api/v1/lab")
+            {
+                if (request.HttpMethod == "GET")
+                {
+                    int after = int.TryParse(request.QueryString["after"], out var value) ? value : -1;
+                    SendJson(response, RunOnMainThread(() => GetBattleLabStatus(after)).GetAwaiter().GetResult());
+                }
+                else if (request.HttpMethod == "POST")
+                {
+                    using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+                    var body = reader.ReadToEnd();
+                    var pending = RunOnMainThread(() => ExecuteBattleLab(body)).GetAwaiter().GetResult();
+                    SendJson(response, pending.GetAwaiter().GetResult());
+                }
+                else SendError(response, 405, "Method not allowed");
             }
             else if (path == "/api/v1/singleplayer")
             {
