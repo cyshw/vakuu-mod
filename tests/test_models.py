@@ -14,6 +14,15 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError): m.save_settings({'model_key':'arbitrary:command'})
             self.assertEqual(m.settings(), expected)
 
+    def test_gemini_level_comes_from_the_effort_picker(self):
+        self.assertEqual(m.validate_settings({'model_key':'agy:gemini-3.8-flash-low','effort':''}),
+                         {'model_key':'agy:gemini-3.8-flash','effort':'low'})  # Saved before the change.
+        with patch.object(m, 'find_cli', return_value='agy.exe'):
+            model = lambda key, effort: m.build_command({'model_key':key,'effort':effort},Path('run'),{})[0][2]
+            self.assertEqual(model('agy:gemini-3.8-flash',''),'gemini-3.8-flash-low')
+            self.assertEqual(model('agy:gemini-3.8-flash','high'),'gemini-3.8-flash-high')
+            self.assertEqual(model('agy:gemini-3.1-pro','medium'),'gemini-3.1-pro-high')  # Pro has no medium.
+
     def test_stale_settings_file_falls_back_to_default(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, patch.object(m, 'PREFS', Path(directory)/'settings.json'):
             for content in ('{"model_key":"codex:removed-model","effort":""}', '[]', 'not json'):

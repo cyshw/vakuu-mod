@@ -11,8 +11,14 @@ PREFS=ROOT/'button-runtime'/'model-settings.json'
 CLAUDE_MODEL_IDS={m:'claude-'+m+'-5-5' for m in ('sonnet','opus','haiku')}
 # Gemini CLI refuses personal Google accounts ("migrate to the Antigravity suite"), so Gemini goes
 # through Antigravity's agy. IDs as listed by `agy models` (2026-10-11).
-AGY_MODELS=[('gemini-3.8-flash-low','3.8 Flash Low'),('gemini-3.8-flash-medium','3.8 Flash Medium'),
-            ('gemini-3.8-flash-high','3.8 Flash High'),('gemini-3.1-pro-low','3.1 Pro Low'),('gemini-3.1-pro-high','3.1 Pro High')]
+AGY_MODELS=[('gemini-3.8-flash','3.8 Flash'),('gemini-3.1-pro','3.1 Pro')]
+# agy names the reasoning level in the model ID; the panel's effort picker chooses it. 3.1 Pro has
+# no medium. "Default" is low: it passed the exam (3.8 Flash Low 30/34) at the lowest cost.
+AGY_LEVELS={'gemini-3.8-flash':{'':'low','low':'low','medium':'medium','high':'high'},
+            'gemini-3.1-pro':{'':'low','low':'low','medium':'high','high':'high'}}
+
+def agy_model_id(model,effort):
+    return model+'-'+AGY_LEVELS[model][effort or '']
 
 def claude_auth_status():
     """Return only UI login state; never expose account fields or credentials."""
@@ -51,6 +57,10 @@ def settings():
     except (OSError,ValueError,AttributeError): return dict(DEFAULT_SETTINGS)
 
 def validate_settings(value):
+    key=value.get('model_key') or ''
+    for level in ('low','medium','high'):  # Saved before levels moved into the effort picker.
+        if key.startswith('agy:') and key.endswith('-'+level):
+            value={'model_key':key[:-len(level)-1],'effort':level}
     if value.get('model_key') not in {m['key'] for m in MODELS}: raise ValueError('未知模型')
     if value.get('effort','') not in ('','low','medium','high'): raise ValueError('未知推理強度')
     return {'model_key':value['model_key'],'effort':value.get('effort','')}
@@ -94,7 +104,7 @@ def build_command(selection,run_dir,schema):
     if provider=='agy':
         # Prompts go through stdin as one stream-json message: a ~14k-character -p argument would
         # crowd the Windows command line. --sandbox and no auto-approval keep its tools from acting.
-        return [exe,'--model',model,'--input-format','stream-json','--output-format','stream-json',
+        return [exe,'--model',agy_model_id(model,effort),'--input-format','stream-json','--output-format','stream-json',
                 '--json-schema',json.dumps(schema),'--disable-slash-commands','--sandbox'],provider
     command=[exe,'-p','--output-format','json','--json-schema',json.dumps(schema),
              '--model',CLAUDE_MODEL_IDS[model],'--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--no-session-persistence',
