@@ -96,6 +96,8 @@ PILES = ('draw_pile', 'discard_pile', 'exhaust_pile', 'draw_pile_count', 'discar
 def fingerprint(state):
     # Piles change from delayed effects (e.g. a Slime added to the discard pile) without affecting
     # whether the chosen move is still valid, so they must not abort takeover.
+    # Execution telemetry changes independently of the decision snapshot.
+    state = {k: v for k, v in state.items() if k != 'execution'}
     player = state.get('player')
     if isinstance(player, dict): state = {**state, 'player': {k: v for k, v in player.items() if k not in PILES}}
     return hashlib.sha256(json.dumps(state, sort_keys=True, ensure_ascii=False).encode()).hexdigest()

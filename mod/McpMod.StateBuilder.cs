@@ -403,6 +403,17 @@ public static partial class McpMod
             return result;
         }
 
+        // Input actions await card/potion commands and their triggered effects.
+        // Play phase alone remains true while those tasks are still executing.
+        if (CombatManager.Instance.IsInProgress)
+        {
+            result["execution"] = new Dictionary<string, object?>
+            {
+                ["queue_empty"] = RunManager.Instance.ActionQueueSet.IsEmpty,
+                ["running"] = RunManager.Instance.ActionExecutor.IsRunning
+            };
+        }
+
         // Overlays can appear on top of any room (events, rest sites, combat).
         // Rewards/card-reward overlays defer to the map - they may linger on the
         // overlay stack while the map opens after the player clicks proceed.

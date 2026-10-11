@@ -33,6 +33,17 @@ from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_a
 # The same action sent this many times on an unchanged screen means the game is ignoring it.
 REPEAT_LIMIT = 3
 
+
+def execution_busy(state):
+    execution = state.get('execution')
+    if not isinstance(execution, dict): return False  # Older mod compatibility.
+    return execution.get('running') is True or execution.get('queue_empty') is False
+
+
+def combat_choice(state):
+    # Paused actions cannot complete until the player answers these prompts.
+    return state.get('state_type') in {'hand_select', 'card_select', 'bundle_select', 'relic_select'}
+
 # Panel buttons: help with what is on screen, play this fight, or play the whole run.
 SCOPE_STEPS = {'screen': 40, 'fight': 400, 'run': 5000}
 # Screens that belong to one decision (a shop's removal opens card_select, a reward opens card_reward).
@@ -190,12 +201,18 @@ class Controller:
                                        or (c.get('star_cost') or 0) > 0 for c in discount_hand)
         old_hand = hand_signatures(before) if pending_card else None
         resolved = not pending_card
+        has_execution = False
+        state = before
         while time.monotonic() < deadline:
             state = api.request('/api/v1/singleplayer?format=json')
             current = fingerprint(state)
+            execution = state.get('execution')
+            has_execution = isinstance(execution, dict) and {'running', 'queue_empty'} <= execution.keys()
             # Energy can be spent before the card leaves the hand or its block
             # lands. Playability flags alone do not mean resolution is finished.
             resolved = resolved or state.get('state_type') != before.get('state_type') or hand_signatures(state) != old_hand
+            if has_execution and changed and resolved and (not execution_busy(state) or combat_choice(state)):
+                return
             if pending_discount:
                 hand = (state.get('player') or {}).get('hand') or []
                 # The relic resolves after the power leaves the hand. Require an
@@ -208,20 +225,25 @@ class Controller:
                     pending_discount = False
                     stable_since = time.monotonic()
             if current != previous or not resolved: stable_since = time.monotonic()
-            if changed and resolved and not pending_discount and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
+            if not has_execution and changed and resolved and not pending_discount and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
             changed = changed or current != previous
             previous = current
             if self.stop_event.wait(poll_interval): return
         if not resolved: raise RuntimeError('出牌仍未完成結算，已停止，避免重複出牌。')
+        if has_execution and execution_busy(state) and not combat_choice(state):
+            raise RuntimeError('遊戲動作佇列仍在結算，已停止，避免使用過期局面。')
+        if has_execution: return
         if pending_discount: raise RuntimeError('干癟之手費用效果仍未完成結算，已停止，避免使用過期局面。')
 
     def wait_until_settled(self, state, timeout=10):
         # Right after resting or claiming the last reward, the screen has nothing to choose and the
         # proceed button is still animating in; asking the model then makes it give up.
         deadline = time.monotonic() + timeout
-        while transitional(state) and time.monotonic() < deadline:
+        while (transitional(state) or (execution_busy(state) and not combat_choice(state))) and time.monotonic() < deadline:
             if self.stop_event.wait(POLL_INTERVAL): raise InterruptedError('已停止')
             state = api.request('/api/v1/singleplayer?format=json')
+        if execution_busy(state) and not combat_choice(state):
+            raise RuntimeError('遊戲動作佇列仍在結算，已停止，避免使用過期局面。')
         return state
 
     def decide_routed(self, state):
@@ -502,7 +524,7 @@ class Controller:
                     self.close_combat_session()
                     self.report('同一個動作送了幾次，畫面都沒有變化。\n已停止接手，請手動處理這個畫面。'); break
                 current = api.request('/api/v1/singleplayer?format=json')
-                if not still_valid(state, current, body):
+                if (execution_busy(current) and not combat_choice(current)) or not still_valid(state, current, body):
                     self.close_combat_session()
                     self.report('看來你另有打算。控制權歸你了。\n局面已改變，已停止接手。'); break
                 with self.lock:
