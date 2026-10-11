@@ -27,10 +27,14 @@ def sample():
             card('BODY_SLAM', '全身撞擊+', 9, True)]}
     }
 
+METRICS = {'data_through': '2026-10-10', 'bracket': 'a10', 'character': 'IRONCLAD', 'baseline_win_rate': 30.0,
+           'character_runs': 1000, 'cards': {'DARK_EMBRACE': {'score': 40, 'tier': 'B', 'win_rate': 31.0, 'lift': 1.0},
+                                             'BODY_SLAM': {'score': 75, 'tier': 'A', 'win_rate': 38.0, 'lift': 5.5}}}
+
 class AdapterTests(unittest.TestCase):
-    # These cover the offline BoberInSpire fallback; never touch the network.
+    # Community ratings are patched in; these never touch the network.
     def setUp(self):
-        patcher = patch.object(sts2_advisor, 'codex_metrics', return_value=None)
+        patcher = patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS)
         patcher.start(); self.addCleanup(patcher.stop)
 
     def test_shop_cards_are_scored_with_shop_indices(self):
@@ -45,19 +49,12 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(result['status'], 'ok')
         self.assertEqual(sorted(c['index'] for c in result['ranked_cards']), [0, 6])  # Sold-out and relics skipped.
 
-    def test_localized_ids_duplicates_upgrades_and_indices(self):
+    def test_offers_carry_deck_fit_and_leave_the_state_alone(self):
         state = sample()
         original = copy.deepcopy(state)
         result = advise(state)
-        self.assertEqual(result['status'], 'ok')
-        self.assertEqual(result['deck_count'], 4)
-        self.assertEqual(result['archetype'], 'exhaust')
-        rows = {r['index']: r for r in result['ranked_cards']}
-        self.assertEqual(set(rows), {2, 7, 9})
-        self.assertEqual(rows[2]['english_name'], 'Dark Embrace')
-        self.assertEqual(rows[9]['english_name'], 'Body Slam+')
-        self.assertGreater(rows[9]['score'], rows[7]['score'])
-        self.assertEqual(rows[9]['name'], '全身撞擊+')
+        self.assertTrue(all('deck_fit' in row for row in result['ranked_cards']))
+        self.assertIn('deck_direction', result)
         self.assertEqual(state, original)
         self.assertFalse(result['skip_evaluated'])
 
@@ -66,21 +63,13 @@ class AdapterTests(unittest.TestCase):
         del state['player']['deck']
         self.assertEqual(advise(state)['status'], 'missing_deck_api')
 
-    def test_unknown_mod_card_disables_best_pick(self):
-        state = sample()
-        state['card_reward']['cards'].append(card('MOD_UNKNOWN_CARD', '模組牌', 4))
-        result = advise(state)
-        self.assertEqual(result['status'], 'incomplete_data')
-        self.assertIsNone(result['best_scored_index'])
-        self.assertEqual(result['unknown_items'][0]['id'], 'MOD_UNKNOWN_CARD')
-
     def test_menu_never_scores(self):
         self.assertEqual(advise({'state_type': 'menu'})['status'], 'not_card_reward')
 
+    def test_no_ratings_yet_says_so(self):
+        with patch.object(sts2_advisor, 'codex_metrics', return_value=None):
+            self.assertEqual(advise(sample())['status'], 'no_ratings')
 
-METRICS = {'data_through': '2026-10-10', 'bracket': 'a10', 'character': 'IRONCLAD', 'baseline_win_rate': 30.0,
-           'character_runs': 1000, 'cards': {'DARK_EMBRACE': {'score': 40, 'tier': 'B', 'win_rate': 31.0, 'lift': 1.0},
-                                             'BODY_SLAM': {'score': 75, 'tier': 'A', 'win_rate': 38.0, 'lift': 5.5}}}
 
 class CodexTests(unittest.TestCase):
     def test_codex_scores_rank_offers_and_keep_indices(self):

@@ -21,7 +21,7 @@ advice 使用繁體中文：先一句不超過25字的原創瓦庫低語，再�
 
 【商店】先補這副牌組的即時輸出、防禦或核心配合，不預設第一筆必須刪打擊。deck_direction.protect_starter_damage 為 true 時，刪打擊可能讓輸出更弱；先比較買有效傷害牌、刪真正負擔的牌或不買，不因此自動改刪防禦。只刪選牌畫面實際可選的牌，永恆牌不能當成刪牌目標。action 是第一筆購買，next_purchases 依序列出之後商品 index，離開在最後加 {{LEAVE_SHOP}}；總金幣必須足夠，刪牌後先處理選牌。shop_card_advice 的 score 只供參考，deck_fit 才列出目前配合與缺口；沒值得買的商品就 proceed。非商店畫面 next_purchases 為空陣列。
 
-【抓牌評分】card_advice 與 shop_card_advice 的社群 score／lift 是一般評分，不是這副牌組的最佳選擇。offline_fit 是本機流派規則的參考分數，不能與社群分數當成同一尺度相加。deck_direction、deck_fit 提供程式整理的牌組方向、配合與缺口：先比較 fills_needs、synergies、現有張數和能量曲線，再用一般評分輔助。方向只是目前證據，不是必須湊齊的清單；沒有證據先補即時生存與輸出，不拿只有未來配合才有效的牌。protect_starter_damage 為 true 表示第1幕輸出來源可能不足，優先比較有效輸出，不可只因 short_of_block 就強制拿格擋牌；若已有充能球等輸出引擎，自行衡量其啟動速度。缺防禦與缺輸出同時出現時，依近期敌人、血量、現有配合取捨。無明顯補強就 skip_card_reward；不要求固定牌組張數，重複牌也須比較邊際收益。unknown_description_count 或 effect_known=false 表示程式資料不足，讀完整牌組／商品描述，不能把未辨識當成沒效果。選牌理由簡述補哪個缺口或加強哪個配合。
+【抓牌評分】card_advice 與 shop_card_advice 的社群 score／lift 是一般評分，不是這副牌組的最佳選擇。deck_direction、deck_fit 提供程式整理的牌組方向、配合與缺口：先比較 fills_needs、synergies、現有張數和能量曲線，再用一般評分輔助。方向只是目前證據，不是必須湊齊的清單；沒有證據先補即時生存與輸出，不拿只有未來配合才有效的牌。protect_starter_damage 為 true 表示第1幕輸出來源可能不足，優先比較有效輸出，不可只因 short_of_block 就強制拿格擋牌；若已有充能球等輸出引擎，自行衡量其啟動速度。缺防禦與缺輸出同時出現時，依近期敌人、血量、現有配合取捨。無明顯補強就 skip_card_reward；不要求固定牌組張數，重複牌也須比較邊際收益。unknown_description_count 或 effect_known=false 表示程式資料不足，讀完整牌組／商品描述，不能把未辨識當成沒效果。選牌理由簡述補哪個缺口或加強哪個配合。
 
 【選牌畫面】card_select 畫面的 select_card 是切換選取，同一張再選會取消；preview_showing 為 true 代表已選好，只能 confirm_selection 確認（或 cancel_selection 重選），不要再選牌。cards 的 selected 表示已選取，selected_count、min_select、max_select 是已選與可選張數；附魔畫面的 enchantment 說明附魔效果，依效果選最能發揮的牌（例如每段傷害加成適合多段攻擊）。
 

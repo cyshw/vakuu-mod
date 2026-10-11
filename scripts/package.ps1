@@ -3,8 +3,8 @@
     [string]$Dotnet = 'dotnet'
 )
 # Builds the mod and zips a release a player extracts into the game's mods folder:
-# STS2_MCP.dll/.json beside a vakuu/ folder of Python code. Left out: BoberInSpire's offline data
-# (no redistribution license), any Claude Code copy, and local settings, caches and logs.
+# STS2_MCP.dll/.json beside a vakuu/ folder of Python code. Left out: any Claude Code copy and local
+# settings, caches and logs.
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 & (Join-Path $PSScriptRoot 'build.ps1') -GameDir $GameDir -Dotnet $Dotnet

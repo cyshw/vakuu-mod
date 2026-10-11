@@ -75,16 +75,15 @@ class DeckDirectionTests(unittest.TestCase):
         self.assertTrue(context['protect_starter_damage'])
         self.assertEqual(len(fits[9]['synergies']), 1)
 
-    def test_community_ranking_keeps_local_archetype_and_skip_option(self):
+    def test_community_ranking_keeps_deck_fit_and_skip_option(self):
         with patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS):
             advice = sts2_advisor.advise(sample())
         self.assertEqual(advice['engine'], 'Spire Codex')
-        self.assertIn('exhaust', advice['archetype'])
         self.assertTrue(advice['can_skip'])
         self.assertFalse(advice['skip_evaluated'])
         self.assertEqual([(c['index'], c['score']) for c in advice['ranked_cards']],
                          [(7, 75), (9, 75), (2, 40)])
-        self.assertTrue(all('offline_fit' in c and 'deck_fit' in c for c in advice['ranked_cards']))
+        self.assertTrue(all('deck_fit' in c for c in advice['ranked_cards']))
 
     def test_auto_pick_requires_deck_fit_and_defers_conflicting_needs(self):
         rating = {'status': 'ok', 'deck_direction': {'unknown_description_count': 0}, 'ranked_cards': [
