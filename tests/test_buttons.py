@@ -250,6 +250,14 @@ class Tests(unittest.TestCase):
         self.assertEqual(posts,[{'action':'play_card','card_index':0},{'action':'play_card','card_index':1,'target':'BOSS_0'},
                                 {'action':'play_card','card_index':0,'target':'BOSS_0'},{'action':'end_turn'}])
 
+    def test_support_potion_allowed_in_a_dragging_ordinary_fight(self):
+        for rnd,expected in ((2,False),(4,True)):
+            state=self.combat(['打擊'],hp=50)
+            state['state_type']='monster'; state['battle']['round']=rnd; state['player']['max_hp']=80
+            state['player']['potions']=[{'slot':0,'name':'易伤药水','description':'给予3层易伤。','can_use_in_combat':True,'target_type':'AnyEnemy'}]
+            result=facts.combat_facts(state)
+            self.assertEqual(result['usable_potions'][0]['worth_it_in_this_normal_fight'],expected)
+
     def test_potions_are_counted_and_planned(self):
         state=self.combat(['打擊','防禦'],hp=20)
         state['player']['potions']=[{'slot':0,'name':'铁皮药水','description':'获得12点格挡。','can_use_in_combat':True,'target_type':'Self'},
