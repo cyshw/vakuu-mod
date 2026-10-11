@@ -253,6 +253,7 @@ class Tests(unittest.TestCase):
                                     {'slot':1,'name':'火焰药水','description':'造成20点伤害。','can_use_in_combat':True}]
         result=facts.combat_facts(state)
         self.assertFalse(result['unplayed_cards_are_discarded_at_end_of_turn'])
+        self.assertIn('不因回合結束而棄掉', result['hand_end_of_turn_rule'])
         self.assertEqual(result['setup_potions_drink_in_first_turns'],['力量药水'])  # combat() is a boss fight.
         state['state_type']='monster'
         self.assertNotIn('setup_potions_drink_in_first_turns',facts.combat_facts(state))

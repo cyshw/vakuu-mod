@@ -17,7 +17,7 @@ from vakuu_relics import tuning_fork_counter
 PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',
                   'FESTIVE_POPPER', 'MERCURY_HOURGLASS', 'PAELS_FLESH', 'MEAL_TICKET',
                   'HORN_CLEAT', 'STONE_CRACKER', 'BURNING_BLOOD', 'NEW_LEAF', 'BLACK_STAR', 'PHIAL_HOLSTER',
-                  'THE_COURIER'}
+                  'THE_COURIER', 'NEOWS_TORMENT'}
 PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER', 'FOCUS_POWER',
                  # Supported moves never draw cards; these triggers cannot fire in the search.
                  'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER', 'LIGHTNING_ROD_POWER',
@@ -37,6 +37,7 @@ INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
 # These known descriptions have no trigger when another card is played. Their
 # own effects are unsupported, so they still prevent a non-winning turn plan.
 HELD_SAFE = {
+    'NEOWS_FURY': r'造成\d+点伤害。将你弃牌堆中的至多2张牌放入你的手牌。消耗。',
     'COLD_SNAP': r'造成\d+点伤害。生成1个冰霜充能球。',
     'UPROAR': r'造成\d+点伤害两次。随机打出你的抽牌堆中的1张攻击牌。',
     'COMPILE_DRIVER': r'造成\d+点伤害。你每有一种不同的充能球，就抽一张牌。(?:（抽\d+张牌）)?',

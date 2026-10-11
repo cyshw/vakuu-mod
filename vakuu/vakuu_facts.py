@@ -28,6 +28,7 @@ def combat_facts(state):
     hp = player.get('hp') or 0
     orbs = orb_end_of_turn(player)
     loss = max(0, incoming - block - orbs.get('block', 0))
+    retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
         'incoming_attack_damage': incoming,
         **({'end_of_turn_orbs': orbs} if orbs else {}),
@@ -41,7 +42,8 @@ def combat_facts(state):
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
         'lethal_if_no_more_block': loss >= hp > 0,
         'energy': player.get('energy'),
-        'hand_end_of_turn_rule': '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。',
+        'hand_end_of_turn_rule': ('符文金字塔使未打出的手牌不因回合結束而棄掉；虛無等效果仍依描述處理。' if retain_hand else
+                                  '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。'),
         'playable_cards': [{'index': c.get('index'), 'name': c.get('name'), 'cost': c.get('cost'),
                             'gives_energy_now': gives_energy_now(c), 'exhausts': '消耗' in str(c.get('description') or '')}
                            for c in player.get('hand') or [] if c.get('can_play')],
@@ -50,8 +52,7 @@ def combat_facts(state):
         'timed_effects': timed_effects(player),
         # Sonnet kept a 0-cost "gain 10 block" card "for next turn" in two fights; it was discarded.
         # Runic Pyramid keeps the whole hand; saying otherwise would mislead the model's planning.
-        'unplayed_cards_are_discarded_at_end_of_turn': not any(r.get('id') in RETAIN_HAND_RELICS
-                                                               for r in player.get('relics') or []),
+        'unplayed_cards_are_discarded_at_end_of_turn': not retain_hand,
         **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
                                                                 if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),

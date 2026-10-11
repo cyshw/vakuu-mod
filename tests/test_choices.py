@@ -24,6 +24,17 @@ def sample():
 
 
 class ChoiceTests(unittest.TestCase):
+    def test_pickup_neow_relic_and_inert_held_fury_allow_basic_candidates(self):
+        s = sample()
+        s['player']['relics'] = [{'id': 'NEOWS_TORMENT'}]
+        fury = {'id': 'NEOWS_FURY', 'index': 3, 'type': 'Attack', 'cost': '1',
+                'can_play': True, 'target_type': 'AnyEnemy',
+                'description': '造成10点伤害。 将你弃牌堆中的至多2张牌放入你的手牌。 消耗。'}
+        s['player']['hand'].append(fury)
+        self.assertIsNotNone(choice_offer(s))
+        fury['description'] += '每当打出其他牌时失去1点生命。'
+        self.assertIsNone(choice_offer(s))
+
     def test_cloak_clasp_prefix_keeps_trigger_guards_and_never_ends_turn(self):
         s = sample()
         s['player']['relics'] = [{'id': 'CLOAK_CLASP', 'counter': None,
