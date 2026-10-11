@@ -22,7 +22,7 @@ def load_engine():
 
 
 # Floors of the last rest row before each act's boss, used only when no route is planned.
-BOSS_REST_FLOORS = {1: (16,), 2: (32,), 3: (48,)}
+BOSS_REST_FLOORS = {1: (16,), 2: (32,), 3: (47,)}  # Bosses: floors 17, 33 and 48.
 
 
 def main():
