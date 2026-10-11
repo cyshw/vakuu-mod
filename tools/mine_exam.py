@@ -83,13 +83,21 @@ def event(case):
     return {'picked_title': ['!=', worst]}, f'社群 lift：{best} {high:+}、{worst} {low:+}，不要選 {worst}'
 
 
-COMBAT_RULES = {'kill': kill, 'potion': potion_safe, 'potion_lethal': potion_lethal, 'energy': energy}
+def tempo(case):
+    """Healthy HP and a turn that is not lethal: block past the incoming damage is waste, and some damage must be dealt."""
+    facts = combat_facts(case['state'])
+    if 'can_afford_to_attack' not in facts: return None
+    if not any(c.get('can_play') and card_move(c) is not None for c in case['state']['player'].get('hand') or []): return None
+    return {'block_surplus': ['<=', 0], 'damage': ['>=', 1]}, '血量夠厚且不致命，格擋不要溢出，要打出傷害'
 
 
-def mine(per_tag):
+COMBAT_RULES = {'kill': kill, 'potion': potion_safe, 'potion_lethal': potion_lethal, 'energy': energy, 'tempo': tempo}
+
+
+def mine(per_tag, extra_logs=()):
     found = collections.defaultdict(list)
     seen = set()
-    for path in sorted(replay_eval.LOGS.glob('*.jsonl')):
+    for path in sorted(replay_eval.LOGS.glob('*.jsonl')) + sorted(Path(p) for p in extra_logs):
         try: cases = replay_eval.build_cases([path])
         except (ValueError, KeyError): continue
         for case in cases:
@@ -122,9 +130,10 @@ def mine(per_tag):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--per-tag', type=int, default=10)
+    parser.add_argument('--logs', nargs='*', default=[], help='extra takeover logs (e.g. lab batch *-takeover.jsonl)')
     parser.add_argument('--list', action='store_true', help='only print what would be written')
     args = parser.parse_args()
-    chosen, totals = mine(args.per_tag)
+    chosen, totals = mine(args.per_tag, args.logs)
     existing = {c['id'] for c in regression.load()}
     for tag, rows in sorted(chosen.items()):
         print(f'{tag}: {len(rows)} 題（符合 {totals[tag]}）')
