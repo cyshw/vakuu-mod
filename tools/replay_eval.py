@@ -124,6 +124,8 @@ def score_combat(state, decision):
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
             'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
             'drank_potion': bool(drunk_potions(decision)),
+            # Every living enemy dies to the plan's targeted damage (orb damage is not counted).
+            'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
             # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
             'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions

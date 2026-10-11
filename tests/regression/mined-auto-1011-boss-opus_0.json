@@ -1,0 +1,1095 @@
+{
+ "id": "auto-1011-boss-opus#0",
+ "type": "combat",
+ "tags": [
+  "energy"
+ ],
+ "note": "能量已夠打完手牌，不要打加能量的牌",
+ "expect": {
+  "wasted_energy_card": [
+   "=",
+   false
+  ]
+ },
+ "original": {
+  "action": "use_potion",
+  "parameters_json": "{\"slot\":1}",
+  "next_cards": [
+   {
+    "hand_index": 0,
+    "target": "",
+    "potion_slot": -1
+   },
+   {
+    "hand_index": 1,
+    "target": "",
+    "potion_slot": -1
+   },
+   {
+    "hand_index": 4,
+    "target": "TORCH_HEAD_AMALGAM_0",
+    "potion_slot": -1
+   },
+   {
+    "hand_index": 3,
+    "target": "TORCH_HEAD_AMALGAM_0",
+    "potion_slot": -1
+   }
+  ],
+  "advice": "力量借你一回合，構裝體，別浪費。\n建議：先喝肌肉藥水，再打內核加速、防禦+、污穢攻擊、冰之長槍，全打聚合體；最後用音樂盒複製的污穢攻擊把能量用完，再以螺旋鑽擊收尾，每段吃力量加成，打出最大爆發。",
+  "stop": false,
+  "next_purchases": [],
+  "strategy": "先集火火炬頭聚合體（211血）：它活著時女王會不斷用「為我盡力燃燒吧」給它加力量。第2回合女王會上99層虛弱、脆弱、易傷，之後要更重視冰霜格擋與碎片整理+。等聚合體使出8×3光束時優先補格擋。螺旋鑽擊永遠最後打，先把能量花光。聚合體死後女王會循環將頭砍下→處決→激怒，攻擊回合要擋住。賭徒特釀用來換掉卡住的手牌。",
+  "next_nodes": []
+ },
+ "state": {
+  "state_type": "boss",
+  "battle": {
+   "round": 1,
+   "turn": "player",
+   "is_play_phase": true,
+   "enemies": [
+    {
+     "entity_id": "TORCH_HEAD_AMALGAM_0",
+     "combat_id": 1,
+     "name": "火炬头聚合体",
+     "hp": 211,
+     "max_hp": 211,
+     "block": 0,
+     "status": [
+      {
+       "id": "MINION_POWER",
+       "name": "爪牙",
+       "amount": 1,
+       "type": "Buff",
+       "description": "爪牙会在他们的领导者死亡时放弃战斗。",
+       "keywords": []
+      }
+     ],
+     "intents": [
+      {
+       "type": "Attack",
+       "label": "32",
+       "title": "攻势",
+       "description": "这个敌人将要攻击造成32点伤害。"
+      }
+     ]
+    },
+    {
+     "entity_id": "QUEEN_0",
+     "combat_id": 2,
+     "name": "女王",
+     "hp": 419,
+     "max_hp": 419,
+     "block": 0,
+     "status": [],
+     "intents": [
+      {
+       "type": "CardDebuff",
+       "label": "",
+       "title": "恶意",
+       "description": "这个敌人将要对你的卡牌施加侵蚀。"
+      }
+     ]
+    }
+   ]
+  },
+  "run": {
+   "act": 3,
+   "floor": 48,
+   "ascension": 9
+  },
+  "player": {
+   "character": "故障机器人",
+   "character_id": "DEFECT",
+   "deck": [
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得8点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ZAP",
+     "name": "电击",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个闪电充能球。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DUALCAST",
+     "name": "双重释放+",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "激发你最右侧的充能球两次。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "激发",
+       "description": "消耗你最右侧的充能球并使用其激发效果。"
+      }
+     ]
+    },
+    {
+     "id": "ASCENDERS_BANE",
+     "name": "进阶之灾",
+     "type": "Curse",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 虚无。 永恒。",
+     "rarity": "Curse",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "永恒",
+       "description": "无法从你的牌组中移除或变化。"
+      },
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      },
+      {
+       "name": "虚无",
+       "description": "如果这张牌在这个回合结束时留在你的手牌中，则将其消耗。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "NEOWS_FURY",
+     "name": "涅奥之怒",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成10点伤害。 将你弃牌堆中的至多2张牌放入你的手牌。 消耗。",
+     "rarity": "Ancient",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "GUNK_UP",
+     "name": "污秽攻击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成4点伤害3次。 在你的弃牌堆中加入一张黏液。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "黏液",
+       "description": "抽1张牌。 消耗。"
+      }
+     ]
+    },
+    {
+     "id": "COLD_SNAP",
+     "name": "寒流",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。 生成1个冰霜充能球。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      }
+     ]
+    },
+    {
+     "id": "HOLOGRAM",
+     "name": "全息影像+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。 将弃牌堆中的一张牌放入你的手牌。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "TURBO",
+     "name": "内核加速",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得[defect_energy_icon.png][defect_energy_icon.png]。 将一张虚空加入你的弃牌堆。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "虚空",
+       "description": "不能被打出。 虚无。 每当你抽到这张牌时，失去[defect_energy_icon.png]。"
+      }
+     ]
+    },
+    {
+     "id": "COMPILE_DRIVER",
+     "name": "编译冲击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成7点伤害。 你每有一种不同的充能球，就抽一张牌。 （抽0张牌）",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "ROCKET_PUNCH",
+     "name": "火箭飞拳+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成14点伤害。 抽2张牌。 每当你生成状态牌时，此牌的耗能将在下一次打出前减少1[defect_energy_icon.png]。 失去2点生命。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "腐化",
+       "description": "造成的伤害增加50%，但会失去2生命。"
+      }
+     ]
+    },
+    {
+     "id": "COMPILE_DRIVER",
+     "name": "编译冲击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成7点伤害。 你每有一种不同的充能球，就抽一张牌。 （抽0张牌）",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "CHARGE_BATTERY",
+     "name": "充电",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。 在下个回合获得[defect_energy_icon.png]。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ICE_LANCE",
+     "name": "冰之长枪",
+     "type": "Attack",
+     "cost": "3",
+     "star_cost": null,
+     "description": "造成19点伤害。 生成3个冰霜充能球。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      }
+     ]
+    },
+    {
+     "id": "DEFRAGMENT",
+     "name": "碎片整理+",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得2点集中。",
+     "rarity": "Rare",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "集中",
+       "description": "提升充能球的效力。"
+      }
+     ]
+    },
+    {
+     "id": "COLD_SNAP",
+     "name": "寒流+",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 生成1个冰霜充能球。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      }
+     ]
+    },
+    {
+     "id": "SCRAPE",
+     "name": "刮削+",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成10点伤害。 抽5张牌。 丢弃抽到的牌中耗能不为0[defect_energy_icon.png]的牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": []
+    },
+    {
+     "id": "BOOST_AWAY",
+     "name": "高速脱离+",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得9点格挡。 将一张晕眩添加到你的弃牌堆中。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "晕眩",
+       "description": "不能被打出。 虚无。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "LIGHTNING_ROD",
+     "name": "引雷针+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。 在下2个回合开始时,生成1个闪电充能球。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "GO_FOR_THE_EYES",
+     "name": "眼部攻击+",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 如果敌人的意图是攻击，则给予2层虚弱。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      }
+     ]
+    },
+    {
+     "id": "GO_FOR_THE_EYES",
+     "name": "眼部攻击+",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 如果敌人的意图是攻击，则给予2层虚弱。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      }
+     ]
+    },
+    {
+     "id": "CHILL",
+     "name": "冰寒",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "当前每有一名敌人，就生成1个冰霜充能球。 消耗。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "SKIM",
+     "name": "快速检索+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "抽4张牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": []
+    },
+    {
+     "id": "ITERATION",
+     "name": "迭代",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每回合你第一次抽到状态牌时，抽2张牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "HELIX_DRILL",
+     "name": "螺旋钻击+",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "在本回合中，这张牌以外使用的每个[defect_energy_icon.png]，都会使此牌造成5点伤害一次。",
+     "rarity": "Rare",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "锋利",
+       "description": "这张牌上的伤害值增加2点。"
+      }
+     ]
+    },
+    {
+     "id": "BEAM_CELL",
+     "name": "光束射线",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成3点伤害。 给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "TURBO",
+     "name": "内核加速",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得[defect_energy_icon.png][defect_energy_icon.png]。 将一张虚空加入你的弃牌堆。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "虚空",
+       "description": "不能被打出。 虚无。 每当你抽到这张牌时，失去[defect_energy_icon.png]。"
+      }
+     ]
+    },
+    {
+     "id": "FERAL",
+     "name": "野性",
+     "type": "Power",
+     "cost": "2",
+     "star_cost": null,
+     "description": "你每回合打出的第一张 耗能为0[defect_energy_icon.png]的攻击牌， 会放回你的手牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "AUTOMATION",
+     "name": "自动化+",
+     "type": "Power",
+     "cost": "0",
+     "star_cost": null,
+     "description": "你每抽10张牌，获得[defect_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    },
+    {
+     "id": "HOLOGRAM",
+     "name": "全息影像+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。 将弃牌堆中的一张牌放入你的手牌。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "hp": 71,
+   "max_hp": 80,
+   "block": 0,
+   "energy": 5,
+   "max_energy": 3,
+   "hand": [
+    {
+     "id": "TURBO",
+     "name": "内核加速",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得[defect_energy_icon.png][defect_energy_icon.png]。 将一张虚空加入你的弃牌堆。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "虚空",
+       "description": "不能被打出。 虚无。 每当你抽到这张牌时，失去[defect_energy_icon.png]。"
+      }
+     ],
+     "index": 0,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得8点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ],
+     "index": 1,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "HELIX_DRILL",
+     "name": "螺旋钻击+",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "在本回合中，这张牌以外使用的每个[defect_energy_icon.png]，都会使此牌造成7点伤害一次。 （命中0次）",
+     "rarity": "Rare",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "锋利",
+       "description": "这张牌上的伤害值增加2点。"
+      }
+     ],
+     "index": 2,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "ICE_LANCE",
+     "name": "冰之长枪",
+     "type": "Attack",
+     "cost": "3",
+     "star_cost": null,
+     "description": "造成19点伤害。 生成3个冰霜充能球。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "冰霜",
+       "description": "充能球：获得格挡。"
+      }
+     ],
+     "index": 3,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "GUNK_UP",
+     "name": "污秽攻击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成4点伤害3次。 在你的弃牌堆中加入一张黏液。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "黏液",
+       "description": "抽1张牌。 消耗。"
+      }
+     ],
+     "index": 4,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    }
+   ],
+   "draw_pile_count": 27,
+   "discard_pile_count": 0,
+   "exhaust_pile_count": 0,
+   "draw_pile": [
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "双重释放+",
+     "cost": "0",
+     "star_cost": null,
+     "description": "激发你最右侧的充能球两次。"
+    },
+    {
+     "name": "电击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个闪电充能球。"
+    },
+    {
+     "name": "光束射线",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成3点伤害。 给予1层易伤。"
+    },
+    {
+     "name": "高速脱离+",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得9点格挡。 将一张晕眩添加到你的弃牌堆中。"
+    },
+    {
+     "name": "充电",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。 在下个回合获得[defect_energy_icon.png]。"
+    },
+    {
+     "name": "寒流",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。 生成1个冰霜充能球。"
+    },
+    {
+     "name": "寒流+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 生成1个冰霜充能球。"
+    },
+    {
+     "name": "编译冲击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成7点伤害。 你每有一种不同的充能球，就抽一张牌。 （抽0张牌）"
+    },
+    {
+     "name": "编译冲击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成7点伤害。 你每有一种不同的充能球，就抽一张牌。 （抽0张牌）"
+    },
+    {
+     "name": "眼部攻击+",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 如果敌人的意图是攻击，则给予2层虚弱。"
+    },
+    {
+     "name": "眼部攻击+",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 如果敌人的意图是攻击，则给予2层虚弱。"
+    },
+    {
+     "name": "全息影像+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。 将弃牌堆中的一张牌放入你的手牌。"
+    },
+    {
+     "name": "全息影像+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。 将弃牌堆中的一张牌放入你的手牌。"
+    },
+    {
+     "name": "引雷针+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。 在下2个回合开始时,生成1个闪电充能球。"
+    },
+    {
+     "name": "内核加速",
+     "cost": "0",
+     "star_cost": null,
+     "description": "获得[defect_energy_icon.png][defect_energy_icon.png]。 将一张虚空加入你的弃牌堆。"
+    },
+    {
+     "name": "自动化+",
+     "cost": "0",
+     "star_cost": null,
+     "description": "你每抽10张牌，获得[defect_energy_icon.png]。"
+    },
+    {
+     "name": "冰寒",
+     "cost": "0",
+     "star_cost": null,
+     "description": "当前每有一名敌人，就生成1个冰霜充能球。 消耗。"
+    },
+    {
+     "name": "野性",
+     "cost": "2",
+     "star_cost": null,
+     "description": "你每回合打出的第一张 耗能为0[defect_energy_icon.png]的攻击牌， 会放回你的手牌。"
+    },
+    {
+     "name": "迭代",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每回合你第一次抽到状态牌时，抽2张牌。"
+    },
+    {
+     "name": "火箭飞拳+",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成14点伤害。 抽2张牌。 每当你生成状态牌时，此牌的耗能将在下一次打出前减少1[defect_energy_icon.png]。 失去2点生命。"
+    },
+    {
+     "name": "刮削+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成10点伤害。 抽5张牌。 丢弃抽到的牌中耗能不为0[defect_energy_icon.png]的牌。"
+    },
+    {
+     "name": "快速检索+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "抽4张牌。"
+    },
+    {
+     "name": "碎片整理+",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得2点集中。"
+    },
+    {
+     "name": "涅奥之怒",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成10点伤害。 将你弃牌堆中的至多2张牌放入你的手牌。 消耗。"
+    },
+    {
+     "name": "进阶之灾",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 虚无。 永恒。"
+    }
+   ],
+   "discard_pile": [],
+   "exhaust_pile": [],
+   "orbs": [
+    {
+     "id": "LIGHTNING_ORB",
+     "name": "闪电",
+     "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。",
+     "passive_val": 3,
+     "evoke_val": 8,
+     "keywords": [
+      {
+       "name": "闪电",
+       "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。"
+      }
+     ]
+    }
+   ],
+   "orb_slots": 3,
+   "orb_empty_slots": 2,
+   "gold": 75,
+   "status": [],
+   "relics": [
+    {
+     "id": "CRACKED_CORE",
+     "name": "破损核心",
+     "description": "在每场战斗开始时，生成1个闪电充能球。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "NEOWS_TORMENT",
+     "name": "涅奥的苦痛",
+     "description": "拾起时，将1张涅奥之怒加入你的牌组。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "涅奥之怒",
+       "description": "造成10点伤害。 将你弃牌堆中的至多2张牌放入你的手牌。 消耗。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "PANTOGRAPH",
+     "name": "缩放仪",
+     "description": "在Boss战开始时，回复25点生命值。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "PLANISPHERE",
+     "name": "活动星图",
+     "description": "每当你进入？房间的时候，回复5点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "ASTROLABE",
+     "name": "星盘",
+     "description": "拾起时，选择3张牌进行变化，然后将这些牌升级。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "CENTENNIAL_PUZZLE",
+     "name": "百年积木",
+     "description": "你在每场战斗中第一次损失生命值时，抽3张牌。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "MUSIC_BOX",
+     "name": "音乐盒",
+     "description": "将你每回合打出的第一张攻击牌的一张虚无复制品加入你的手牌。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "虚无",
+       "description": "如果这张牌在这个回合结束时留在你的手牌中，则将其消耗。"
+      }
+     ]
+    },
+    {
+     "id": "HISTORY_COURSE",
+     "name": "历史课",
+     "description": "在你的回合开始时，打出一张你上一回合最后打出的攻击牌的复制品。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "FRAGRANT_MUSHROOM",
+     "name": "芳香蘑菇",
+     "description": "拾起时，失去15点生命，然后随机升级2张牌。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "UNCEASING_TOP",
+     "name": "不休陀螺",
+     "description": "在你的回合，当你没有手牌时，抽一张牌。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "VENERABLE_TEA_SET",
+     "name": "古茶具套装",
+     "description": "到达休息处后的下一场战斗开始时额外获得[defect_energy_icon.png][defect_energy_icon.png]。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    }
+   ],
+   "potions": [
+    {
+     "id": "GAMBLERS_BREW",
+     "name": "赌徒特酿",
+     "description": "丢弃任意张牌，然后抽相同数量的牌。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    },
+    {
+     "id": "FLEX_POTION",
+     "name": "肌肉药水",
+     "description": "获得5点力量。在你的这个回合结束时，失去5点力量。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      }
+     ]
+    }
+   ],
+   "max_potion_slots": 2
+  }
+ }
+}

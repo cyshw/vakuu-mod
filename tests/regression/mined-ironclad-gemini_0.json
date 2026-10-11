@@ -1,0 +1,245 @@
+{
+ "id": "ironclad-gemini#0",
+ "type": "event",
+ "tags": [
+  "event"
+ ],
+ "note": "社群 lift：新叶 +7.7、沉重石板 +2.6，不要選 沉重石板",
+ "expect": {
+  "picked_title": [
+   "!=",
+   "沉重石板"
+  ]
+ },
+ "original": {
+  "action": "choose_event_option",
+  "advice": "戰士，蛻變總比停滯更甜美。\n建議：選擇「新葉」（index: 1）變化一張牌，其勝率與提升最高，能將平庸的起始牌轉化為更強的戰力。",
+  "next_cards": [],
+  "next_nodes": [],
+  "next_purchases": [],
+  "parameters_json": "{\"index\": 1}",
+  "stop": false,
+  "strategy": ""
+ },
+ "state": {
+  "state_type": "event",
+  "event": {
+   "event_id": "NEOW",
+   "event_name": "涅奥",
+   "is_ancient": true,
+   "in_dialogue": false,
+   "body": null,
+   "options": [
+    {
+     "index": 0,
+     "title": "精准剪刀",
+     "description": "从你的牌组中移除1张牌。",
+     "is_locked": false,
+     "is_proceed": false,
+     "was_chosen": false,
+     "relic_name": "精准剪刀",
+     "relic_description": "拾起时，从你的牌组中移除1张牌。",
+     "keywords": []
+    },
+    {
+     "index": 1,
+     "title": "新叶",
+     "description": "变化1张牌。",
+     "is_locked": false,
+     "is_proceed": false,
+     "was_chosen": false,
+     "relic_name": "新叶",
+     "relic_description": "拾起时，变化1张牌。",
+     "keywords": [
+      {
+       "name": "变化",
+       "description": "卡牌被变化时会变成任意稀有度的随机牌。"
+      }
+     ]
+    },
+    {
+     "index": 2,
+     "title": "沉重石板",
+     "description": "从3张稀有牌中选择1张加入你的牌组。将1张受伤加入你的牌组。",
+     "is_locked": false,
+     "is_proceed": false,
+     "was_chosen": false,
+     "relic_name": "沉重石板",
+     "relic_description": "拾起时，从3张稀有牌中选择1张加入你的牌组，同时将1张受伤加入你的牌组。",
+     "keywords": [
+      {
+       "name": "受伤",
+       "description": "不能被打出。"
+      },
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      }
+     ]
+    }
+   ]
+  },
+  "run": {
+   "act": 1,
+   "floor": 1,
+   "ascension": 1
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成8点伤害。 给予2层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    }
+   ],
+   "hp": 80,
+   "max_hp": 80,
+   "block": 0,
+   "gold": 99,
+   "status": [],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    }
+   ],
+   "potions": [],
+   "max_potion_slots": 3
+  }
+ }
+}

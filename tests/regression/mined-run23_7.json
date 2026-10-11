@@ -1,0 +1,616 @@
+{
+ "id": "run23#7",
+ "type": "combat",
+ "tags": [
+  "potion_lethal"
+ ],
+ "note": "不擋會死，格擋藥水能救命，應該喝",
+ "expect": {
+  "potion_held_when_lethal": [
+   "=",
+   false
+  ]
+ },
+ "original": {
+  "action": "use_potion",
+  "advice": "瓦庫低語:你的血量只剩一口氣,構裝體,契約還沒簽完。\n建議:先喝格擋藥水,再打防禦,總共擋 17,只會受 2 點傷。野性搭配子程序淨耗 1 能量,所以先打野性,後面的雙重釋放和兩張打擊才有足夠能量。",
+  "stop": false,
+  "parameters_json": "{\"slot\": 1}",
+  "next_cards": [
+   {
+    "hand_index": 3,
+    "target": ""
+   },
+   {
+    "hand_index": 1,
+    "target": ""
+   },
+   {
+    "hand_index": 0,
+    "target": ""
+   },
+   {
+    "hand_index": 2,
+    "target": "SEWER_CLAM_0"
+   },
+   {
+    "hand_index": 4,
+    "target": "SEWER_CLAM_0"
+   },
+   {
+    "hand_index": -1,
+    "target": ""
+   }
+  ],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "state_type": "monster",
+  "battle": {
+   "round": 5,
+   "turn": "player",
+   "is_play_phase": true,
+   "enemies": [
+    {
+     "entity_id": "SEWER_CLAM_0",
+     "combat_id": 1,
+     "name": "下水道蚌",
+     "hp": 34,
+     "max_hp": 58,
+     "block": 6,
+     "status": [
+      {
+       "id": "PLATING_POWER",
+       "name": "覆甲",
+       "amount": 6,
+       "type": "Buff",
+       "description": "在你的回合结束时获得6点格挡。覆甲会在你的回合开始时减少1层。",
+       "keywords": [
+        {
+         "name": "格挡",
+         "description": "在下个回合前，阻挡伤害。"
+        }
+       ]
+      },
+      {
+       "id": "STRENGTH_POWER",
+       "name": "力量",
+       "amount": 8,
+       "type": "Buff",
+       "description": "增加攻击牌造成的伤害值8点。",
+       "keywords": []
+      }
+     ],
+     "intents": [
+      {
+       "type": "Attack",
+       "label": "19",
+       "title": "攻势",
+       "description": "这个敌人将要攻击造成19点伤害。"
+      }
+     ]
+    }
+   ]
+  },
+  "run": {
+   "act": 1,
+   "floor": 7,
+   "ascension": 9
+  },
+  "player": {
+   "character": "故障机器人",
+   "character_id": "DEFECT",
+   "deck": [
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ZAP",
+     "name": "电击",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个闪电充能球。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DUALCAST",
+     "name": "双重释放",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "激发你最右侧的充能球两次。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "激发",
+       "description": "消耗你最右侧的充能球并使用其激发效果。"
+      }
+     ]
+    },
+    {
+     "id": "ASCENDERS_BANE",
+     "name": "进阶之灾",
+     "type": "Curse",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 虚无。 永恒。",
+     "rarity": "Curse",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "永恒",
+       "description": "无法从你的牌组中移除或变化。"
+      },
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      },
+      {
+       "name": "虚无",
+       "description": "如果这张牌在这个回合结束时留在你的手牌中，则将其消耗。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "FERAL",
+     "name": "野性",
+     "type": "Power",
+     "cost": "2",
+     "star_cost": null,
+     "description": "你每回合打出的第一张 耗能为0[defect_energy_icon.png]的攻击牌， 会放回你的手牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "RESTLESSNESS",
+     "name": "心神不宁",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "保留。 如果你的手牌为空，则抽2张牌并获得[defect_energy_icon.png][defect_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "保留",
+       "description": "保留的牌不会在回合结束时被弃掉。"
+      }
+     ]
+    },
+    {
+     "id": "SCAVENGE",
+     "name": "内存清理",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "消耗一张牌。 在下个回合获得[defect_energy_icon.png][defect_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "SUBROUTINE",
+     "name": "子程序",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "当你打出一张能力牌时，获得[defect_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    }
+   ],
+   "hp": 14,
+   "max_hp": 75,
+   "block": 0,
+   "energy": 5,
+   "max_energy": 3,
+   "hand": [
+    {
+     "id": "DUALCAST",
+     "name": "双重释放",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "激发你最右侧的充能球两次。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "激发",
+       "description": "消耗你最右侧的充能球并使用其激发效果。"
+      }
+     ],
+     "index": 0,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "DEFEND_DEFECT",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ],
+     "index": 1,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [],
+     "index": 2,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "FERAL",
+     "name": "野性",
+     "type": "Power",
+     "cost": "2",
+     "star_cost": null,
+     "description": "你每回合打出的第一张 耗能为0[defect_energy_icon.png]的攻击牌， 会放回你的手牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [],
+     "index": 3,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "STRIKE_DEFECT",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [],
+     "index": 4,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    }
+   ],
+   "draw_pile_count": 6,
+   "discard_pile_count": 0,
+   "exhaust_pile_count": 3,
+   "draw_pile": [
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    },
+    {
+     "name": "电击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "生成1个闪电充能球。"
+    },
+    {
+     "name": "心神不宁",
+     "cost": "0",
+     "star_cost": null,
+     "description": "保留。 如果你的手牌为空，则抽2张牌并获得[defect_energy_icon.png][defect_energy_icon.png]。"
+    },
+    {
+     "name": "内存清理",
+     "cost": "1",
+     "star_cost": null,
+     "description": "消耗一张牌。 在下个回合获得[defect_energy_icon.png][defect_energy_icon.png]。"
+    }
+   ],
+   "discard_pile": [],
+   "exhaust_pile": [
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    },
+    {
+     "name": "进阶之灾",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 虚无。 永恒。"
+    },
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    }
+   ],
+   "orbs": [
+    {
+     "id": "LIGHTNING_ORB",
+     "name": "闪电",
+     "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。",
+     "passive_val": 3,
+     "evoke_val": 8,
+     "keywords": [
+      {
+       "name": "闪电",
+       "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。"
+      }
+     ]
+    },
+    {
+     "id": "LIGHTNING_ORB",
+     "name": "闪电",
+     "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。",
+     "passive_val": 3,
+     "evoke_val": 8,
+     "keywords": [
+      {
+       "name": "闪电",
+       "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。"
+      }
+     ]
+    },
+    {
+     "id": "LIGHTNING_ORB",
+     "name": "闪电",
+     "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。",
+     "passive_val": 3,
+     "evoke_val": 8,
+     "keywords": [
+      {
+       "name": "闪电",
+       "description": "被动：回合结束时，对一名随机敌人造成3点伤害。\n激发：对一名随机敌人造成8点伤害。"
+      }
+     ]
+    }
+   ],
+   "orb_slots": 3,
+   "orb_empty_slots": 0,
+   "gold": 48,
+   "status": [
+    {
+     "id": "SUBROUTINE_POWER",
+     "name": "子程序",
+     "amount": 1,
+     "type": "Buff",
+     "description": "你每次打出能力牌时，都获得[defect_energy_icon.png]。",
+     "keywords": []
+    }
+   ],
+   "relics": [
+    {
+     "id": "CRACKED_CORE",
+     "name": "破损核心",
+     "description": "在每场战斗开始时，生成1个闪电充能球。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "生成",
+       "description": "生成充能球会将其放入你的第一个空着的充能球栏位。如果栏位已满，则你的第一个充能球将会被自动激发，腾出栏位。"
+      },
+      {
+       "name": "闪电",
+       "description": "充能球：对随机敌人造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "PHIAL_HOLSTER",
+     "name": "药瓶皮套",
+     "description": "拾起时，获得1个药水栏位并获得2瓶随机药水。",
+     "counter": null,
+     "keywords": []
+    }
+   ],
+   "potions": [
+    {
+     "id": "GAMBLERS_BREW",
+     "name": "赌徒特酿",
+     "description": "丢弃任意张牌，然后抽相同数量的牌。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    },
+    {
+     "id": "BLOCK_POTION",
+     "name": "格挡药水",
+     "description": "获得12点格挡。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "STABLE_SERUM",
+     "name": "稳定血清",
+     "description": "保留你的手牌2回合。",
+     "slot": 2,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "保留",
+       "description": "保留的牌不会在回合结束时被弃掉。"
+      }
+     ]
+    }
+   ],
+   "max_potion_slots": 3
+  }
+ }
+}
