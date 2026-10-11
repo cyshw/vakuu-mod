@@ -12,7 +12,7 @@ from pathlib import Path
 SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 import spire_codex  # noqa: E402
-from vakuu_facts import BLOCK_TEXT, card_cost, deck_profile, enemy_ids, gives_energy_now  # noqa: E402
+from vakuu_facts import BLOCK_TEXT, card_cost, deals_damage, deck_profile, enemy_ids, gives_energy_now  # noqa: E402
 from vakuu_rules import COMBAT  # noqa: E402
 
 BIG_LOSS = 0.2  # A turn costing this share of max HP is worth asking whether a potion should have been drunk.
@@ -83,10 +83,18 @@ def review(path, since_floor=0):
             # HP lost between the first move of a turn and ending it happened on our own turn: enchant costs,
             # self-damaging cards, enemy Thorns. A floor 46 "loss" of 10 against a community 1 was all this.
             round_, hp = step_state['battle'].get('round'), (step_state.get('player') or {}).get('hp') or 0
-            if not fight['turn'] or fight['turn'][0] != round_: fight['turn'] = (round_, hp)
+            if not fight['turn'] or fight['turn'][0] != round_:
+                # Effects of the last card can land after end_turn; with no enemy attacking, the HP lost
+                # between turns is ours too (floor 46: 2 of 10 self-damage landed there).
+                gap = fight.pop('gap', None)
+                if gap and not gap[1]: fight['self_loss'] += max(0, gap[0] - hp)
+                fight['turn'] = (round_, hp)
             if record['body'].get('action') == 'end_turn':
                 if fight['turn'][1] is not None: fight['self_loss'] += max(0, fight['turn'][1] - hp)
                 fight['turn'] = (round_, None)
+                attacked = any(deals_damage(i) for e in step_state['battle'].get('enemies') or [] if (e.get('hp') or 0) > 0
+                               for i in e.get('intents') or [])
+                fight['gap'] = (hp, attacked)
         if kind == 'post' and record['body'].get('action') == 'end_turn' and fight and step_state \
                 and step_state.get('state_type') in COMBAT:
             turn_state = step_state
