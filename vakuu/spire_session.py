@@ -178,9 +178,7 @@ class ClaudeCombatSession:
         self.last_metrics = None
         self.messages = queue.Queue()
         self.closed = threading.Event()
-        command, _ = models.build_command(selection, directory, schema)
-        at = command.index('--output-format')
-        command[at:at + 2] = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose']
+        command = self._command(selection, directory, schema)
         self.process = subprocess.Popen(
             command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding='utf-8', errors='replace', cwd=directory,
@@ -197,7 +195,7 @@ class ClaudeCombatSession:
                     log.flush()
                     try: message = json.loads(line)
                     except ValueError: continue
-                    if isinstance(message, dict) and message.get('type') == 'result': self.messages.put(message)
+                    if isinstance(message, dict) and self._is_result(message): self.messages.put(message)
         finally:
             self.messages.put({'closed': True})
 
@@ -226,8 +224,7 @@ class ClaudeCombatSession:
         if self.closed.is_set(): raise RuntimeError('戰鬥對話已關閉')
         text = '本次局面是最新狀態；忽略舊局面的手牌索引與敵人意圖。只依本次提供的格式回覆。\n' + prompt
         try:
-            self.process.stdin.write(json.dumps({'type': 'user', 'message': {'role': 'user', 'content': text}},
-                                                ensure_ascii=False) + '\n')
+            self.process.stdin.write(self._message(text))
             self.process.stdin.flush()
         except (OSError, ValueError) as exc:
             raise RuntimeError('Claude 戰鬥對話已中斷') from exc
@@ -241,9 +238,53 @@ class ClaudeCombatSession:
             if message.get('closed'): raise RuntimeError('Claude 戰鬥對話已中斷；請檢查 session-stderr.log')
             break
         self.turns += 1
+        return self._answer(message)
+
+    # The CLI-specific parts; AgyCombatSession replaces them.
+    def _command(self, selection, directory, schema):
+        command, _ = models.build_command(selection, directory, schema)
+        at = command.index('--output-format')
+        command[at:at + 2] = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose']
+        return command
+
+    def _is_result(self, message):
+        return message.get('type') == 'result'
+
+    def _message(self, text):
+        return json.dumps({'type': 'user', 'message': {'role': 'user', 'content': text}}, ensure_ascii=False) + '\n'
+
+    def _answer(self, message):
         usage = message.get('usage') or {}
         self.last_metrics = {'transport': 'claude_session', 'session_turn': self.turns,
                              'api_ms': message.get('duration_api_ms'), 'duration_ms': message.get('duration_ms'),
                              'usage': {k: usage.get(k) for k in ('input_tokens', 'cache_read_input_tokens',
                                                                  'cache_creation_input_tokens', 'output_tokens')}}
         return models.parse_answer('claude', json.dumps(message, ensure_ascii=False), None)
+
+
+class AgyCombatSession(ClaudeCombatSession):
+    """One Antigravity (agy) process per combat; same stream-json idea, its own event format.
+
+    agy reports usage cumulatively for the session, so a turn's own usage is the difference.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.previous_usage = {}
+        super().__init__(*args, **kwargs)
+
+    def _command(self, selection, directory, schema):
+        return models.build_command(selection, directory, schema)[0]  # Already stream-json in and out.
+
+    def _is_result(self, message):
+        return message.get('event') == 'result'
+
+    def _message(self, text):
+        return models.stdin_for('agy', text)
+
+    def _answer(self, message):
+        result = message.get('result') or {}
+        total = result.get('usage') or {}
+        turn = {k: v - self.previous_usage.get(k, 0) for k, v in total.items() if type(v) is int}
+        self.previous_usage = total
+        self.last_metrics = {'transport': 'agy_session', 'session_turn': self.turns, 'usage': turn}
+        return models.parse_answer('agy', json.dumps(message, ensure_ascii=False), None)

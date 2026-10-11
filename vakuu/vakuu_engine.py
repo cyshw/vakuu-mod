@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 import sts2_control as api
 from sts2_advisor import advise
 import spire_models as models
-from spire_session import ClaudeCombatSession, CombatSession
+from spire_session import AgyCombatSession, ClaudeCombatSession, CombatSession
 import spire_quota
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
@@ -291,7 +291,9 @@ class Controller:
 
     def call_model(self, prompt, schema, selection, candidate=False):
         started = time.perf_counter()
-        claude = selection['model_key'].startswith('claude:')
+        agy = selection['model_key'].startswith('agy:')
+        # "claude" below means a stream-json CLI kept open per fight: Claude Code or Antigravity's agy.
+        claude = selection['model_key'].startswith('claude:') or agy
         persistent = self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))
         if self.combat_session and (not persistent or self.combat_session.selection != selection
                                     or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
@@ -308,7 +310,8 @@ class Controller:
             with self.lock:
                 if self.stop_event.is_set(): raise InterruptedError('已停止')
                 if self.combat_session is None:
-                    self.combat_session = (ClaudeCombatSession(selection, run_dir, self.stop_event, schema) if claude
+                    self.combat_session = (AgyCombatSession(selection, run_dir, self.stop_event, schema) if agy
+                                           else ClaudeCombatSession(selection, run_dir, self.stop_event, schema) if claude
                                            else CombatSession(selection, run_dir, self.stop_event))
                 session = self.combat_session
             rules, sent = instructions(), prompt

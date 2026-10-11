@@ -244,3 +244,17 @@ class ClaudeSessionTests(unittest.TestCase):
              patch.object(engine.models, 'parse_answer', return_value=ANSWER):
             c.call_model('prompt', engine.SCHEMA, CLAUDE)
         self.assertEqual(FakeClaudeSession.made, [])
+
+
+class AgySessionTests(unittest.TestCase):
+    def test_turn_usage_is_the_difference_of_cumulative_totals(self):
+        s = transport.AgyCombatSession.__new__(transport.AgyCombatSession)
+        s.previous_usage = {}; s.turns = 1
+        answer = {'advice': '打', 'stop': False, 'action': 'end_turn', 'parameters_json': '{}', 'next_cards': []}
+        event = lambda total: {'event': 'result', 'result': {'status': 'SUCCESS', 'structured_output': answer,
+                                                             'usage': {'input_tokens': total, 'output_tokens': 10}}}
+        self.assertEqual(s._answer(event(20000)), answer)
+        s.turns = 2
+        s._answer(event(24000))
+        self.assertEqual(s.last_metrics['usage'], {'input_tokens': 4000, 'output_tokens': 0})
+        self.assertEqual(json.loads(s._message('hi')), {'event': 'user', 'message': {'content': 'hi'}})
