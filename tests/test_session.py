@@ -236,14 +236,21 @@ class ClaudeSessionTests(unittest.TestCase):
         self.assertIsNone(c.combat_session)
         self.assertTrue(process.communicate.call_args.args[0].startswith(engine.instructions()))
 
-    def test_claude_outside_combat_stays_one_off(self):
+    def test_screens_between_fights_share_one_conversation_until_the_next_fight(self):
         c = engine.Controller(lambda m: None); c.combat_key = None
-        process = Mock(returncode=0); process.communicate.return_value = ('{}', '')
-        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'), \
-             patch.object(engine.subprocess, 'Popen', return_value=process), \
-             patch.object(engine.models, 'parse_answer', return_value=ANSWER):
-            c.call_model('prompt', engine.SCHEMA, CLAUDE)
-        self.assertEqual(FakeClaudeSession.made, [])
+        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+            c.call_model(engine.instructions() + '\n獎勵', engine.SCHEMA, CLAUDE)
+            c.call_model(engine.instructions() + '\n地圖', engine.SCHEMA, CLAUDE)
+            self.assertEqual(len(FakeClaudeSession.made), 1)
+            self.assertEqual(FakeClaudeSession.made[0].sent[1], engine.REPEATED_RULES + '\n地圖')
+            c.sync_combat({'state_type': 'monster', 'run': {'act': 1, 'floor': 5}, 'battle': {'round': 1}})
+            self.assertTrue(FakeClaudeSession.made[0].closed)  # A fight starts its own conversation.
+            c.sync_combat({'state_type': 'map', 'run': {'act': 1, 'floor': 5}})
+            c.call_model(engine.instructions() + '\n事件', engine.SCHEMA, CLAUDE)
+            c.combat_session.last_used -= engine.SESSION_IDLE_SECONDS + 1  # Left alone too long.
+            c.call_model(engine.instructions() + '\n商店', engine.SCHEMA, CLAUDE)
+        self.assertEqual(len(FakeClaudeSession.made), 3)
+        self.assertTrue(FakeClaudeSession.made[2].sent[0].startswith(engine.instructions()))
 
 
 class AgySessionTests(unittest.TestCase):

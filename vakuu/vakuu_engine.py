@@ -81,7 +81,8 @@ def prune_runs(keep=40, exclude=(), min_age=600):
 
 PROMPT = ROOT / 'vakuu_prompt.md'
 SESSION_MAX_TURNS = 8  # Model calls one combat conversation answers before a fresh one starts.
-REPEATED_RULES = '（遊戲指示與這場戰鬥第一則訊息相同，不再重複，照那份指示判斷。）'
+SESSION_IDLE_SECONDS = 300  # A conversation unused this long is restarted: its prompt cache has likely expired.
+REPEATED_RULES = '（遊戲指示與這段對話第一則訊息相同，不再重複，照那份指示判斷。）'
 
 def instructions():
     """Model instructions, read on every call so edits apply without restarting the game."""
@@ -299,7 +300,14 @@ class Controller:
         agy = selection['model_key'].startswith('agy:')
         # "claude" below means a stream-json CLI kept open per fight: Claude Code or Antigravity's agy.
         claude = selection['model_key'].startswith('claude:') or agy
-        persistent = self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))
+        # Fights keep one conversation; so does the run of screens between two fights (rewards, card
+        # pick, map, event come within a minute), whose rules then need not be resent.
+        persistent = (self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))) or \
+                     (self.combat_key is None and claude)
+        stale = lambda session: time.monotonic() - getattr(session, 'last_used', time.monotonic()) > SESSION_IDLE_SECONDS
+        if self.parked_sessions and any(stale(s) for s in self.parked_sessions.values()):
+            with self.lock: old = [k for k, s in self.parked_sessions.items() if stale(s)]
+            for key in old: self.parked_sessions.pop(key).close()
         if persistent and self.combat_session and self.combat_session.selection != selection:
             with self.lock:  # Another model's turn: park the active conversation, resume this model's own.
                 parked = self.combat_session
@@ -307,7 +315,8 @@ class Controller:
                 self.combat_session = self.parked_sessions.pop(selection['model_key'] + '@' + selection.get('effort', ''), None)
         if self.combat_session and (not persistent or self.combat_session.selection != selection
                                     or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
-                                    or (claude and self.combat_session.turns >= SESSION_MAX_TURNS)):
+                                    or (claude and self.combat_session.turns >= SESSION_MAX_TURNS)
+                                    or (claude and stale(self.combat_session))):  # Its cache has likely expired.
             # Claude's CLI keeps its bounded sessions; Codex retains one thread per battle.
             with self.lock: session, self.combat_session = self.combat_session, None
             session.close()
@@ -332,7 +341,7 @@ class Controller:
                 # would only grow the context. A fallback call below still gets the whole prompt.
                 sent = REPEATED_RULES + prompt[len(rules):]
             try:
-                answer = session.ask(sent, schema)
+                answer = session.ask(sent, schema); session.last_used = time.monotonic()
             except ValueError:
                 # A malformed candidate may receive one full-state follow-up
                 # in this same conversation, just like an explicit rejection.
