@@ -469,7 +469,7 @@ class Controller:
 
 def bridge_server(port):
     guard=threading.Lock()
-    status={'busy':False,'mode':'idle','message':'又來尋求力量了？很好，我有一份提案。\n選擇「只給建議」或「接手遊玩」。','sequence':0}
+    status={'busy':False,'mode':'idle','message':'又來尋求力量了？很好，我有一份提案。\n「幫我選」只處理眼前這一步，也能接手這場戰鬥或整局。','sequence':0}
     def report(message):
         with guard:
             if message=='__DONE__': status.update(busy=False,mode='idle')
