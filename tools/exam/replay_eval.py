@@ -22,6 +22,8 @@ sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402
 from combat.facts import card_cost, combat_facts, gives_energy_now, incoming_damage  # noqa: E402
+from combat.search import evaluate_sequence  # noqa: E402
+from combat.text import ENERGY, described_block, described_damage  # noqa: E402
 from route.facts import route_facts  # noqa: E402
 from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
@@ -29,9 +31,7 @@ LOGS = SOURCE / 'button-runtime' / 'logs'
 OUT = SOURCE / 'button-runtime' / 'eval'
 TYPES = {'combat': COMBAT, 'map': {'map'}, 'rest_site': {'rest_site'}, 'card_reward': {'card_reward'},
          'shop': {'shop'}, 'event': {'event'}, 'card_select': {'card_select'}}
-BLOCK = re.compile(r'获得(\d+)点格挡')
-DAMAGE = re.compile(r'造成(\d+)点伤害(?:(\d+)次)?')
-ENERGY = re.compile(r'获得(\d+)\[')
+
 
 
 def case_type(state):
@@ -107,32 +107,35 @@ def score_combat(state, decision):
     gained = sum(int(m.group(1)) for c in cards if gives_energy_now(c) for m in [ENERGY.search(c.get('description') or '')] if m)
     budget = (player.get('energy') or 0) + gained
     cost = sum(card_cost(c) for c in cards)
-    block = sum(int(m.group(1)) for c in cards for m in BLOCK.finditer(c.get('description') or ''))
-    damage = sum(int(m.group(1)) * int(m.group(2) or 1) for c in cards for m in DAMAGE.finditer(c.get('description') or ''))
+    block = sum(described_block(c.get('description')) for c in cards)
+    damage = sum(described_damage(c.get('description')) for c in cards)
     slots = set(drunk_potions(decision))
     potions = [p for p in facts.get('usable_potions') or [] if p['slot'] in slots]
     block += sum(p.get('block', 0) for p in potions)
-    killed = planned_kills(state, decision, facts)
-    incoming = sum(incoming_damage(i) for e in killed for i in e.get('intents') or [])
-    unblocked = max(0, facts['incoming_attack_damage'] - incoming - facts['current_block'] - block)
-    covered = facts['current_block'] + (facts.get('end_of_turn_orbs') or {}).get('block', 0) + block
-    surplus = max(0, covered - (facts['incoming_attack_damage'] - incoming))
+    simulation = evaluate_plan(state, decision)
+    exact = simulation.get('confidence') == 'simulated'
+    unblocked = simulation.get('predicted_hp_loss') if exact and ends else None
+    surplus = (max(0, simulation['end_block'] - simulation['incoming_after_kills'])
+               if exact and ends else None)
     played = {id(c) for c in cards}
     affordable_left = [c for c in player.get('hand') or [] if id(c) not in played and c.get('can_play')
                        and not gives_energy_now(c) and card_cost(c) <= budget - cost]
     return {'plan_cards': len(cards), 'complete_turn': ends, 'broken_plan': broken,
             'overspend': cost > budget, 'unused_energy': max(0, budget - cost) if ends else None,
             'left_affordable_cards': len(affordable_left) if ends else None,
-            'block': block, 'damage': damage, 'block_surplus': surplus if ends else None, 'unblocked': unblocked if ends else None,
-            'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
+            'damage': simulation['damage_dealt'] if exact else None, 'block_surplus': surplus if ends else None, 'unblocked': unblocked if ends else None,
+            'dies': (unblocked >= (player.get('hp') or 0)) if unblocked is not None else None,
             'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
             'drank_potion': bool(drunk_potions(decision)),
             # Every living enemy dies to the plan's targeted damage and end-of-turn orbs.
-            'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),
+            'kills_all': not any(simulation['predicted_enemy_hp']) if exact else None,
+            'simulation_reason': simulation['reason'], 'simulation_confidence': simulation.get('confidence'),
+            'block': simulation['block_gained'] if exact else None,
+            'described_block': block, 'described_damage': damage,
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
             # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
             'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions
-                                       and not (ends and unblocked < (player.get('hp') or 0)),
+                                       and not (unblocked is not None and unblocked < (player.get('hp') or 0)) if exact else None,
             # The prompt allows a potion in an ordinary fight when it saves about a fifth of max HP.
             'potion_drunk_when_safe': bool(potions) and state.get('state_type') == 'monster'
                                       and not facts['lethal_if_no_more_block'] and not facts.get('potion_kills_an_enemy')
@@ -140,45 +143,31 @@ def score_combat(state, decision):
                                       < 0.2 * (player.get('max_hp') or 0)}
 
 
-CHANNEL_LIGHTNING = re.compile(r'生成(\d+)[个個][闪閃][电電]充能球')
-LIGHTNING_PASSIVE = 3
-
-
-def planned_kills(state, decision, facts):
-    """Enemies the plan's targeted damage (cards and potions) is enough to kill; their attacks never land."""
-    hand = (state.get('player') or {}).get('hand') or []
-    potions = {p['slot']: p for p in facts.get('usable_potions') or []}
-    moves = []
+def evaluate_plan(state, decision):
+    """Only shared, fully supported simulation can certify kills or survival."""
+    if drunk_potions(decision): return {'reason': 'unsupported_plan_potion'}
     params = json.loads(decision['parameters_json'] or '{}')
-    if decision['action'] == 'play_card': moves.append(('card', params.get('card_index'), params.get('target')))
-    if decision['action'] == 'use_potion': moves.append(('potion', params.get('slot'), params.get('target')))
+    moves = []
+    if decision['action'] == 'play_card': moves.append(params)
+    elif decision['action'] != 'end_turn': return {'reason': 'unsupported_plan_action'}
+    ends = decision['action'] == 'end_turn'
     for entry in decision.get('next_cards') or []:
-        if isinstance(entry.get('potion_slot'), int) and entry['potion_slot'] >= 0:
-            moves.append(('potion', entry['potion_slot'], entry.get('target')))
-        elif entry.get('hand_index') == END_TURN: break
-        else: moves.append(('card', entry.get('hand_index'), entry.get('target')))
-    enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
-    dealt = collections.Counter()
-    for kind, key, target in moves:
-        if kind == 'potion':
-            amount = (potions.get(key) or {}).get('damage', 0)
-            text = ''
-        else:
-            if not isinstance(key, int) or not 0 <= key < len(hand): continue
-            text = hand[key].get('description') or ''
-            amount = sum(int(m.group(1)) * int(m.group(2) or 1) for m in DAMAGE.finditer(text))
-        for enemy in enemies:
-            if '所有敌人' in text or enemy.get('entity_id') == target: dealt[enemy.get('entity_id')] += amount
-    # Orbs fire at end of turn before the enemies act; random Lightning is only certain against one enemy.
-    orbs = facts.get('end_of_turn_orbs') or {}
-    lightning = next((o.get('passive_val') or 0 for o in (state.get('player') or {}).get('orbs') or []
-                      if o.get('id') == 'LIGHTNING_ORB'), LIGHTNING_PASSIVE)
-    channelled = sum(int(m.group(1)) for kind, key, _ in moves if kind == 'card' and isinstance(key, int) and 0 <= key < len(hand)
-                     for m in CHANNEL_LIGHTNING.finditer(hand[key].get('description') or ''))
-    for enemy in enemies:
-        dealt[enemy.get('entity_id')] += orbs.get('damage_to_all_enemies', 0)
-        if len(enemies) == 1: dealt[enemy.get('entity_id')] += orbs.get('damage_to_random_enemy', 0) + channelled * lightning
-    return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)]
+        if entry.get('hand_index') == END_TURN:
+            ends = True
+            break
+        move = {'card_index': entry.get('hand_index')}
+        if entry.get('target'): move['target'] = entry['target']
+        moves.append(move)
+    return evaluate_sequence(state, moves, end_turn=ends)
+
+
+def planned_kills(state, decision, facts=None):
+    """Return None for unknown plans, rather than an invented list of certified kills."""
+    result = evaluate_plan(state, decision)
+    if result.get('confidence') != 'simulated': return None
+    return [e for e in (state.get('battle') or {}).get('enemies') or []
+            if e.get('entity_id') in result['killed_enemies']]
+
 
 
 def drunk_potions(decision):
@@ -266,8 +255,8 @@ def report(results_path):
     rows = [json.loads(line) for line in open(results_path, encoding='utf-8')]
     configs = sorted({r['config'] for r in rows})
     lines = [f'# 離線重播評估：{results_path.parent.name}', '',
-             '| 設定 | 呼叫 | 錯誤 | 合法 | 平均秒數 | 戰鬥：會死 | 戰鬥：平均漏傷 | 戰鬥：能量超支 | 戰鬥：剩能量又有牌可打 | 浪費加能量牌 | 致命卻沒喝藥水 | 安全時喝藥水 | 休息點照規則 | 選牌分數（最佳=1） | 低血時選了很快遇菁英的路 |',
-             '|' + '---|' * 15]
+             '| 設定 | 呼叫 | 錯誤 | 合法 | 平均秒數 | 戰鬥：無法模擬 | 戰鬥：會死 | 戰鬥：平均漏傷 | 戰鬥：能量超支 | 戰鬥：剩能量又有牌可打 | 浪費加能量牌 | 致命卻沒喝藥水 | 安全時喝藥水 | 休息點照規則 | 選牌分數（最佳=1） | 低血時選了很快遇菁英的路 |',
+             '|' + '---|' * 16]
     for config in configs:
         mine = [r for r in rows if r['config'] == config]
         ok = [r for r in mine if 'score' in r]
@@ -278,7 +267,8 @@ def report(results_path):
         lines.append('| ' + ' | '.join(str(x) for x in [
             config, len(mine), len(mine) - len(ok), f"{sum(r['score']['valid'] for r in ok)}/{len(ok)}",
             mean([r['seconds'] for r in ok]),
-            f"{sum(bool(f['dies']) for f in fights)}/{len(fights)}", mean([f['unblocked'] for f in fights]),
+            sum(f.get('simulation_confidence') != 'simulated' for f in fights),
+            f"{sum(f['dies'] is True for f in fights)}/{sum(f['dies'] is not None for f in fights)}", mean([f['unblocked'] for f in fights]),
             sum(f['overspend'] for f in fights), sum(bool(f['left_affordable_cards']) for f in fights),
             sum(f['wasted_energy_card'] for f in [r['score'] for r in ok if r['type'] == 'combat' and 'wasted_energy_card' in r['score']]),
             sum(bool(f.get('potion_held_when_lethal')) for f in [r['score'] for r in ok if r['type'] == 'combat']),
@@ -287,7 +277,7 @@ def report(results_path):
             mean([(p['picked_score'] or 0) / p['best_score'] for p in picks if not p['skipped']]),
             f"{sum(r['rooms_before_elite'] <= 2 and r['hp_ratio'] < 0.5 for r in routes)}/{len(routes)}",
         ]) + ' |')
-    lines += ['', '「會死」與「漏傷」只算排完整個回合的計畫，依卡牌說明估算格擋（含計畫中喝的藥水）、計畫打得死的敵人不算它的攻擊，未計充能球與能力。「安全時喝藥水」指普通戰鬥、不致命、藥水也打不死敵人時就喝。', '', '## 各設定判斷不同的局面', '']
+    lines += ['', '「會死」與「漏傷」只統計完整回合、共用模擬器完整支援的指定序列。未支援藥水、抽牌、隨機或其他效果時為 null，列入「無法模擬」，不當成安全或通過；文字中的傷害／格擋另列 described_*，不作擊殺證據。「安全時喝藥水」仍是藥水使用規則的判斷。', '', '## 各設定判斷不同的局面', '']
     by_case = collections.defaultdict(dict)
     for r in rows:
         if 'decision' in r: by_case[(r['case'], r['type'])][r['config']] = r

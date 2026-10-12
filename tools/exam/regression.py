@@ -26,7 +26,7 @@ SUITE = Path(__file__).resolve().parents[2] / 'tests' / 'regression'
 
 
 CHECKS = {'<=': lambda a, b: a is not None and a <= b, '>=': lambda a, b: a is not None and a >= b,
-          '!=': lambda a, b: a != b, '=': lambda a, b: a == b}
+          '!=': lambda a, b: a is not None and a != b, '=': lambda a, b: a == b}
 
 
 def parse_expect(text):
@@ -95,7 +95,10 @@ def failures(case, decision):
     wrong = []
     for key, check in case['expect'].items():
         op, value = check if isinstance(check, list) else ['=', check]
-        if not CHECKS[op](result.get(key), value): wrong.append(f'{key}={result.get(key)!r}（應 {op} {value!r}）')
+        if result.get(key) is None and value is not None:
+            wrong.append(f'{key} 無法判定（{result.get("simulation_reason", "incomplete_plan")}；應 {op} {value!r}）')
+        elif not CHECKS[op](result.get(key), value):
+            wrong.append(f'{key}={result.get(key)!r}（應 {op} {value!r}）')
     return wrong
 
 
