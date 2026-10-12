@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 from combat.relics import turn_end_defense
-from combat.triggers import trigger_facts
+from combat.triggers import trigger_facts, end_hand_exhaust_block
 
 
 COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
@@ -30,6 +30,10 @@ def combat_facts(state):
     orbs = orb_end_of_turn(player)
     try: end_defense = turn_end_defense(player)
     except ValueError: end_defense = {}
+    try: exhaust_block = end_hand_exhaust_block(player)
+    except ValueError: exhaust_block = 0
+    if exhaust_block:
+        end_defense = {**end_defense, 'exhaust_block': exhaust_block, 'block': end_defense.get('block', 0) + exhaust_block}
     loss = max(0, incoming - block - orbs.get('block', 0) - end_defense.get('block', 0))
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
@@ -62,7 +66,7 @@ def combat_facts(state):
         **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
                                                                 if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),
-        'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環。其他未知觸發另計。',
+        'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環／無懼疼痛虛無消耗。其他未知觸發另計。',
     }
 
 TEMPO_SAFE_HP = 0.6  # Share of max HP that must remain after this turn's attacks for damage to outrank more block.

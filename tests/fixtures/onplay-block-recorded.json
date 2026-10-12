@@ -1,0 +1,41 @@
+{
+  "source": "01-takeover.jsonl",
+  "scope": "Recorded single-Shiv block transition, not a fully simulated battle",
+  "status": [
+    {
+      "id": "AFTERIMAGE_POWER",
+      "name": "余像",
+      "amount": 1,
+      "type": "Buff",
+      "description": "你每打出一张牌，都获得1点格挡。",
+      "keywords": [
+        {
+          "name": "格挡",
+          "description": "在下个回合前，阻挡伤害。"
+        }
+      ]
+    }
+  ],
+  "card": {
+    "id": "SHIV",
+    "name": "小刀",
+    "type": "Attack",
+    "cost": "0",
+    "star_cost": null,
+    "description": "造成4点伤害。 消耗。",
+    "rarity": "Token",
+    "is_upgraded": false,
+    "keywords": [
+      {
+        "name": "消耗",
+        "description": "在战斗结束前移除。"
+      }
+    ],
+    "index": 4,
+    "target_type": "AnyEnemy",
+    "can_play": true,
+    "unplayable_reason": null
+  },
+  "block_before": 18,
+  "block_after": 19
+}

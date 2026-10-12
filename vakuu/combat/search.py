@@ -9,8 +9,8 @@ import re
 import time
 from combat.facts import incoming_damage
 from combat.relics import audited_relic, tuning_fork_counter, turn_end_defense, relic_effects, held_card_block, periodic_block, counted_card_indices
-from combat.triggers import panache_counters
-from combat.card_effects import Move, STRIKES, DEFENDS, card_move
+from combat.triggers import panache_counters, card_trigger_values, POWER_RULES
+from combat.card_effects import Move, STRIKES, DEFENDS, card_move, INERT_HAND, INERT_TEXT
 from core.rules import COMBAT
 
 
@@ -25,7 +25,7 @@ PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER
                  'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER', 'LIGHTNING_ROD_POWER',
                  'ENERGY_NEXT_TURN_POWER',
                  # Search moves never play Power cards, so Storm cannot fire.
-                 'STORM_POWER', 'PANACHE_POWER', 'PLATING_POWER', 'BLUR_POWER'}
+                 'STORM_POWER', 'PANACHE_POWER', 'PLATING_POWER', 'BLUR_POWER'} | POWER_RULES.keys()
 # Statuses that only add to this turn's damage or act on other turns (start of turn, end of turn,
 # damage taken). Ignoring them can miss a kill but never invent one, so a search holding them only
 # accepts a kill. Echo Form doubles the first card; Shrink and Tender cut damage and stay unknown.
@@ -34,12 +34,12 @@ KILL_SAFE_STATUS = {'ECHO_FORM_POWER', 'MAYHEM_POWER', 'SUBROUTINE_POWER', 'THE_
 # Supported moves do not apply debuffs, so Artifact cannot trigger here.
 ENEMY_STATUS = {'STRENGTH_POWER', 'WEAK_POWER', 'ARTIFACT_POWER', 'RITUAL_POWER',
                 'VULNERABLE_POWER', 'RAVENOUS_POWER'}
-INERT_HAND = {'ASCENDERS_BANE', 'CLUMSY', 'INJURY'}
-INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
-              'CLUMSY': '不能被打出。虚无。', 'INJURY': '不能被打出。'}
 # These known descriptions have no trigger when another card is played. Their
 # own effects are unsupported, so they still prevent a non-winning turn plan.
 HELD_SAFE = {
+    'AFTERIMAGE': r'(?:固有。)?你每打出一张牌，都获得\d+点格挡。',
+    'FEEL_NO_PAIN': r'每当有一张牌被消耗时，获得\d+点格挡。',
+    'ACCURACY': r'小刀额外造成\d+点伤害。',
     'DEMON_FORM': r'在你的回合开始时，获得\d+点力量。',
     'LUMINESCE': r'保留。获得(?:\[[a-z_]+_energy_icon\.png\]){2}。消耗。',
     'PANACHE': r'每当你在一回合内打出五张牌时，对所有敌人造成\d+点伤害。',
@@ -97,6 +97,8 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
     kill_only = bool(unknown)  # Statuses ignored below can only add damage, so only a found kill counts.
     try: end_defense = turn_end_defense(player)
     except ValueError: return decline('unknown_end_turn_effect')
+    try: card_triggers = card_trigger_values(player)
+    except ValueError: return decline('unknown_card_trigger')
     try: panaches = panache_counters(player)
     except ValueError: return decline('unknown_trigger_counter')
     enemies = [e for e in battle.get('enemies') or [] if (e.get('hp') or 0) > 0]
@@ -131,10 +133,12 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
         return decline('missing_player_numbers')
     if any(type(e.get(k)) is not int for e in enemies for k in ('hp', 'block')):
         return decline('missing_enemy_numbers')
-    moves, complete = [], True
+    moves, complete, inert_ethereal = [], True, 0
     for card in player.get('hand') or []:
         text = re.sub(r'\s+', '', str(card.get('description') or ''))
-        if key(card) in INERT_HAND and card.get('can_play') is False and text == INERT_TEXT[key(card)]: continue
+        if key(card) in INERT_HAND and card.get('can_play') is False and text == INERT_TEXT[key(card)]:
+            inert_ethereal += '虚无。' in text
+            continue
         move = card_move(card)
         if move is None:
             # An unknown card could be Pain or another on-play trigger. A lethal
@@ -223,6 +227,8 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
         for orb in balls:
             if orb[0] == 'FROST_ORB': end_block += orb[1]
             elif end_hp[0] > 0: end_hp, end_blocks = hit(end_hp, end_blocks, 0, orb[1])
+        end_exhaust_block = inert_ethereal * card_triggers['block_per_exhaust'] if any(end_hp) else 0
+        end_block += end_exhaust_block
         deaths = sum(hp <= 0 for hp in end_hp)
         stunned = [i for i, hp in enumerate(end_hp) if hp > 0 and ravenous_active[i] and deaths]
         incoming_after = sum(a for i, (a, hp) in enumerate(zip(attacks, end_hp)) if hp > 0 and i not in stunned)
@@ -250,6 +256,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
                        'damage_dealt': sum(initial_hp) + sum(initial_block) - sum(end_hp if end_turn else hps) - sum(end_blocks if end_turn else blocks),
                        'block_gained': block - player['block'],
                        'end_block': end_block,
+                       'end_turn_exhaust_block': end_exhaust_block,
                        'end_turn_relic_block': end_defense['plating_block'] + cloak_block,
                        'retained_block_next_turn': retained,
                        'end_turn': not direct_win,
@@ -280,7 +287,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
             targets = [j for j, hp in enumerate(hps) if hp > 0] if move.index in targeted_indices else [None]
             for target in targets:
                 if forced is not None and forced[len(sequence)].get('target') != (enemies[target]['entity_id'] if target is not None else None): continue
-                hp2, blocks2, block2, balls2 = hps, blocks, block + move.block, balls
+                hp2, blocks2, block2, balls2 = hps, blocks, block + move.block + card_triggers['block_per_card'] + (card_triggers['block_per_exhaust'] if move.exhaust else 0), balls
                 if fork_counter is not None and move.index in skill_indices:
                     skills_played = sum(bool(mask & (1 << j)) and m.index in skill_indices for j, m in enumerate(moves))
                     block2 += periodic_block(fork_counter, skills_played + 1)

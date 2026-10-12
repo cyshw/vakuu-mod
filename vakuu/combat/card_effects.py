@@ -31,6 +31,7 @@ class Move:
     kill_only: bool = False
     hits: int = 1
     vulnerable: int = 0
+    exhaust: bool = False
 
 
 STRIKES = {'STRIKE_' + c for c in ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT')}
@@ -40,6 +41,8 @@ DEFEND_RULE = CardRule('Self', BLOCK_SINGLE.pattern, (('block', Capture(1)),))
 CARD_RULES = {
     **dict.fromkeys(STRIKES | {'SLICE'}, STRIKE_RULE),
     **dict.fromkeys(DEFENDS | {'DEFLECT'}, DEFEND_RULE),
+    'SHIV': CardRule('AnyEnemy', r'造成(\d+)点伤害。消耗。',
+                     (('damage', Capture(1)), ('exhaust', True))),
     'TWIN_STRIKE': CardRule('AnyEnemy', r'造成(\d+)点伤害两次。',
                            (('damage', Capture(1)), ('hits', 2))),
     'BASH': CardRule('AnyEnemy', r'造成(\d+)点伤害。给予(\d+)层易伤。',
@@ -71,3 +74,15 @@ def card_move(card):
     fields = {effect: int(match[value.group]) if isinstance(value, Capture) else value
               for effect, value in rule.effects}
     return Move(card['index'], cost, **fields)
+
+
+INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
+              'CLUMSY': '不能被打出。虚无。', 'DAZED': '不能被打出。虚无。',
+              'INJURY': '不能被打出。'}
+INERT_HAND = set(INERT_TEXT)
+
+
+def inert_ethereal_count(hand):
+    return sum(card.get('can_play') is False
+               and (text := re.sub(r'\s+', '', str(card.get('description') or ''))) == INERT_TEXT.get(str(card.get('id') or '').split('.')[-1])
+               and '虚无。' in text for card in hand)
