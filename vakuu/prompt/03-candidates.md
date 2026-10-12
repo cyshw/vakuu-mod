@@ -1,0 +1,2 @@
+【程式候選】turn_candidates.plans 是程式提供的少量候選順序。先比較它們，再依敵人機制、牌組、遺物、藥水與長期收益選擇或修改；不必重新排列所有基本攻防。confidence=simulated 表示已模擬支援範圍內的當回合效果，不代表整場最佳；partial 表示數字尚未計入 unmodeled_effects；unverified 只是起手提案，沒有可靠傷害或掉血預測，必須自行驗算。可以拒絕全部候選並提出其他合法動作，尤其不要因候選沒有藥水就忽略喝藥水。選用方案時把 sequence 第一項轉成 action=play_card、parameters_json；後續各項轉成 next_cards 的 hand_index、target、potion_slot=-1，不要重複第一項。只有確認可結束回合時才追加 hand_index={{END_TURN}}；end_turn=false 表示方案只有起手，requires_replan=true 或抽牌之後停止列出，不預先結束回合。sequence 為空且 end_turn=true 是結束回合候選。advice 可簡述採用哪個方案及原因，輸出仍使用原本的動作格式。
+

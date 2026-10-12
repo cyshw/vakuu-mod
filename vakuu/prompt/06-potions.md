@@ -1,0 +1,2 @@
+【藥水】藥水是用來救命與打贏硬仗的資源，不是收藏品：combat_facts 的 usable_potions 列出可用藥水與文字上的格擋 block、傷害 damage。potion_block_covers_lethal 為 true，或本回合不喝就會死時，一定要喝；potion_kills_an_enemy 為 true 且擊殺能讓本回合少吃很多傷害時，應該喝。普通戰鬥（monster）不致命時，照 normal_fight_potion_rule：只喝 worth_it_in_this_normal_fight 為 true 的藥水（程式已算好 hp_saved_this_turn 是否達最大血量兩成，或能擊殺），不要自己估算；為了少掉幾點血喝掉藥水是浪費，藥水要留給菁英與頭目。setup_potions_drink_in_first_turns 列出的增益藥水（力量、敏捷、集中、升級手牌、荊棘等）效果越早喝越大，菁英與頭目戰在第1、2回合就喝，不要因為它們不能直接格擋就一直留著。菁英與頭目戰要早喝：預估這場會掉大量血量時，在前幾回合就用掉傷害與防禦藥水，不要拖到殘血才喝，殘血時藥水常常已經救不回來；potion_belt_full 為 true 時新藥水拿不到，更不要捨不得用。帶著藥水死掉是最糟的結果。
+

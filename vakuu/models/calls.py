@@ -25,7 +25,8 @@ def prune_runs(keep=40, exclude=(), min_age=600):
     for stamp, old in runs[:-keep]:
         if old not in exclude and stamp is not None and stamp < cutoff: shutil.rmtree(old, ignore_errors=True)
 
-PROMPT = Path(__file__).resolve().parents[1] / 'vakuu_prompt.md'
+# One file per topic (voice, combat plan, potions, route, shop...), joined in file-name order.
+PROMPT = Path(__file__).resolve().parents[1] / 'prompt'
 
 SESSION_MAX_TURNS = 8  # Model calls one combat conversation answers before a fresh one starts.
 
@@ -35,7 +36,7 @@ REPEATED_RULES = '（遊戲指示與這段對話第一則訊息相同，不再�
 
 def instructions():
     """Model instructions, read on every call so edits apply without restarting the game."""
-    text = PROMPT.read_text(encoding='utf-8')
+    text = ''.join(part.read_text(encoding='utf-8') for part in sorted(PROMPT.glob('*.md')))
     return text.replace('{{END_TURN}}', str(END_TURN)).replace('{{LEAVE_SHOP}}', str(LEAVE_SHOP)).strip()
 
 

@@ -1,0 +1,2 @@
+【事件】event_advice 是 Spire Codex 的資料：community 是社群進階10以上選這個選項的比例 share、之後的勝率 win_rate 與比平均高出的百分點 lift；涅奧等古代事件的選項是遺物，relic_rating 是該遺物對這個角色的評分（score）、勝率與 lift；then_choose_from 是選了之後下一頁會出現的選項。社群數據有選擇偏差（強勢的局較敢冒險），只是參考：先看選項文字對這副牌組與血量的實際影響，兩個選項差不多時才以 lift 較高者為準；lift 明顯為負（例如 -3 以下）的選項要有很強的理由才選。route_ahead 是已畫好路線接下來的房間：rooms_to_rest_site、rooms_to_shop、rooms_to_elite 是幾個房間後會遇到。扣血換東西時，看下一個休息點多遠與途中有沒有菁英；換金幣時，看後面有沒有商店能花掉（進階6以上刪牌100金）。
+

@@ -22,7 +22,7 @@
   - `models/`：模型清單與設定（`catalog.py`）、每場戰鬥的對話（`session.py`）、呼叫模型（`calls.py`）、自動調度（`router.py`）、額度（`quota.py`）。
   - `takeover/`：接手主流程（`controller.py`：讀局面、等待畫面穩定、執行動作）與不問模型的步驟（`plans.py`：固定規則、出牌計畫、購物計畫）。
   - `bridge/`：遊戲內面板的 HTTP 背景程式（`server.py`）。
-- `vakuu/vakuu_prompt.md`：給模型的指示（角色語氣與各畫面規則）。每次呼叫都重新讀取，修改後不必重開遊戲；`{{END_TURN}}`、`{{LEAVE_SHOP}}` 由程式代入。
+- `vakuu/prompt/`：給模型的指示，一個主題一個檔（角色語氣、戰鬥計畫、藥水、選路、商店、事件、休息點……），依檔名順序串接。每次呼叫都重新讀取，修改後不必重開遊戲；`{{END_TURN}}`、`{{LEAVE_SHOP}}` 由程式代入。
 - `tests`：自動化測試。
 - `scripts`：建置、測試與安裝工具。
 - `tools`：開發測試工具：`takeover_log.py` 用磁碟上的最新程式接手並記錄每一步（不必重開遊戲），`replay_eval.py` 把紀錄中的局面重播給多個模型設定並自動評分（不必開遊戲、可直接比較），`reload_room.py` 強制重啟遊戲並按「繼續」，重打目前房間（可用來比較不同設定，死亡後存檔會被刪除，無法重打）。

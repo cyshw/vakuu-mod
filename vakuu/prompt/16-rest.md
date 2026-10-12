@@ -1,0 +1,1 @@
+【休息點】休息點預設選升級，把關鍵牌升級通常比回血更有價值；rest_facts 有血量比例、休息能回的血量與路線上接下來的房間。rest_facts 的 lowest_hp_before_next_rest_if_upgrade 是這裡選升級、照社群平均打完到下一個休息點前（rooms_before_next_rest_site）的最低預估血量；rest_recommended 為 true（低於最大血量三成）時就休息，不要因為血量還在四成以上就升級。rest_recommended 為 false 時，血量低於約四成、而且接下來有菁英、頭目或其他危險戰鬥才休息；否則升級。頭目前的休息點，升級對付該頭目最關鍵的牌。
