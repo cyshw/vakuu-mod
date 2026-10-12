@@ -126,7 +126,7 @@ def score_combat(state, decision):
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
             'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
             'drank_potion': bool(drunk_potions(decision)),
-            # Every living enemy dies to the plan's targeted damage (orb damage is not counted).
+            # Every living enemy dies to the plan's targeted damage and end-of-turn orbs.
             'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
             # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
@@ -137,6 +137,10 @@ def score_combat(state, decision):
                                       and not facts['lethal_if_no_more_block'] and not facts.get('potion_kills_an_enemy')
                                       and min(sum(p.get('block', 0) for p in potions), facts['block_needed_for_no_damage'])
                                       < 0.2 * (player.get('max_hp') or 0)}
+
+
+CHANNEL_LIGHTNING = re.compile(r'生成(\d+)[个個][闪閃][电電]充能球')
+LIGHTNING_PASSIVE = 3
 
 
 def planned_kills(state, decision, facts):
@@ -164,6 +168,15 @@ def planned_kills(state, decision, facts):
             amount = sum(int(m.group(1)) * int(m.group(2) or 1) for m in DAMAGE.finditer(text))
         for enemy in enemies:
             if '所有敌人' in text or enemy.get('entity_id') == target: dealt[enemy.get('entity_id')] += amount
+    # Orbs fire at end of turn before the enemies act; random Lightning is only certain against one enemy.
+    orbs = facts.get('end_of_turn_orbs') or {}
+    lightning = next((o.get('passive_val') or 0 for o in (state.get('player') or {}).get('orbs') or []
+                      if o.get('id') == 'LIGHTNING_ORB'), LIGHTNING_PASSIVE)
+    channelled = sum(int(m.group(1)) for kind, key, _ in moves if kind == 'card' and isinstance(key, int) and 0 <= key < len(hand)
+                     for m in CHANNEL_LIGHTNING.finditer(hand[key].get('description') or ''))
+    for enemy in enemies:
+        dealt[enemy.get('entity_id')] += orbs.get('damage_to_all_enemies', 0)
+        if len(enemies) == 1: dealt[enemy.get('entity_id')] += orbs.get('damage_to_random_enemy', 0) + channelled * lightning
     return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)]
 
 
