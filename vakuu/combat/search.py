@@ -7,11 +7,10 @@ explicit support; they must never silently disappear from the simulation.
 import json
 import re
 import time
-from dataclasses import dataclass
 from combat.facts import incoming_damage
-from combat.relics import audited_relic, tuning_fork_counter, turn_end_defense
+from combat.relics import audited_relic, tuning_fork_counter, turn_end_defense, relic_effects, held_card_block, periodic_block, counted_card_indices
 from combat.triggers import panache_counters
-from combat.text import DAMAGE_SINGLE as DAMAGE, BLOCK_SINGLE as BLOCK
+from combat.card_effects import Move, STRIKES, DEFENDS, card_move
 from core.rules import COMBAT
 
 
@@ -75,62 +74,9 @@ HELD_SAFE = {
     'ECHO_FORM': r'(?:虚无。)?你每回合打出的第一张牌会被打出两次。',
     'AUTOMATION': r'你每抽\d+张牌，获得\[defect_energy_icon.png\]。',
 }
-STRIKES = {'STRIKE_' + c for c in ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT')}
-DEFENDS = {'DEFEND_' + c for c in ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT')}
-
-
 
 def key(row):
     return str(row.get('id') or '').split('.')[-1]
-
-
-@dataclass(frozen=True)
-class Move:
-    index: int
-    cost: int
-    damage: int = 0
-    block: int = 0
-    channel: str = ''
-    evokes: int = 0
-    # Adaptive/Momentum have future-turn effects not valued by a one-turn search.
-    kill_only: bool = False
-    hits: int = 1
-    vulnerable: int = 0
-
-
-def card_move(card):
-    cid = key(card)
-    if type(card.get('index')) is not int or card.get('star_cost') not in (None, 0): return None
-    try: cost = int(card['cost'])
-    except (KeyError, TypeError, ValueError): return None
-    if cost < 0: return None
-    text = re.sub(r'\s+', '', str(card.get('description') or ''))
-    damage, block = DAMAGE.fullmatch(text), BLOCK.fullmatch(text)
-    if cid in STRIKES | {'SLICE'} and damage and card.get('target_type') == 'AnyEnemy':
-        return Move(card['index'], cost, damage=int(damage[1]))
-    if cid in DEFENDS | {'DEFLECT'} and block and card.get('target_type') == 'Self':
-        return Move(card['index'], cost, block=int(block[1]))
-    if cid == 'TWIN_STRIKE' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害两次。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), hits=2)
-    if cid == 'BASH' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。给予(\d+)层易伤。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), vulnerable=int(match[2]))
-    # Exact descriptions prevent enchantments or added effects from being ignored.
-    if cid == 'ZAP' and text == '生成1个闪电充能球。' and card.get('target_type') == 'Self':
-        return Move(card['index'], cost, channel='LIGHTNING_ORB')
-    if cid == 'DUALCAST' and text == '激发你最右侧的充能球两次。' and card.get('target_type') == 'Self':
-        return Move(card['index'], cost, evokes=2)
-    if cid == 'BALL_LIGHTNING' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。生成1个闪电充能球。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), channel='LIGHTNING_ORB')
-    if cid == 'ADAPTIVE_STRIKE' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。将这张牌的一张0\[defect_energy_icon.png\]复制品添加到你的弃牌堆。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), kill_only=True)
-    if cid == 'MOMENTUM_STRIKE' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。这张牌的耗能降为0\[defect_energy_icon.png\]。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), kill_only=True)
-    return None
 
 
 def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, forced=None, end_turn=True):
@@ -205,9 +151,10 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
     if not moves and forced is None: return decline('no_supported_moves')
     # Top draws before the last played card's effect can be trusted; the new
     # card can change the state. A held/unaffordable card prevents emptying.
-    if 'UNCEASING_TOP' in relic_ids and len(moves) == len(player.get('hand') or []) and sum(m.cost for m in moves) <= player['energy']:
+    trigger_effects = relic_effects(relic_ids)
+    if 'draw_on_empty' in trigger_effects and len(moves) == len(player.get('hand') or []) and sum(m.cost for m in moves) <= player['energy']:
         return decline('unmodeled_hand_empty_draw')
-    if 'MUMMIFIED_HAND' in relic_ids and any(c.get('type') == 'Power' and card_move(c) is not None for c in player.get('hand') or []):
+    if 'random_free_cost' in trigger_effects and any(c.get('type') == 'Power' and card_move(c) is not None for c in player.get('hand') or []):
         return decline('unmodeled_random_cost')
     vulnerable = tuple(any(key(s) == 'VULNERABLE_POWER' and s['amount'] > 0 for s in e.get('status') or []) for e in enemies)
     ravenous = tuple(sum(s['amount'] for s in e.get('status') or [] if key(s) == 'RAVENOUS_POWER') for e in enemies)
@@ -218,7 +165,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
     # with target Vulnerable can lose a fraction and invent a wrong exact kill.
     if any(key(s) == 'WEAK_POWER' for s in player.get('status') or []) and any(m.damage for m in moves) and (any(vulnerable) or any(m.vulnerable for m in moves)):
         return decline('combined_damage_rounding')
-    skill_indices = {c['index'] for c in player.get('hand') or [] if c.get('type') == 'Skill' and 'index' in c}
+    skill_indices = counted_card_indices(player.get('hand') or [])
     targeted_indices = {c['index'] for c in player.get('hand') or [] if c.get('target_type') == 'AnyEnemy' and 'index' in c}
     if fork_counter is not None and any(c.get('type') not in {'Attack', 'Skill'} for c in player.get('hand') or []
                                         if card_move(c) is not None):
@@ -271,7 +218,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
         if count > max_nodes or time.perf_counter() - start >= max_seconds: raise TimeoutError
         # Score the end of turn, after the current orbs' passive effects.
         hand_left = len(player.get('hand') or []) - mask.bit_count()
-        cloak_block = hand_left if 'CLOAK_CLASP' in relic_ids else 0
+        cloak_block = held_card_block(relic_ids, hand_left)
         end_hp, end_blocks, end_block = hps, blocks, block + end_defense['plating_block'] + cloak_block
         for orb in balls:
             if orb[0] == 'FROST_ORB': end_block += orb[1]
@@ -281,7 +228,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
         incoming_after = sum(a for i, (a, hp) in enumerate(zip(attacks, end_hp)) if hp > 0 and i not in stunned)
         loss = max(0, incoming_after - end_block)
         retained = max(0, end_block - incoming_after) if end_defense['retain_block'] else 0
-        damage_draw = 'CENTENNIAL_PUZZLE' in relic_ids and loss > 0
+        damage_draw = 'draw_on_damage' in trigger_effects and loss > 0
         win = not any(end_hp)
         # Unknown hand effects may trigger at turn end. Only direct wins are safe in that case.
         direct_win = not any(hps)
@@ -336,7 +283,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
                 hp2, blocks2, block2, balls2 = hps, blocks, block + move.block, balls
                 if fork_counter is not None and move.index in skill_indices:
                     skills_played = sum(bool(mask & (1 << j)) and m.index in skill_indices for j, m in enumerate(moves))
-                    if (fork_counter + skills_played + 1) % 10 == 0: block2 += 7
+                    block2 += periodic_block(fork_counter, skills_played + 1)
                 vulns2 = list(vulns)
                 if target is not None:
                     damage = move.damage * 3 // 2 if vulns[target] else move.damage
@@ -384,7 +331,7 @@ def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, fo
                 break
     def fallback(reason):
         return {**decline(reason, count), 'candidates': candidates}
-    if best is None: return fallback('unmodeled_damage_draw' if 'CENTENNIAL_PUZZLE' in relic_ids else 'unsupported_hand')
+    if best is None: return fallback('unmodeled_damage_draw' if 'draw_on_damage' in trigger_effects else 'unsupported_hand')
     rank, sequence, loss, end_hp, direct_win = best
     if kill_only and not direct_win: return fallback('unknown_player_status')
     if not direct_win:
