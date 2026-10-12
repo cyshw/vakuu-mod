@@ -57,7 +57,8 @@ def deck_direction(state, offered=(), archetype_hint=None):
                                          '已有配合' if enablers >= 2 else '尚缺配合')})
     context = {
         'archetype_hint': archetype_hint, 'directions': directions,
-        'coverage': dict(counts), 'nonstarter_attacks': nonstarter_attacks,
+        # Sorted: card_roles returns sets, whose order changes per process and broke the exam cache.
+        'coverage': dict(sorted(counts.items())), 'nonstarter_attacks': nonstarter_attacks,
         'cost_curve': dict(Counter(str(c.get('cost')) if c.get('cost') is not None else 'unknown'
                                   for c in deck if c.get('type') in {'Attack', 'Skill', 'Power'})),
         'upgraded_cards': sum(c.get('is_upgraded') is True for c in deck),
