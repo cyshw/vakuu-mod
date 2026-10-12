@@ -86,7 +86,7 @@ class Controller(ModelCalls):
         playing_card = bool(body and body.get('action') == 'play_card')
         if not playing_card and self.stop_event.wait(ACTION_PAUSE): return
         state = api.request('/api/v1/singleplayer?format=json')
-        if has_execution_state(state):
+        if has_execution_state(state) or has_execution_state(before):
             interval = CARD_POLL_INTERVAL if playing_card else POLL_INTERVAL
             return self.wait_for_execution(before, state, deadline, interval)
         return self.wait_for_legacy_change(before, deadline, body, state)
@@ -98,6 +98,12 @@ class Controller(ModelCalls):
         while time.monotonic() < deadline:
             if not has_execution_state(state):
                 if not in_fight(state) and fingerprint(state) != baseline: return
+                # CombatManager can finish before the room shows its rewards.
+                # Do not decide on this intermediate monster/battle=null snapshot.
+                if state.get('state_type') in COMBAT and state.get('battle') is None:
+                    if self.stop_event.wait(interval): return
+                    state = api.request('/api/v1/singleplayer?format=json')
+                    continue
                 raise RuntimeError('遊戲動作佇列狀態消失，已停止，避免使用過期局面。')
             changed = changed or fingerprint(state) != baseline
             if changed and (not execution_busy(state) or combat_choice(state)): return

@@ -111,3 +111,12 @@ class SharedSimulationTests(unittest.TestCase):
         with patch.object(engine.api, 'request', return_value=empty), patch.object(c.stop_event, 'wait', side_effect=wait), patch.object(engine.time, 'monotonic', side_effect=lambda: clock[0]):
             with self.assertRaisesRegex(RuntimeError, '尚未確認'):
                 c.wait_for_change(before, timeout=.5, body={'action': 'play_card', 'card_index': 0})
+
+    def test_combat_cleanup_waits_for_reward_when_telemetry_disappears(self):
+        before = state(); before['execution'] = {'running': False, 'queue_empty': True}
+        cleanup = {**before, 'battle': None}; cleanup.pop('execution')
+        reward = {'state_type': 'rewards'}
+        c = engine.Controller(lambda m: None)
+        with patch.object(engine.api, 'request', side_effect=[cleanup, {'state_type': 'monster'}, reward]) as read, patch.object(c.stop_event, 'wait', return_value=False):
+            c.wait_for_change(before, body={'action': 'play_card', 'card_index': 0})
+        self.assertEqual(read.call_count, 3)
