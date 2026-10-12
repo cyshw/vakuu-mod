@@ -1,0 +1,35 @@
+{
+  "name": "Spire Codex A10 鐵衛：慢啟動／第 12 層",
+  "source": "https://spire-codex.com/runs/af89e3c82bb6f873",
+  "source_version": "v0.111.0",
+  "notes": "依前 11 層取得、升級與藥水使用紀錄重建第 12 層進場配置：41/80 HP、14 張牌、4 遺物、2 藥水。原玩家此戰受到 22 傷害、5 回合勝利。慢啟動是依基礎牌占比與惡魔形態推論，非網站分類。重新隨機化，不重現原抽牌、敵人亂數或遺物內部計數。",
+  "spec": {
+    "character": "IRONCLAD",
+    "encounter": "HAUNTED_SHIP_NORMAL",
+    "ascension": 10,
+    "act": 1,
+    "floor": 12,
+    "act_floor": 12,
+    "hp": 41,
+    "max_hp": 80,
+    "gold": 202,
+    "deck": [
+      {"id": "STRIKE_IRONCLAD", "upgrades": 0},
+      {"id": "STRIKE_IRONCLAD", "upgrades": 0},
+      {"id": "STRIKE_IRONCLAD", "upgrades": 0},
+      {"id": "STRIKE_IRONCLAD", "upgrades": 0},
+      {"id": "STRIKE_IRONCLAD", "upgrades": 0},
+      {"id": "DEFEND_IRONCLAD", "upgrades": 0},
+      {"id": "DEFEND_IRONCLAD", "upgrades": 0},
+      {"id": "DEFEND_IRONCLAD", "upgrades": 0},
+      {"id": "DEFEND_IRONCLAD", "upgrades": 0},
+      {"id": "BASH", "upgrades": 0},
+      {"id": "ASCENDERS_BANE", "upgrades": 0},
+      {"id": "DEMON_FORM", "upgrades": 1},
+      {"id": "TWIN_STRIKE", "upgrades": 0},
+      {"id": "THUNDERCLAP", "upgrades": 0}
+    ],
+    "relics": ["BURNING_BLOOD", "ARCANE_SCROLL", "MUMMIFIED_HAND", "GORGET"],
+    "potions": ["RADIANT_TINCTURE", "BLESSING_OF_THE_FORGE"]
+  }
+}

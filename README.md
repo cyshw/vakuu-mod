@@ -6,6 +6,8 @@
 
 ## 玩家安裝
 
+開發中的[自訂戰鬥練習](docs/custom-battle-lab.md)：可編輯牌組與升級、資源及遭遇，手動打牌並錄製；包含來自 Spire Codex 的進階 10 通關牌組範例。重打重新隨機化，錄製不呼叫模型。
+
 一般玩家不需要建置：下載 Releases 的 `vakuu-mod-版本.zip`，解壓縮到遊戲的 `mods` 資料夾，照 [docs/安裝說明.md](docs/安裝說明.md) 安裝 Python 與至少一個 AI 命令列工具即可。發行包由 `scripts/package.ps1` 產生，不含任何 Claude Code 程式；模組會自行尋找 `vakuu` 資料夾與 Python，設定寫入遊戲資料夾或 `%LOCALAPPDATA%akuu`。
 
 ## 資料夾

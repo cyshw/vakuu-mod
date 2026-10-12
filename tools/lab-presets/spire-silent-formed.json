@@ -1,0 +1,253 @@
+{
+  "name": "Spire Codex SILENT 成形牌組互動診斷（35 張）",
+  "source": "https://spire-codex.com/runs/9e207b21c3c00fd4",
+  "source_version": "v0.111.0",
+  "notes": "卡牌與升級使用最終牌組，HP 補滿、金幣 0、藥水清空，只保留工具支援的遺物。這是互動診斷配置，非該樓層精確還原；排除遺物可能改變牌組強度，不能比較來源扣血或勝率。",
+  "omitted_relics": [
+    "NEOWS_SACRIFICE",
+    "JUZU_BRACELET",
+    "BLOOD_VIAL",
+    "EMBER_TEA",
+    "GREMLIN_HORN",
+    "LUCKY_FYSH",
+    "PAELS_BLOOD",
+    "LASTING_CANDY",
+    "SPARKLING_ROUGE",
+    "THROWING_AXE",
+    "LANTERN",
+    "NUNCHAKU",
+    "BIG_MUSHROOM"
+  ],
+  "encounters": [
+    {
+      "encounter": "TUNNELER_WEAK",
+      "act": 2,
+      "floor": 19,
+      "act_floor": 2
+    },
+    {
+      "encounter": "BOWLBUGS_WEAK",
+      "act": 2,
+      "floor": 21,
+      "act_floor": 4
+    },
+    {
+      "encounter": "THE_OBSCURA_NORMAL",
+      "act": 2,
+      "floor": 22,
+      "act_floor": 5
+    },
+    {
+      "encounter": "ENTOMANCER_ELITE",
+      "act": 2,
+      "floor": 24,
+      "act_floor": 7
+    },
+    {
+      "encounter": "MYTES_NORMAL",
+      "act": 2,
+      "floor": 28,
+      "act_floor": 11
+    },
+    {
+      "encounter": "SPINY_TOAD_NORMAL",
+      "act": 2,
+      "floor": 30,
+      "act_floor": 13
+    },
+    {
+      "encounter": "INFESTED_PRISMS_ELITE",
+      "act": 2,
+      "floor": 31,
+      "act_floor": 14
+    },
+    {
+      "encounter": "SCROLLS_OF_BITING_WEAK",
+      "act": 3,
+      "floor": 35,
+      "act_floor": 2
+    },
+    {
+      "encounter": "DEVOTED_SCULPTOR_WEAK",
+      "act": 3,
+      "floor": 36,
+      "act_floor": 3
+    },
+    {
+      "encounter": "FROG_KNIGHT_NORMAL",
+      "act": 3,
+      "floor": 39,
+      "act_floor": 6
+    },
+    {
+      "encounter": "MECHA_KNIGHT_ELITE",
+      "act": 3,
+      "floor": 43,
+      "act_floor": 10
+    },
+    {
+      "encounter": "FABRICATOR_NORMAL",
+      "act": 3,
+      "floor": 44,
+      "act_floor": 11
+    }
+  ],
+  "spec": {
+    "character": "SILENT",
+    "encounter": "FABRICATOR_NORMAL",
+    "act": 3,
+    "floor": 44,
+    "act_floor": 11,
+    "ascension": 10,
+    "hp": 90,
+    "max_hp": 90,
+    "gold": 0,
+    "deck": [
+      {
+        "id": "DEFEND_SILENT",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_SILENT",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_SILENT",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_SILENT",
+        "upgrades": 0
+      },
+      {
+        "id": "NEUTRALIZE",
+        "upgrades": 1
+      },
+      {
+        "id": "SURVIVOR",
+        "upgrades": 0
+      },
+      {
+        "id": "ASCENDERS_BANE",
+        "upgrades": 0
+      },
+      {
+        "id": "LEG_SWEEP",
+        "upgrades": 0
+      },
+      {
+        "id": "ESCAPE_PLAN",
+        "upgrades": 0
+      },
+      {
+        "id": "BLADE_DANCE",
+        "upgrades": 0
+      },
+      {
+        "id": "TORIC_TOUGHNESS",
+        "upgrades": 1
+      },
+      {
+        "id": "FLICK_FLACK",
+        "upgrades": 0
+      },
+      {
+        "id": "LEADING_STRIKE",
+        "upgrades": 0
+      },
+      {
+        "id": "FOOTWORK",
+        "upgrades": 1
+      },
+      {
+        "id": "PIERCING_WAIL",
+        "upgrades": 0
+      },
+      {
+        "id": "PREDATOR",
+        "upgrades": 0
+      },
+      {
+        "id": "ABRASIVE",
+        "upgrades": 0
+      },
+      {
+        "id": "MALAISE",
+        "upgrades": 1
+      },
+      {
+        "id": "RICOCHET",
+        "upgrades": 0
+      },
+      {
+        "id": "PREPARED",
+        "upgrades": 0
+      },
+      {
+        "id": "PROWESS",
+        "upgrades": 1
+      },
+      {
+        "id": "NOXIOUS_FUMES",
+        "upgrades": 0
+      },
+      {
+        "id": "SNAKEBITE",
+        "upgrades": 1
+      },
+      {
+        "id": "ULTIMATE_STRIKE",
+        "upgrades": 0
+      },
+      {
+        "id": "ACCURACY",
+        "upgrades": 1
+      },
+      {
+        "id": "ANTICIPATE",
+        "upgrades": 1
+      },
+      {
+        "id": "SIDESTEP",
+        "upgrades": 0
+      },
+      {
+        "id": "AFTERIMAGE",
+        "upgrades": 1
+      },
+      {
+        "id": "INFINITE_BLADES",
+        "upgrades": 1
+      },
+      {
+        "id": "ACCURACY",
+        "upgrades": 1
+      },
+      {
+        "id": "BLADE_DANCE",
+        "upgrades": 0
+      },
+      {
+        "id": "CLOAK_AND_DAGGER",
+        "upgrades": 1
+      },
+      {
+        "id": "LEADING_STRIKE",
+        "upgrades": 1
+      },
+      {
+        "id": "PREPARED",
+        "upgrades": 0
+      },
+      {
+        "id": "PREPARED",
+        "upgrades": 0
+      }
+    ],
+    "relics": [
+      "RING_OF_THE_SNAKE",
+      "ANCHOR"
+    ],
+    "potions": []
+  }
+}

@@ -1,0 +1,559 @@
+{
+  "origin": "Controlled A0 diagnostics, no model calls; not a player decision standard.",
+  "panache_before_fifth": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 1,
+          "hp": 27,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Debuff",
+              "label": "",
+              "description": "这个敌人将要对你施加一个负面效果。"
+            }
+          ]
+        },
+        {
+          "entity_id": "CORPSE_SLUG_1",
+          "combat_id": 2,
+          "hp": 25,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "3×2",
+              "description": "这个敌人将要攻击造成3点伤害2次。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 16,
+      "energy": 3,
+      "hand": [
+        {
+          "id": "DEFLECT",
+          "name": "偏折",
+          "index": 0,
+          "type": "Skill",
+          "cost": "0",
+          "star_cost": null,
+          "target_type": "Self",
+          "can_play": true,
+          "description": "获得4点格挡。",
+          "is_upgraded": false
+        },
+        {
+          "id": "DEFLECT",
+          "name": "偏折",
+          "index": 1,
+          "type": "Skill",
+          "cost": "0",
+          "star_cost": null,
+          "target_type": "Self",
+          "can_play": true,
+          "description": "获得4点格挡。",
+          "is_upgraded": false
+        }
+      ],
+      "status": [
+        {
+          "id": "PANACHE_POWER",
+          "name": "神气制胜",
+          "amount": 1,
+          "type": "Buff",
+          "description": "如果你在本回合再打出1张牌，就对所有敌人造成10点伤害。",
+          "keywords": []
+        }
+      ],
+      "relics": [
+        {
+          "id": "RING_OF_THE_SNAKE",
+          "counter": null,
+          "description": "在每场战斗开始时，额外抽2张牌。"
+        }
+      ],
+      "potions": []
+    }
+  },
+  "panache_after_fifth": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 1,
+          "hp": 17,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Debuff",
+              "label": "",
+              "description": "这个敌人将要对你施加一个负面效果。"
+            }
+          ]
+        },
+        {
+          "entity_id": "CORPSE_SLUG_1",
+          "combat_id": 2,
+          "hp": 15,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "3×2",
+              "description": "这个敌人将要攻击造成3点伤害2次。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 20,
+      "energy": 3,
+      "hand": [
+        {
+          "id": "DEFLECT",
+          "name": "偏折",
+          "index": 0,
+          "type": "Skill",
+          "cost": "0",
+          "star_cost": null,
+          "target_type": "Self",
+          "can_play": true,
+          "description": "获得4点格挡。",
+          "is_upgraded": false
+        }
+      ],
+      "status": [
+        {
+          "id": "PANACHE_POWER",
+          "name": "神气制胜",
+          "amount": 5,
+          "type": "Buff",
+          "description": "如果你在本回合再打出5张牌，就对所有敌人造成10点伤害。",
+          "keywords": []
+        }
+      ],
+      "relics": [
+        {
+          "id": "RING_OF_THE_SNAKE",
+          "counter": null,
+          "description": "在每场战斗开始时，额外抽2张牌。"
+        }
+      ],
+      "potions": []
+    }
+  },
+  "bash_before_twin": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 1,
+          "hp": 16,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            },
+            {
+              "id": "VULNERABLE_POWER",
+              "amount": 3,
+              "description": "3回合内，受到的攻击伤害增加50%。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "3×2",
+              "description": "这个敌人将要攻击造成3点伤害2次。"
+            }
+          ]
+        },
+        {
+          "entity_id": "CORPSE_SLUG_1",
+          "combat_id": 2,
+          "hp": 25,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "8",
+              "description": "这个敌人将要攻击造成8点伤害。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 0,
+      "energy": 1,
+      "hand": [
+        {
+          "id": "TWIN_STRIKE",
+          "name": "双重打击+",
+          "index": 0,
+          "type": "Attack",
+          "cost": "1",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成7点伤害两次。",
+          "is_upgraded": true
+        }
+      ],
+      "status": [],
+      "relics": [],
+      "potions": []
+    }
+  },
+  "bash_after_twin": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 2,
+          "hp": 25,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            },
+            {
+              "id": "STRENGTH_POWER",
+              "amount": 4,
+              "description": "增加攻击牌造成的伤害值4点。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Stun",
+              "label": "",
+              "description": "这个敌人在其下一回合无法行动。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 0,
+      "energy": 0,
+      "hand": [],
+      "status": [],
+      "relics": [],
+      "potions": []
+    }
+  },
+  "queue_initial": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 1,
+          "hp": 27,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "3×2",
+              "description": "这个敌人将要攻击造成3点伤害2次。"
+            }
+          ]
+        },
+        {
+          "entity_id": "CORPSE_SLUG_1",
+          "combat_id": 2,
+          "hp": 25,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "8",
+              "description": "这个敌人将要攻击造成8点伤害。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 0,
+      "energy": 3,
+      "hand": [
+        {
+          "id": "TWIN_STRIKE",
+          "name": "双重打击+",
+          "index": 0,
+          "type": "Attack",
+          "cost": "1",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成7点伤害两次。",
+          "is_upgraded": true
+        },
+        {
+          "id": "BASH",
+          "name": "痛击+",
+          "index": 1,
+          "type": "Attack",
+          "cost": "2",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成10点伤害。 给予3层易伤。",
+          "is_upgraded": true
+        },
+        {
+          "id": "SLICE",
+          "name": "切割",
+          "index": 2,
+          "type": "Attack",
+          "cost": "0",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成6点伤害。",
+          "is_upgraded": false
+        }
+      ],
+      "status": [],
+      "relics": [],
+      "potions": []
+    }
+  },
+  "queue_after_bash": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 1,
+          "hp": 17,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            },
+            {
+              "id": "VULNERABLE_POWER",
+              "amount": 3,
+              "description": "3回合内，受到的攻击伤害增加50%。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "3×2",
+              "description": "这个敌人将要攻击造成3点伤害2次。"
+            }
+          ]
+        },
+        {
+          "entity_id": "CORPSE_SLUG_1",
+          "combat_id": 2,
+          "hp": 25,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Attack",
+              "label": "8",
+              "description": "这个敌人将要攻击造成8点伤害。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 0,
+      "energy": 1,
+      "hand": [
+        {
+          "id": "TWIN_STRIKE",
+          "name": "双重打击+",
+          "index": 0,
+          "type": "Attack",
+          "cost": "1",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成7点伤害两次。",
+          "is_upgraded": true
+        },
+        {
+          "id": "SLICE",
+          "name": "切割",
+          "index": 1,
+          "type": "Attack",
+          "cost": "0",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成6点伤害。",
+          "is_upgraded": false
+        }
+      ],
+      "status": [],
+      "relics": [],
+      "potions": []
+    }
+  },
+  "queue_after_twin": {
+    "state_type": "monster",
+    "battle": {
+      "round": 1,
+      "turn": "player",
+      "is_play_phase": true,
+      "enemies": [
+        {
+          "entity_id": "CORPSE_SLUG_0",
+          "combat_id": 2,
+          "hp": 25,
+          "block": 0,
+          "status": [
+            {
+              "id": "RAVENOUS_POWER",
+              "amount": 4,
+              "description": "当有敌人死亡时，噬尸蛞蝓会立即吃下尸体，在本回合被击晕然后获得4点力量。"
+            },
+            {
+              "id": "STRENGTH_POWER",
+              "amount": 4,
+              "description": "增加攻击牌造成的伤害值4点。"
+            }
+          ],
+          "intents": [
+            {
+              "type": "Stun",
+              "label": "",
+              "description": "这个敌人在其下一回合无法行动。"
+            }
+          ]
+        }
+      ]
+    },
+    "player": {
+      "hp": 80,
+      "max_hp": 80,
+      "block": 0,
+      "energy": 0,
+      "hand": [
+        {
+          "id": "SLICE",
+          "name": "切割",
+          "index": 0,
+          "type": "Attack",
+          "cost": "0",
+          "star_cost": null,
+          "target_type": "AnyEnemy",
+          "can_play": true,
+          "description": "造成6点伤害。",
+          "is_upgraded": false
+        }
+      ],
+      "status": [],
+      "relics": [],
+      "potions": []
+    }
+  }
+}

@@ -35,18 +35,20 @@ class ChoiceTests(unittest.TestCase):
         fury['description'] += '每当打出其他牌时失去1点生命。'
         self.assertIsNone(choice_offer(s))
 
-    def test_cloak_clasp_prefix_keeps_trigger_guards_and_never_ends_turn(self):
+    def test_cloak_clasp_partial_forecasts_keep_trigger_guards(self):
         s = sample()
         s['player']['relics'] = [{'id': 'CLOAK_CLASP', 'counter': None,
                                  'description': '在你的回合结束时，每有一张手牌，就获得1点格挡'}]
         offer = choice_offer(s)
-        self.assertEqual(offer['menu']['search_reason'], 'unmodeled_end_turn_relic')
-        self.assertTrue(any(len(p['sequence']) >= 2 for p in offer['menu']['plans']))
-        for plan in offer['menu']['plans']:
-            self.assertFalse(plan['end_turn'])
-            self.assertEqual(plan['confidence'], 'unverified')
-            self.assertNotIn('predicted_hp_loss', plan)
+        self.assertEqual(offer['menu']['search_reason'], 'unsupported_hand')
+        calculated = [p for p in offer['menu']['plans'] if p['confidence'] == 'partial']
+        self.assertTrue(any(len(p['sequence']) >= 2 for p in calculated))
+        for plan in calculated:
+            self.assertIn('predicted_hp_loss', plan)
+            self.assertIn('end_turn_relic_block', plan)
             self.assertTrue(all(a['card_index'] in {0, 1} for a in plan['sequence']))
+            selected = chosen_decision(s, offer, {'choice':plan['id'], 'reject_reason':'', 'reason':''})
+            self.assertFalse(any(a['hand_index'] == -1 for a in selected['next_cards']))
         for variant in ('description', 'hand', 'player', 'enemy'):
             changed = copy.deepcopy(s)
             if variant == 'description': changed['player']['relics'][0]['description'] += '每打出一张牌失去1点生命。'

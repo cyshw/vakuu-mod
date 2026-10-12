@@ -46,6 +46,8 @@ public static partial class McpMod
 {
     private static Dictionary<string, object?> ExecuteAction(string action, Dictionary<string, JsonElement> data)
     {
+        if (_labRecording || _labBusy)
+            return Error("Manual battle lab active: use the game UI, or stop lab recording first.");
         if (!RunManager.Instance.IsInProgress)
             return Error("No run in progress");
 

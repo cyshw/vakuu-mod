@@ -1,0 +1,132 @@
+{
+  "name": "Spire Codex A10 鐵衛：力量成長（24 張）",
+  "source": "https://spire-codex.com/runs/af89e3c82bb6f873",
+  "source_version": "v0.111.0",
+  "notes": "卡牌、升級與遺物取自此通關紀錄的最終配置。練習血量設為 80/80、藥水留空；重打重新隨機化。來源在靈魂核心戰鬥損失 26 HP、用了 5 回合；本配置不是該樓層的精確還原，不能直接比較扣血。",
+  "spec": {
+    "character": "IRONCLAD",
+    "encounter": "SOUL_NEXUS_ELITE",
+    "ascension": 10,
+    "act": 3,
+    "floor": 44,
+    "act_floor": 11,
+    "hp": 80,
+    "max_hp": 80,
+    "gold": 0,
+    "deck": [
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 1
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 1
+      },
+      {
+        "id": "BASH",
+        "upgrades": 0
+      },
+      {
+        "id": "ASCENDERS_BANE",
+        "upgrades": 0
+      },
+      {
+        "id": "DEMON_FORM",
+        "upgrades": 1
+      },
+      {
+        "id": "TWIN_STRIKE",
+        "upgrades": 1
+      },
+      {
+        "id": "THUNDERCLAP",
+        "upgrades": 0
+      },
+      {
+        "id": "DISMANTLE",
+        "upgrades": 0
+      },
+      {
+        "id": "CRUELTY",
+        "upgrades": 1
+      },
+      {
+        "id": "UNMOVABLE",
+        "upgrades": 1
+      },
+      {
+        "id": "TAUNT",
+        "upgrades": 0
+      },
+      {
+        "id": "VICIOUS",
+        "upgrades": 1
+      },
+      {
+        "id": "FLASH_OF_STEEL",
+        "upgrades": 0
+      },
+      {
+        "id": "SHRUG_IT_OFF",
+        "upgrades": 1
+      },
+      {
+        "id": "BOLAS",
+        "upgrades": 0
+      },
+      {
+        "id": "DOMINATE",
+        "upgrades": 1
+      },
+      {
+        "id": "FEEL_NO_PAIN",
+        "upgrades": 0
+      },
+      {
+        "id": "FORGOTTEN_RITUAL",
+        "upgrades": 1
+      },
+      {
+        "id": "STONE_ARMOR",
+        "upgrades": 1
+      }
+    ],
+    "relics": [
+      "BURNING_BLOOD",
+      "ARCANE_SCROLL",
+      "MUMMIFIED_HAND",
+      "GORGET",
+      "RADIANT_PEARL",
+      "UNCEASING_TOP",
+      "BAG_OF_MARBLES",
+      "VAJRA",
+      "DIAMOND_DIADEM",
+      "FRAGRANT_MUSHROOM",
+      "ANCHOR",
+      "CENTENNIAL_PUZZLE",
+      "WAR_PAINT",
+      "STONE_CRACKER"
+    ],
+    "potions": []
+  }
+}

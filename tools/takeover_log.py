@@ -35,6 +35,11 @@ def main():
     parser.add_argument('--stop-at-boss-rest', action='store_true',
                         help="Stop on reaching the rest site right before a boss, before anything is chosen there")
     parser.add_argument('--no-ai', action='store_true', help='Use local decisions only; stop when a model would be needed')
+    program_mode = parser.add_mutually_exclusive_group()
+    program_mode.add_argument('--program-compare', action='store_true',
+                        help='Choose fully simulated turns locally; never call a model, stop on unknown effects')
+    program_mode.add_argument('--program-first', action='store_true',
+                              help='Choose fully simulated turns locally, call the model only when local rules cannot decide')
     parser.add_argument('--stop-after-candidate', action='store_true', help='Stop after executing one accepted candidate prefix; stop if its queue is invalidated')
     parser.add_argument('--candidate-min-cards', type=int, default=1, help='Only stop on accepted prefixes with at least this many cards')
     args = parser.parse_args()
@@ -55,7 +60,8 @@ def main():
         engine.models.settings = lambda: {**saved(), **override}
 
     controller = engine.Controller(lambda m: (write('report', message=m), print(m.replace('\n', ' | '), flush=True)),
-                                   allow_model=not args.no_ai)
+                                   allow_model=not args.no_ai, program_comparison=args.program_compare,
+                                   program_first=args.program_first)
     raw_search = engine.search_turn
     candidate_remaining = None
     def logged_search(state, **kwargs):

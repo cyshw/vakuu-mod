@@ -3,6 +3,8 @@ import re
 from pathlib import Path
 
 import spire_codex
+from vakuu_triggers import trigger_facts
+from vakuu_relics import turn_end_defense
 
 COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
 
@@ -27,11 +29,15 @@ def combat_facts(state):
     block = player.get('block') or 0
     hp = player.get('hp') or 0
     orbs = orb_end_of_turn(player)
-    loss = max(0, incoming - block - orbs.get('block', 0))
+    try: end_defense = turn_end_defense(player)
+    except ValueError: end_defense = {}
+    loss = max(0, incoming - block - orbs.get('block', 0) - end_defense.get('block', 0))
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
+        **({'card_trigger_counts': triggers} if (triggers := trigger_facts(player)) else {}),
         'incoming_attack_damage': incoming,
         **({'end_of_turn_orbs': orbs} if orbs else {}),
+        **({'end_turn_known_defense': end_defense} if end_defense.get('block') or end_defense.get('retain_block') else {}),
         # Unusual intents carry their own rules (timing, conditions); the model must read them itself.
         'special_intents': [{'enemy': e.get('name'), 'type': i.get('type'), 'label': i.get('label'),
                              'description': i.get('description')}
@@ -57,7 +63,7 @@ def combat_facts(state):
         **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
                                                                 if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),
-        'note': '敵人傷害已含意圖顯示的修正，卡牌描述的數字已含力量、敏捷、虛弱等狀態；block_needed 與 hp_after 已扣掉 end_of_turn_orbs 的冰霜格擋，未計遺物的回合結束效果。',
+        'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環。其他未知觸發另計。',
     }
 
 TEMPO_SAFE_HP = 0.6  # Share of max HP that must remain after this turn's attacks for damage to outrank more block.
@@ -80,6 +86,34 @@ def tempo_facts(enemies, player, incoming, covered, loss):
             'weakest_enemy': target.get('entity_id'), 'weakest_enemy_hp_with_block': (target.get('hp') or 0) + (target.get('block') or 0),
             'rule': '血量夠厚、這回合不致命：不要為了零傷害補滿格擋，先把能量花在傷害上（優先集火最容易打死的敵人），格擋只補到剩餘血量仍高於六成最大血量為止；拖越久敵人累積的傷害越多'}
     return facts
+
+
+def poison_preview(state):
+    """Current-state previews computed by the game, not a guessed damage formula."""
+    result = []
+    for enemy in (state.get('battle') or {}).get('enemies') or []:
+        hp = enemy.get('hp') or 0
+        if hp <= 0: continue
+        for status in enemy.get('status') or []:
+            damage = status.get('next_turn_hp_loss')
+            if status.get('id') != 'POISON_POWER' or not isinstance(damage, int) or isinstance(damage, bool): continue
+            if damage < 0: continue
+            result.append({'enemy': enemy.get('entity_id'), 'stacks': status.get('amount'),
+                           'next_own_turn_hp_loss': damage, 'hp_if_only_poison': max(0, hp - damage)})
+    return result
+
+
+def compact_poison(compact, state):
+    """Remove repeated Poison prose only when authoritative numeric previews replace it."""
+    ready = {entry['enemy']: entry for entry in poison_preview(state)}
+    for enemy in (compact.get('battle') or {}).get('enemies') or []:
+        if enemy.get('entity_id') in ready:
+            enemy['status'] = [s for s in enemy.get('status') or [] if s.get('id') != 'POISON_POWER']
+            entry = ready[enemy['entity_id']]
+            enemy['poison_preview'] = {'stacks': entry['stacks'],
+                                       'next_turn_hp_loss': entry['next_own_turn_hp_loss'],
+                                       'hp_if_only_poison': entry['hp_if_only_poison']}
+
 
 def orb_end_of_turn(player):
     """What channelled orbs do when the turn ends, before the enemies attack (passive_val includes Focus)."""

@@ -20,6 +20,9 @@ from sts2_advisor import advise
 import spire_models as models
 from spire_session import AgyCombatSession, ClaudeCombatSession, CombatSession
 import spire_quota
+from vakuu_facts import compact_poison
+from vakuu_triggers import compact_triggers
+from vakuu_relics import compact_relics
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
 from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decision, rest_decision, route_decision, start_plan, start_route
@@ -32,6 +35,17 @@ from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_a
 
 # The same action sent this many times on an unchanged screen means the game is ignoring it.
 REPEAT_LIMIT = 3
+
+
+def execution_busy(state):
+    execution = state.get('execution')
+    if not isinstance(execution, dict): return False  # Older mod compatibility.
+    return execution.get('running') is True or execution.get('queue_empty') is False
+
+
+def combat_choice(state):
+    # Paused actions cannot complete until the player answers these prompts.
+    return state.get('state_type') in {'hand_select', 'card_select', 'bundle_select', 'relic_select'}
 
 # Panel buttons: help with what is on screen, play this fight, or play the whole run.
 SCOPE_STEPS = {'screen': 40, 'fight': 400, 'run': 5000}
@@ -91,9 +105,11 @@ def instructions():
     return text.replace('{{END_TURN}}', str(END_TURN)).replace('{{LEAVE_SHOP}}', str(LEAVE_SHOP)).strip()
 
 class Controller:
-    def __init__(self, report, allow_model=True):
+    def __init__(self, report, allow_model=True, program_comparison=False, program_first=False):
         self.report = report
-        self.allow_model = allow_model
+        self.program_comparison = program_comparison
+        self.program_first = program_first
+        self.allow_model = allow_model and not program_comparison
         self.stop_event = threading.Event()
         self.process = None
         self.lock = threading.Lock()
@@ -175,24 +191,56 @@ class Controller:
         changed = False
         stable_since = time.monotonic()
         pending_card = False
+        pending_discount = False
+        discount_hand = []
         if playing_card:
             card = next((c for c in (before.get('player') or {}).get('hand') or []
                          if c.get('index') == body['card_index']), None)
             pending_card = card is not None and not wastes_energy_card(before, card)
+            relics = (before.get('player') or {}).get('relics') or []
+            if card and card.get('type') == 'Power' and any(
+                    str(r.get('id') or '').split('.')[-1] == 'MUMMIFIED_HAND' for r in relics):
+                discount_hand = [c for c in before['player']['hand'] if c is not card]
+                # An already-free hand has no observable discount to wait for.
+                pending_discount = any(str(c.get('cost') or '0').isdigit() and int(c.get('cost') or 0) > 0
+                                       or (c.get('star_cost') or 0) > 0 for c in discount_hand)
         old_hand = hand_signatures(before) if pending_card else None
         resolved = not pending_card
+        has_execution = False
+        state = before
         while time.monotonic() < deadline:
             state = api.request('/api/v1/singleplayer?format=json')
             current = fingerprint(state)
+            execution = state.get('execution')
+            has_execution = isinstance(execution, dict) and {'running', 'queue_empty'} <= execution.keys()
             # Energy can be spent before the card leaves the hand or its block
             # lands. Playability flags alone do not mean resolution is finished.
             resolved = resolved or state.get('state_type') != before.get('state_type') or hand_signatures(state) != old_hand
+            # A draw can replace the played card with an identical copy, leaving
+            # hand signatures unchanged. The completed queue is authoritative.
+            if has_execution and (changed or current != previous) and (not execution_busy(state) or combat_choice(state)):
+                return
+            if pending_discount:
+                hand = (state.get('player') or {}).get('hand') or []
+                # The relic resolves after the power leaves the hand. Require an
+                # actual free-cost update, not merely energy spent/card removal.
+                if state.get('state_type') != before.get('state_type') or any(
+                        old.get('id') == new.get('id') and old.get('name') == new.get('name')
+                        and (old.get('cost'), old.get('star_cost')) != (new.get('cost'), new.get('star_cost'))
+                        and str(new.get('cost') or '0') == '0' and not new.get('star_cost')
+                        for old, new in zip(discount_hand, hand)):
+                    pending_discount = False
+                    stable_since = time.monotonic()
             if current != previous or not resolved: stable_since = time.monotonic()
-            if changed and resolved and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
+            if not has_execution and changed and resolved and not pending_discount and current == previous and time.monotonic() - stable_since >= (CARD_SETTLE_WINDOW if playing_card else 0): return
             changed = changed or current != previous
             previous = current
             if self.stop_event.wait(poll_interval): return
         if not resolved: raise RuntimeError('出牌仍未完成結算，已停止，避免重複出牌。')
+        if has_execution and execution_busy(state) and not combat_choice(state):
+            raise RuntimeError('遊戲動作佇列仍在結算，已停止，避免使用過期局面。')
+        if has_execution: return
+        if pending_discount: raise RuntimeError('干癟之手費用效果仍未完成結算，已停止，避免使用過期局面。')
 
     def wait_for_teammates(self, state, timeout=900):
         """In co-op, wait while our end turn or vote is in and the teammates have not acted yet.
@@ -213,9 +261,11 @@ class Controller:
         # Right after resting or claiming the last reward, the screen has nothing to choose and the
         # proceed button is still animating in; asking the model then makes it give up.
         deadline = time.monotonic() + timeout
-        while transitional(state) and time.monotonic() < deadline:
+        while (transitional(state) or (execution_busy(state) and not combat_choice(state))) and time.monotonic() < deadline:
             if self.stop_event.wait(POLL_INTERVAL): raise InterruptedError('已停止')
             state = api.request('/api/v1/singleplayer?format=json')
+        if execution_busy(state) and not combat_choice(state):
+            raise RuntimeError('遊戲動作佇列仍在結算，已停止，避免使用過期局面。')
         return state
 
     def decide_routed(self, state):
@@ -297,6 +347,9 @@ class Controller:
             candidates = None if rejection else turn_candidates(state, result)
             if candidates: compact['turn_candidates'] = candidates
             compact['combat_facts'] = combat_facts(state)
+            compact_poison(compact, state)
+            compact_triggers(compact, state)
+            compact_relics(compact, state)
             piles = pile_contents(state.get('player') or {})
             if piles: compact['pile_contents'] = piles
             notes = enemy_notes(state)
@@ -420,9 +473,11 @@ class Controller:
                 draining = takeover and step >= max_steps
                 if draining and not (plan and plan.get('candidate_id') and plan.get('queue')): break
                 state = api.request('/api/v1/singleplayer?format=json')
+                if self.stop_event.is_set(): break
                 # Settle first: a room that is still loading would skip the play-phase wait, and a fight
                 # that just began has no hand yet.
                 if takeover: state = self.wait_until_settled(self.wait_for_play_phase(self.wait_for_teammates(self.wait_until_settled(state))))
+                if self.stop_event.is_set(): break
                 self.sync_combat(state)  # Also observe battles completed entirely by local decisions.
                 if state.get('state_type') in {'menu','game_over','unknown','overlay'}:
                     self.report('先踏進尖塔，我才有施展的餘地。\n請先進入遊戲，或完成目前需要手動處理的畫面。'); break
@@ -440,18 +495,17 @@ class Controller:
                 asked_model = False  # Only a model's answer is worth asking again when it is malformed.
                 # A selected candidate owns its queue. Verify it before any new
                 # local optimization can replace the model's selected order.
-                decision = plan_decision(plan, state) if takeover and plan and plan.get('candidate_id') else None
+                decision = plan_decision(plan, state) if takeover and plan and (plan.get('candidate_id') or self.program_first) else None
                 if draining and decision is None: break
-                if takeover and plan and plan.get('candidate_id') and decision is None: plan = None
+                if takeover and plan and (plan.get('candidate_id') or self.program_first) and decision is None: plan = None
                 if takeover and decision is None: decision = auto_decision(state, opened_cards)
                 self.local_search = None
                 if takeover and decision is None and state.get('state_type') in COMBAT:
                     result = search_turn(state, include_candidates=True)
                     self.local_search = (fingerprint(state), result)
-                    # Only a found kill is played without the model: it is exact and ends the fight. Other
-                    # searched turns value this turn alone (not setup or held cards), so they only inform
-                    # the model, and the model's own turn plan keeps running.
-                    if result['reason'] == 'direct_win':
+                    # Normal takeover delegates non-winning turn choices to the model.
+                    # The explicit program-only experiment accepts fully simulated turns too.
+                    if result['reason'] == 'direct_win' or ((self.program_comparison or self.program_first) and result['reason'] == 'supported_turn'):
                         decision = result['decision']
                         plan = None  # Re-read and search after each executed move.
                 if takeover and decision is None:
@@ -461,6 +515,8 @@ class Controller:
                     if not self.allow_model:
                         self.report('程式無法可靠處理目前局面，已停止接手。\n此模式不會呼叫 AI，請手動選擇。')
                         break
+                    if self.program_first and self.local_search:
+                        self.report('程式需要 AI 判斷：' + self.local_search[1]['reason'])
                     decision = self.decide_routed(state)
                     asked_model = True
                     if state.get('state_type') == 'map': self.route = start_route(state, decision)
@@ -496,7 +552,7 @@ class Controller:
                     self.close_combat_session()
                     self.report('同一個動作送了幾次，畫面都沒有變化。\n已停止接手，請手動處理這個畫面。'); break
                 current = api.request('/api/v1/singleplayer?format=json')
-                if not still_valid(state, current, body):
+                if (execution_busy(current) and not combat_choice(current)) or not still_valid(state, current, body):
                     self.close_combat_session()
                     self.report('看來你另有打算。控制權歸你了。\n局面已改變，已停止接手。'); break
                 with self.lock:

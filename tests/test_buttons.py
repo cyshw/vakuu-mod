@@ -13,6 +13,17 @@ import vakuu_rules as rules
 facts.spire_codex.room_damage = lambda *args, **kwargs: None
 
 class Tests(unittest.TestCase):
+    def test_stop_triggered_by_state_read_does_not_ask_reward_model(self):
+        c=b.Controller(lambda message: None)
+        def read(path, body=None):
+            self.assertIsNone(body)
+            c.stop_event.set()  # one-fight tool observes combat ending in this GET.
+            return {'state_type':'rewards', 'player':{'hp':30}}
+        with patch.object(b.api,'request',side_effect=read) as api, patch.object(c,'decide_routed') as decide:
+            c.run(True,10)
+        decide.assert_not_called()
+        self.assertEqual(api.call_count,1)
+
     def test_optional_null_target_is_omitted(self):
         params={'card_index':1,'target':None}
         self.assertEqual(rules.validate({'state_type':'monster'},'play_card',params),
