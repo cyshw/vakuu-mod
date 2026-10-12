@@ -4,8 +4,8 @@ Live takeover runs are slow, noisy (every run differs) and can lose the game; re
 recorded decision points to each configuration compares them directly. Cases come from the JSONL logs
 written by tools/takeover_log.py (the state each model decision was made on).
 
-    python tools/replay_eval.py --per-type 6 --configs claude:haiku claude:sonnet codex:gpt-6.1-sol
-    python tools/replay_eval.py --report vakuu/button-runtime/eval/<run>/results.jsonl
+    python tools/exam/replay_eval.py --per-type 6 --configs claude:haiku claude:sonnet codex:gpt-6.1-sol
+    python tools/exam/replay_eval.py --report vakuu/button-runtime/eval/<run>/results.jsonl
 """
 import argparse
 import collections
@@ -17,7 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
+SOURCE = Path(__file__).resolve().parents[2] / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402

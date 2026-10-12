@@ -5,8 +5,8 @@ ordinary fight, spare energy, a recommended rest, Strikes that still carry the d
 option the community does much worse with). Matching states become regression cases with a tag,
 at most --per-tag per rule, spread over different logs. Nothing calls a model.
 
-    python tools/mine_exam.py --list            # what would be added
-    python tools/mine_exam.py --per-tag 10      # write them to tests/regression/
+    python tools/exam/mine_exam.py --list            # what would be added
+    python tools/exam/mine_exam.py --per-tag 10      # write them to tests/regression/
 """
 import argparse
 import collections

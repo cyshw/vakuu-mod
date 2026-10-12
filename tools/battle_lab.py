@@ -5,6 +5,7 @@ python tools/battle_lab.py compare PATH.jsonl --limit 5 --config codex:gpt-6.1-s
 """
 import argparse
 import json
+import sys
 import threading
 import time
 import urllib.request
@@ -136,6 +137,7 @@ def same_first_action(left, right):
 
 def compare(path, config, limit):
     # Import only on explicit comparison; recording never initializes a model.
+    sys.path.insert(0, str(Path(__file__).resolve().parent / 'exam'))
     from replay_eval import decide
     events = [json.loads(line) for line in Path(path).read_text(encoding='utf-8').splitlines()]
     finished = {e['action']['before_index'] for e in events

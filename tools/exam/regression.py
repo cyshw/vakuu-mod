@@ -4,11 +4,11 @@ replay_eval samples cases at random from logs that are not kept; this suite stor
 the repo (tests/regression/) so every prompt or model change is judged on the same questions. Models
 answer differently each time, so each case can be asked several times and reported as a pass rate.
 
-    python tools/regression.py add run9#4 --expect "unblocked<=10" --note "火焰藥水能救命"
-    python tools/regression.py list
-    python tools/regression.py run --config claude:sonnet@low --repeat 2
+    python tools/exam/regression.py add run9#4 --expect "unblocked<=10" --note "火焰藥水能救命"
+    python tools/exam/regression.py list
+    python tools/exam/regression.py run --config claude:sonnet@low --repeat 2
 
-Keeping it cheap (tools/mine_exam.py adds tagged cases from the logs):
+Keeping it cheap (tools/exam/mine_exam.py adds tagged cases from the logs):
     run --config claude:haiku@low --quick 2 --retry 2   # small exam: 2 cases per tag, failures asked twice more
     run --tags potion rest                              # only what a change touched
 A first attempt whose exact prompt was asked before reuses the cached answer (--no-cache to ask again).
@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import replay_eval  # noqa: E402
 
-SUITE = Path(__file__).resolve().parent.parent / 'tests' / 'regression'
+SUITE = Path(__file__).resolve().parents[2] / 'tests' / 'regression'
 
 
 CHECKS = {'<=': lambda a, b: a is not None and a <= b, '>=': lambda a, b: a is not None and a >= b,
