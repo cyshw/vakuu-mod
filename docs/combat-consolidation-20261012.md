@@ -85,3 +85,7 @@
 三場 configuration、逐步紀錄、final_snapshot、outcome 與承傷核對保存在忽略的 `vakuu/button-runtime/lab/pure-hard-3fcd62bc/`。停止的三騎士已完整留檔後換下一個診斷；目前遊戲保留蜂群術士第一回合，面板 busy=false，沒有活躍控制器。下一個有實機證據的缺口是全手牌虛無與命中塞牌；本次只測試，未放寬未知機制保護或改搜尋算法。
 
 使用者要求換更好的牌組後，改用已核對的 `spire-ironclad-strength.json`：Spire Codex `af89e3c82bb6f873` 最終 24 張牌／14 遺物，含惡魔形態＋、殘酷＋、雙重打擊＋、堅固防禦、抽牌與無懼疼痛等。診斷遭遇改為第二幕第 25 層 A10 蜂群術士，HP 80、藥水空；不是來源樓層精確重現，不比較來源扣血。實機核對 deck=24 與全部 14 遺物吻合。純程式開局仍因 PERSONAL_HIVE_POWER 回 unknown_enemy_status，0 操作／0 模型呼叫，未完成。完整牌組的未支援卡牌互動也尚未宣稱可模擬。記錄在忽略的 `vakuu/button-runtime/lab/pure-strong-3385bcf0/`；遊戲保留這份較完整牌組的蜂群術士第一回合，控制器已停。
+
+之後使用者授權恢復 AI，先用 Sol 6.1／low 的 program-first 接手；使用者改指定 Haiku 後停止該 CLI 及其子程序，再從第 2 回合接續。Sol 有 3 次已完成模型呼叫／7 次成功操作，停止時另一則判斷可能在途，不推算完整額度。分支因未帶入忽略的 `vakuu/claude/claude.exe`，Haiku 首次啟動找不到 CLI（0 呼叫／0 操作）；僅將已驗證主專案內 CLI 目錄加入此次程序 PATH，確認登入布林狀態後繼續，未讀帳號憑證。
+
+Haiku／low 第 2～4 回合接續，4 次模型呼叫、模型耗時合計 35.63 秒、13 次成功操作、0 API 失敗。模型給序列後程式連續執行；未知蜂房與後續能力狀態仍需要模型。本場共 4 回合勝利，80→80 HP，停在 rewards 未領獎勵；這是 Sol 開場＋Haiku 接續的混合結果，不宣稱 Haiku 獨立通關。原始檔 `hybrid-takeover.jsonl`、`haiku-hybrid-takeover.jsonl`、`haiku-hybrid-resume.jsonl` 與 `hybrid-summary.json` 保留於同一強牌組目錄。使用者指定的 Haiku／low 已保存至面板設定與本分支測試設定；面板的程式碼仍是主線版本，沒有偷偷部署分支。
