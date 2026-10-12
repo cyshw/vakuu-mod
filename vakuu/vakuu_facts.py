@@ -4,6 +4,7 @@ from pathlib import Path
 
 import spire_codex
 from vakuu_triggers import trigger_facts
+from vakuu_relics import turn_end_defense
 
 COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
 
@@ -28,12 +29,15 @@ def combat_facts(state):
     block = player.get('block') or 0
     hp = player.get('hp') or 0
     orbs = orb_end_of_turn(player)
-    loss = max(0, incoming - block - orbs.get('block', 0))
+    try: end_defense = turn_end_defense(player)
+    except ValueError: end_defense = {}
+    loss = max(0, incoming - block - orbs.get('block', 0) - end_defense.get('block', 0))
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
         **({'card_trigger_counts': triggers} if (triggers := trigger_facts(player)) else {}),
         'incoming_attack_damage': incoming,
         **({'end_of_turn_orbs': orbs} if orbs else {}),
+        **({'end_turn_known_defense': end_defense} if end_defense.get('block') or end_defense.get('retain_block') else {}),
         # Unusual intents carry their own rules (timing, conditions); the model must read them itself.
         'special_intents': [{'enemy': e.get('name'), 'type': i.get('type'), 'label': i.get('label'),
                              'description': i.get('description')}
@@ -58,7 +62,7 @@ def combat_facts(state):
         **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
                                                                 if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),
-        'note': '敵人傷害已含意圖顯示的修正，卡牌描述的數字已含力量、敏捷、虛弱等狀態；block_needed 與 hp_after 已扣掉 end_of_turn_orbs 的冰霜格擋，未計遺物的回合結束效果。',
+        'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環。其他未知觸發另計。',
     }
 
 def poison_preview(state):
