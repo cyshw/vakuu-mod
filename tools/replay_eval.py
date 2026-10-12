@@ -114,13 +114,15 @@ def score_combat(state, decision):
     killed = planned_kills(state, decision, facts)
     incoming = sum(incoming_damage(i) for e in killed for i in e.get('intents') or [])
     unblocked = max(0, facts['incoming_attack_damage'] - incoming - facts['current_block'] - block)
+    covered = facts['current_block'] + (facts.get('end_of_turn_orbs') or {}).get('block', 0) + block
+    surplus = max(0, covered - (facts['incoming_attack_damage'] - incoming))
     played = {id(c) for c in cards}
     affordable_left = [c for c in player.get('hand') or [] if id(c) not in played and c.get('can_play')
                        and not gives_energy_now(c) and card_cost(c) <= budget - cost]
     return {'plan_cards': len(cards), 'complete_turn': ends, 'broken_plan': broken,
             'overspend': cost > budget, 'unused_energy': max(0, budget - cost) if ends else None,
             'left_affordable_cards': len(affordable_left) if ends else None,
-            'block': block, 'damage': damage, 'unblocked': unblocked if ends else None,
+            'block': block, 'damage': damage, 'block_surplus': surplus if ends else None, 'unblocked': unblocked if ends else None,
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
             'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
             'drank_potion': bool(drunk_potions(decision)),

@@ -41,6 +41,7 @@ def combat_facts(state):
         'block_needed_for_no_damage': loss,
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
         'lethal_if_no_more_block': loss >= hp > 0,
+        **tempo_facts(enemies, player, incoming, block + orbs.get('block', 0), loss),
         'energy': player.get('energy'),
         'hand_end_of_turn_rule': ('符文金字塔使未打出的手牌不因回合結束而棄掉；虛無等效果仍依描述處理。' if retain_hand else
                                   '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。'),
@@ -59,6 +60,27 @@ def combat_facts(state):
         'note': '敵人傷害已含意圖顯示的修正，卡牌描述的數字已含力量、敏捷、虛弱等狀態；block_needed 與 hp_after 已扣掉 end_of_turn_orbs 的冰霜格擋，未計遺物的回合結束效果。',
     }
 
+TEMPO_SAFE_HP = 0.6  # Share of max HP that must remain after this turn's attacks for damage to outrank more block.
+
+def tempo_facts(enemies, player, incoming, covered, loss):
+    """Tell the model when more block is wasted or when it can afford to attack instead.
+
+    Haiku lost two elite fights (Decimillipede, three Knights) at full HP by stacking block 8 over the
+    damage and dealing 6-23 a turn early; the damage it skipped came back as 20+ HP lost every later turn.
+    """
+    hp, max_hp = player.get('hp') or 0, player.get('max_hp') or 0
+    facts = {}
+    if incoming and covered > incoming:
+        facts['block_surplus'] = covered - incoming
+        facts['block_surplus_rule'] = '格擋已超過敵人本回合攻擊，不要再補格擋，剩下能量改打傷害'
+    if enemies and max_hp and hp - loss >= TEMPO_SAFE_HP * max_hp and loss < hp:
+        target = min(enemies, key=lambda e: (e.get('hp') or 0) + (e.get('block') or 0))
+        facts['can_afford_to_attack'] = {
+            'hp_after_attacks_if_no_more_block': hp - loss,
+            'weakest_enemy': target.get('entity_id'), 'weakest_enemy_hp_with_block': (target.get('hp') or 0) + (target.get('block') or 0),
+            'rule': '血量夠厚、這回合不致命：不要為了零傷害補滿格擋，先把能量花在傷害上（優先集火最容易打死的敵人），格擋只補到剩餘血量仍高於六成最大血量為止；拖越久敵人累積的傷害越多'}
+    return facts
+
 def orb_end_of_turn(player):
     """What channelled orbs do when the turn ends, before the enemies attack (passive_val includes Focus)."""
     totals = {}
@@ -76,6 +98,7 @@ RETAIN_HAND_RELICS = {'RUNIC_PYRAMID'}
 # boss lasted 11 turns while Strength and Blessing of the Forge stayed unused until death.
 SETUP_POTION = re.compile(r'力量|敏捷|集中|升级|升級|荆棘|荊棘|覆甲|人工制品')
 NORMAL_FIGHT_POTION_SAVE = 0.2  # Share of max HP a potion must save this turn to be drunk in an ordinary fight.
+NORMAL_FIGHT_LONG_ROUND = 4  # From this round on a drawn-out ordinary fight may spend support potions (vulnerable, power, ...).
 
 def potion_facts(state, loss):
     """Combat potions with their block and damage read off the text, and whether they change this turn.
@@ -107,7 +130,9 @@ def potion_facts(state, loss):
             saved = min(potion.get('block', 0), loss)
             if saved: potion['hp_saved_this_turn'] = saved
             kills = weakest is not None and potion.get('damage', 0) >= weakest
-            potion['worth_it_in_this_normal_fight'] = saved >= NORMAL_FIGHT_POTION_SAVE * (player.get('max_hp') or 0) or kills
+            support = 'block' not in potion and 'damage' not in potion
+            dragging = (state.get('battle') or {}).get('round', 1) >= NORMAL_FIGHT_LONG_ROUND
+            potion['worth_it_in_this_normal_fight'] = saved >= NORMAL_FIGHT_POTION_SAVE * (player.get('max_hp') or 0) or kills                 or (support and dragging)
     setup = [p['name'] for p, raw in zip(usable, [q for q in player.get('potions') or [] if q.get('can_use_in_combat')])
              if 'block' not in p and 'damage' not in p and SETUP_POTION.search(str(raw.get('description') or ''))]
     hard = state.get('state_type') in ('elite', 'boss')
