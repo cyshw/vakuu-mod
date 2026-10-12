@@ -104,9 +104,11 @@ def instructions():
     return text.replace('{{END_TURN}}', str(END_TURN)).replace('{{LEAVE_SHOP}}', str(LEAVE_SHOP)).strip()
 
 class Controller:
-    def __init__(self, report, allow_model=True):
+    def __init__(self, report, allow_model=True, program_comparison=False, program_first=False):
         self.report = report
-        self.allow_model = allow_model
+        self.program_comparison = program_comparison
+        self.program_first = program_first
+        self.allow_model = allow_model and not program_comparison
         self.stop_event = threading.Event()
         self.process = None
         self.lock = threading.Lock()
@@ -476,18 +478,17 @@ class Controller:
                 asked_model = False  # Only a model's answer is worth asking again when it is malformed.
                 # A selected candidate owns its queue. Verify it before any new
                 # local optimization can replace the model's selected order.
-                decision = plan_decision(plan, state) if takeover and plan and plan.get('candidate_id') else None
+                decision = plan_decision(plan, state) if takeover and plan and (plan.get('candidate_id') or self.program_first) else None
                 if draining and decision is None: break
-                if takeover and plan and plan.get('candidate_id') and decision is None: plan = None
+                if takeover and plan and (plan.get('candidate_id') or self.program_first) and decision is None: plan = None
                 if takeover and decision is None: decision = auto_decision(state, opened_cards)
                 self.local_search = None
                 if takeover and decision is None and state.get('state_type') in COMBAT:
                     result = search_turn(state, include_candidates=True)
                     self.local_search = (fingerprint(state), result)
-                    # Only a found kill is played without the model: it is exact and ends the fight. Other
-                    # searched turns value this turn alone (not setup or held cards), so they only inform
-                    # the model, and the model's own turn plan keeps running.
-                    if result['reason'] == 'direct_win':
+                    # Normal takeover delegates non-winning turn choices to the model.
+                    # The explicit program-only experiment accepts fully simulated turns too.
+                    if result['reason'] == 'direct_win' or ((self.program_comparison or self.program_first) and result['reason'] == 'supported_turn'):
                         decision = result['decision']
                         plan = None  # Re-read and search after each executed move.
                 if takeover and decision is None:
@@ -497,6 +498,8 @@ class Controller:
                     if not self.allow_model:
                         self.report('程式無法可靠處理目前局面，已停止接手。\n此模式不會呼叫 AI，請手動選擇。')
                         break
+                    if self.program_first and self.local_search:
+                        self.report('程式需要 AI 判斷：' + self.local_search[1]['reason'])
                     decision = self.decide_routed(state)
                     asked_model = True
                     if state.get('state_type') == 'map': self.route = start_route(state, decision)

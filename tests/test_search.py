@@ -203,3 +203,37 @@ class SearchTests(unittest.TestCase):
             c.run(True, 1)
         model.assert_not_called()
         self.assertTrue(all(len(call.args) == 1 for call in api.call_args_list))
+
+    def test_program_comparison_selects_survival_without_model(self):
+        s = state([card(0, damage=10), card(1, block=8)], [enemy(hp=20)], energy=1, hp=5)
+        c = engine.Controller(lambda m: None, program_comparison=True)
+        self.assertFalse(c.allow_model)
+        with patch.object(engine.api, 'request', side_effect=[s, s, {'status':'ok'}]) as api, \
+             patch.object(c, 'decide_routed') as model, patch.object(c, 'wait_for_change'):
+            c.run(True,1)
+        model.assert_not_called()
+        self.assertEqual([call.args[1] for call in api.call_args_list if len(call.args)==2],
+                         [{'action':'play_card','card_index':1}])
+
+    def test_program_comparison_stops_on_unmodeled_relic(self):
+        s = state()
+        s['player']['relics'] = [{'id':'MUMMIFIED_HAND'}]
+        c = engine.Controller(lambda m: None, program_comparison=True)
+        with patch.object(engine.api,'request',return_value=s) as api, patch.object(c,'decide_routed') as model:
+            c.run(True,1)
+        model.assert_not_called()
+        self.assertTrue(all(len(call.args)==1 for call in api.call_args_list))
+
+    def test_program_first_uses_model_only_for_unmodeled_state(self):
+        for unknown in (False, True):
+            s = state([card(0), card(1,block=8)], [enemy(hp=30)], energy=1)
+            if unknown: s['player']['relics'] = [{'id':'MUMMIFIED_HAND'}]
+            reports = []
+            c = engine.Controller(reports.append, program_first=True)
+            answer = {'advice':'defend','stop':False,'action':'play_card',
+                      'parameters_json':'{"card_index":1}','next_cards':[]}
+            with patch.object(engine.api,'request',side_effect=[s,s,{'status':'ok'}]), \
+                 patch.object(c,'decide_routed',return_value=answer) as model, patch.object(c,'wait_for_change'):
+                c.run(True,1)
+            self.assertEqual(model.call_count, int(unknown))
+            if unknown: self.assertTrue(any('unknown_relic' in m for m in reports))
