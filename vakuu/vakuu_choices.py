@@ -95,7 +95,10 @@ def choice_offer(state, search_result=None):
         # These held curses can affect ending a partial plan, even without playing them.
         'held_end_effects': [c.get('description') for c in hand.values() if c.get('type') in {'Curse', 'Status'}],
         'plans': menu['plans'],
+        **({'card_trigger_counts': facts['card_trigger_counts']} if facts.get('card_trigger_counts') else {}),
     }
+    if any(t.get('id') == 'PANACHE_POWER' for t in facts.get('card_trigger_counts', [])):
+        payload['player']['status'] = [s for s in player.get('status') or [] if s.get('id') != 'PANACHE_POWER']
     schema = {'type': 'object', 'additionalProperties': False, 'properties': {
         'choice': {'type': 'string', 'enum': [p['id'] for p in menu['plans']] + ['reject']},
         'reject_reason': {'type': 'string', 'enum': ['', 'insufficient_information', 'no_suitable_plan']},

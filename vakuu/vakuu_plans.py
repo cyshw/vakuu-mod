@@ -1,5 +1,6 @@
 """Moves takeover makes without the model: forced moves, and the rest of a planned turn or shopping list."""
 import json
+from vakuu_triggers import after_card_triggers
 from collections import Counter
 
 from sts2_advisor import advise
@@ -50,16 +51,22 @@ def start_turn_plan(state, decision):
     hand = (state.get('player') or {}).get('hand') or []
     potions = {p.get('slot'): p for p in (state.get('player') or {}).get('potions') or []}
     queue = []
+    combat_ids = {e.get('entity_id'): e.get('combat_id') for e in (state.get('battle') or {}).get('enemies') or []}
+    def target_identity(target):
+        cid = combat_ids.get(target)
+        return {'target_combat_id': cid} if type(cid) is int else {}
     for entry in decision.get('next_cards') or []:
         slot = entry.get('potion_slot')
         if isinstance(slot, int) and slot >= 0:
             if slot not in potions: break
-            queue.append({'name': potions[slot].get('name'), 'potion': slot, 'target': entry.get('target') or ''})
+            queue.append({'name': potions[slot].get('name'), 'potion': slot, 'target': entry.get('target') or '',
+                          **target_identity(entry.get('target'))})
             continue
         index = entry.get('hand_index')
         if index == END_TURN: queue.append({'name': END_TURN, 'target': ''}); break
         if not isinstance(index, int) or not 0 <= index < len(hand): break
         queue.append({'name': hand[index].get('name'), 'target': entry.get('target') or '',
+                      **target_identity(entry.get('target')),
                       **({'signature': card_signature(hand[index])} if decision.get('candidate_id') else {})})
     if not queue: return None
     expected = hand_names(state)
@@ -73,7 +80,7 @@ def start_turn_plan(state, decision):
         if decision['action'] == 'play_card': guarded[card_signature(hand[index])] -= 1
         player = state.get('player') or {}
         plan.update(candidate_id=decision['candidate_id'], guarded_hand=guarded,
-                    guarded_status=player.get('status') or [],
+                    guarded_status=after_card_triggers(player.get('status') or [], hand[index]) if decision['action'] == 'play_card' else player.get('status') or [],
                     guarded_relics=after_card_relics(player.get('relics') or [], hand[index]) if decision['action'] == 'play_card' else player.get('relics') or [],
                     guarded_energy=player.get('energy', 0) - (int(hand[index]['cost']) if decision['action'] == 'play_card' else 0))
     return plan
@@ -100,6 +107,11 @@ def plan_decision(plan, state):
             return None
     if hand_names(state) - plan['expected']: return None  # Drew or created cards the plan did not know about.
     entry = plan['queue'].pop(0)
+    if 'target_combat_id' in entry:
+        target = next((e for e in (state.get('battle') or {}).get('enemies') or []
+                       if e.get('combat_id') == entry['target_combat_id'] and (e.get('hp') or 0) > 0), None)
+        if target is None: return None
+        entry['target'] = target['entity_id']
     if entry['name'] == END_TURN:
         return _auto('照方才的盤算，收手。\n建議：結束回合。', 'end_turn')
     if 'potion' in entry:
@@ -127,6 +139,7 @@ def plan_decision(plan, state):
         plan['guarded_hand'][card_signature(card)] -= 1
         plan['guarded_energy'] -= int(card['cost'])
         plan['guarded_relics'] = after_card_relics(plan['guarded_relics'], card)
+        plan['guarded_status'] = after_card_triggers(plan['guarded_status'], card)
     return _auto('照方才的盤算行事。\n建議：打出' + card['name'] + '。', 'play_card', **params)
 
 # Auto-pick a card reward only when its Codex Score is at least this; guides warn that taking every

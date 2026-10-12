@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 import spire_codex
+from vakuu_triggers import trigger_facts
 
 COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
 
@@ -30,6 +31,7 @@ def combat_facts(state):
     loss = max(0, incoming - block - orbs.get('block', 0))
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
+        **({'card_trigger_counts': triggers} if (triggers := trigger_facts(player)) else {}),
         'incoming_attack_damage': incoming,
         **({'end_of_turn_orbs': orbs} if orbs else {}),
         # Unusual intents carry their own rules (timing, conditions); the model must read them itself.

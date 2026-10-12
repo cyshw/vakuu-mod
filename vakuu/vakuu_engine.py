@@ -21,6 +21,7 @@ import spire_models as models
 from spire_session import AgyCombatSession, ClaudeCombatSession, CombatSession
 import spire_quota
 from vakuu_facts import compact_poison
+from vakuu_triggers import compact_triggers
 from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
 from spire_codex import event_advice, monster_intel
 from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decision, rest_decision, route_decision, start_plan, start_route
@@ -329,6 +330,7 @@ class Controller:
             if candidates: compact['turn_candidates'] = candidates
             compact['combat_facts'] = combat_facts(state)
             compact_poison(compact, state)
+            compact_triggers(compact, state)
             piles = pile_contents(state.get('player') or {})
             if piles: compact['pile_contents'] = piles
             notes = enemy_notes(state)
