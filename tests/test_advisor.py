@@ -5,9 +5,9 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'vakuu'))
-import spire_codex
-import sts2_advisor
-from sts2_advisor import advise
+from core import spire_codex
+from deck import advisor
+from deck.advisor import advise
 
 def card(key, name, index=0, upgraded=False):
     return dict(id=key, name=name, index=index, is_upgraded=upgraded)
@@ -34,7 +34,7 @@ METRICS = {'data_through': '2026-10-10', 'bracket': 'a10', 'character': 'IRONCLA
 class AdapterTests(unittest.TestCase):
     # Community ratings are patched in; these never touch the network.
     def setUp(self):
-        patcher = patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS)
+        patcher = patch.object(advisor, 'codex_metrics', return_value=METRICS)
         patcher.start(); self.addCleanup(patcher.stop)
 
     def test_shop_cards_are_scored_with_shop_indices(self):
@@ -67,13 +67,13 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(advise({'state_type': 'menu'})['status'], 'not_card_reward')
 
     def test_no_ratings_yet_says_so(self):
-        with patch.object(sts2_advisor, 'codex_metrics', return_value=None):
+        with patch.object(advisor, 'codex_metrics', return_value=None):
             self.assertEqual(advise(sample())['status'], 'no_ratings')
 
 
 class CodexTests(unittest.TestCase):
     def test_codex_scores_rank_offers_and_keep_indices(self):
-        with patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS):
+        with patch.object(advisor, 'codex_metrics', return_value=METRICS):
             result = advise(sample())
         self.assertEqual(result['engine'], 'Spire Codex')
         self.assertEqual([(c['index'], c['score']) for c in result['ranked_cards']], [(7, 75), (9, 75), (2, 40)])
@@ -81,7 +81,7 @@ class CodexTests(unittest.TestCase):
 
     def test_unrated_offer_is_incomplete_and_sorted_last(self):
         state = sample(); state['card_reward']['cards'].append(card('NEW_CARD', '新卡', 11))
-        with patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS):
+        with patch.object(advisor, 'codex_metrics', return_value=METRICS):
             result = advise(state)
         self.assertEqual(result['status'], 'incomplete_data')
         self.assertIsNone(result['best_scored_index'])

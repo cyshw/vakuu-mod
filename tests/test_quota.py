@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'vakuu'))
-import spire_quota as q
+from models import quota as q
 
 class Tests(unittest.TestCase):
     def test_missing_is_not_zero_and_multiple_buckets_survive(self):

@@ -1,10 +1,10 @@
 """Candidate-only model selection and translation into program-owned actions."""
 import json
+from combat.facts import combat_facts
+from combat.relics import compact_relics
+from combat.search import card_move, turn_candidates
+from core.rules import COMBAT, END_TURN, validate
 
-from vakuu_facts import combat_facts
-from vakuu_rules import COMBAT, END_TURN, validate
-from vakuu_search import turn_candidates, card_move
-from vakuu_relics import compact_relics
 
 CHOICE_INSTRUCTIONS = '''你是殺戮尖塔2的戰鬥顧問。比較提供的候選，回傳 choice 的候選編號或 reject。
 你看不到完整手牌；不要假設沒有其他選擇，也不要編造缺少的機制。

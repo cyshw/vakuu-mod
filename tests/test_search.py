@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'vakuu'))
-import vakuu_engine as engine
-from vakuu_search import search_turn
+from takeover import controller as engine
+from combat.search import search_turn
 
 
 def card(index, damage=6, block=None, cost=1):

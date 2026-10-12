@@ -1,6 +1,6 @@
 """Card ratings for rewards and shops from daily Spire Codex community data, with the deck's direction."""
-from spire_codex import card_metrics as codex_metrics
-from vakuu_deck import deck_direction
+from core.spire_codex import card_metrics as codex_metrics
+from deck.direction import deck_direction
 
 CHARACTERS = {name.upper(): name for name in ("Ironclad", "Silent", "Defect", "Necrobinder", "Regent")}
 

@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'vakuu'))
-import spire_codex as codex
-from vakuu_facts import route_ahead
+from core import spire_codex as codex
+from route.facts import route_ahead
 
 
 class EventTests(unittest.TestCase):

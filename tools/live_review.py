@@ -11,9 +11,10 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
 sys.path.insert(0, str(SOURCE))
-import spire_codex  # noqa: E402
-from vakuu_facts import BLOCK_TEXT, card_cost, deals_damage, deck_profile, enemy_ids, gives_energy_now  # noqa: E402
-from vakuu_rules import COMBAT  # noqa: E402
+from core import spire_codex  # noqa: E402
+from combat.facts import card_cost, deals_damage, enemy_ids, gives_energy_now  # noqa: E402
+from deck.facts import BLOCK_TEXT, deck_profile  # noqa: E402
+from core.rules import COMBAT  # noqa: E402
 
 BIG_LOSS = 0.2  # A turn costing this share of max HP is worth asking whether a potion should have been drunk.
 DECISIONS = ('event', 'card_reward', 'shop', 'rest_site', 'map', 'card_select', 'treasure', 'relic_select')

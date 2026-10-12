@@ -5,8 +5,8 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'vakuu'))
-from vakuu_facts import combat_facts, compact_poison, poison_preview
-from sts2_control import compact
+from combat.facts import combat_facts, compact_poison, poison_preview
+from core.game_api import compact
 
 
 class PoisonPreviewTests(unittest.TestCase):

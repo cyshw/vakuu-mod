@@ -5,10 +5,10 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'vakuu'))
-from vakuu_search import search_turn
-from vakuu_triggers import after_card_triggers, trigger_facts
-from vakuu_plans import start_turn_plan, plan_decision
-from vakuu_choices import choice_offer
+from combat.search import search_turn
+from combat.triggers import after_card_triggers, trigger_facts
+from takeover.plans import start_turn_plan, plan_decision
+from combat.choices import choice_offer
 from test_search import card, enemy, state
 
 

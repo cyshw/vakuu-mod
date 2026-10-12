@@ -4,10 +4,10 @@ import unittest
 
 from test_choices import sample
 from test_search import card, enemy, state
-from vakuu_choices import choice_offer, chosen_decision
-from vakuu_plans import start_plan, plan_decision
-from vakuu_relics import after_card_relics
-from vakuu_search import search_turn
+from combat.choices import choice_offer, chosen_decision
+from takeover.plans import start_plan, plan_decision
+from combat.relics import after_card_relics
+from combat.search import search_turn
 
 
 def fork(counter):

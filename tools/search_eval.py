@@ -11,8 +11,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'vakuu'))
-from vakuu_rules import COMBAT
-from vakuu_search import search_turn, turn_candidates
+from core.rules import COMBAT
+from combat.search import search_turn, turn_candidates
 
 
 def evaluate(paths, with_candidates=False):

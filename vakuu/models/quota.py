@@ -8,7 +8,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from spire_models import find_cli, uses_claude
+from models.catalog import find_cli, uses_claude
 
 _lock=threading.Lock()
 _cache={}

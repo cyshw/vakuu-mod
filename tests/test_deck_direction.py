@@ -6,9 +6,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'vakuu'))
-from vakuu_deck import card_roles, deck_direction
-import sts2_advisor
-import vakuu_plans
+from deck.direction import card_roles, deck_direction
+from deck import advisor
+from takeover import plans
 from test_advisor import sample, METRICS
 
 
@@ -76,8 +76,8 @@ class DeckDirectionTests(unittest.TestCase):
         self.assertEqual(len(fits[9]['synergies']), 1)
 
     def test_community_ranking_keeps_deck_fit_and_skip_option(self):
-        with patch.object(sts2_advisor, 'codex_metrics', return_value=METRICS):
-            advice = sts2_advisor.advise(sample())
+        with patch.object(advisor, 'codex_metrics', return_value=METRICS):
+            advice = advisor.advise(sample())
         self.assertEqual(advice['engine'], 'Spire Codex')
         self.assertTrue(advice['can_skip'])
         self.assertFalse(advice['skip_evaluated'])
@@ -90,13 +90,13 @@ class DeckDirectionTests(unittest.TestCase):
             {'index': 4, 'name': 'A', 'score': 80, 'deck_fit': {'effect_known': True, 'fills_needs': ['damage']}},
             {'index': 7, 'name': 'B', 'score': 30, 'deck_fit': {'effect_known': True}}]}
         state = {'state_type': 'card_reward'}
-        with patch.object(vakuu_plans, 'advise', return_value=rating):
-            self.assertEqual(vakuu_plans.auto_decision(state)['action'], 'select_card_reward')
+        with patch.object(plans, 'advise', return_value=rating):
+            self.assertEqual(plans.auto_decision(state)['action'], 'select_card_reward')
             rating['ranked_cards'][1]['deck_fit']['fills_needs'] = ['block']
-            self.assertIsNone(vakuu_plans.auto_decision(state))
+            self.assertIsNone(plans.auto_decision(state))
             rating['ranked_cards'][1]['deck_fit']['fills_needs'] = []
             rating['ranked_cards'][0]['deck_fit']['fills_needs'] = []
-            self.assertIsNone(vakuu_plans.auto_decision(state))
+            self.assertIsNone(plans.auto_decision(state))
 
 
 if __name__ == '__main__': unittest.main()

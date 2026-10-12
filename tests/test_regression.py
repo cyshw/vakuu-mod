@@ -3,9 +3,9 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'vakuu'))
-import vakuu_facts as facts
-import vakuu_plans as plans
-import vakuu_rules as rules
+from combat import facts
+from takeover import plans
+from core import rules
 
 SUITE=Path(__file__).resolve().parent/'regression'
 

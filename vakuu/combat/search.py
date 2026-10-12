@@ -8,11 +8,11 @@ import json
 import re
 import time
 from dataclasses import dataclass
+from combat.facts import incoming_damage
+from combat.relics import audited_relic, tuning_fork_counter, turn_end_defense
+from combat.triggers import panache_counters
+from core.rules import COMBAT
 
-from vakuu_facts import incoming_damage
-from vakuu_rules import COMBAT
-from vakuu_relics import tuning_fork_counter, audited_relic, turn_end_defense
-from vakuu_triggers import panache_counters
 
 # These only act on pickup, room entry, or turn start (already reflected in state).
 PASSIVE_RELICS = {'CRACKED_CORE', 'HEFTY_TABLET', 'REGAL_PILLOW', 'BLOOD_VIAL',

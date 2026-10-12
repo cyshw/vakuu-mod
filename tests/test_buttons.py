@@ -4,13 +4,18 @@ import sys
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'vakuu'))
-import vakuu_engine as b
-import vakuu_facts as facts
-import vakuu_plans as plans
-import vakuu_router as router
-import vakuu_rules as rules
+from models import calls
+from takeover import controller as b
+from combat import facts
+from core import keywords
+from deck import facts as deck_facts
+from route import facts as routing
+from route import plans as route_plans
+from takeover import plans
+from models import router
+from core import rules
 # Route projections use built-in damage defaults here, never live Spire Codex data.
-facts.spire_codex.room_damage = lambda *args, **kwargs: None
+routing.spire_codex.room_damage = lambda *args, **kwargs: None
 
 class Tests(unittest.TestCase):
     def test_stop_triggered_by_state_read_does_not_ask_reward_model(self):
@@ -186,7 +191,7 @@ class Tests(unittest.TestCase):
             (runtime/'model-settings.json').write_text('{}')
             for i in range(5):
                 run=runtime/f'0000000{i}-0000-0000-0000-000000000000'; run.mkdir(); os.utime(run,(i,i))
-            with patch.object(b,'RUNTIME',runtime): b.prune_runs(keep=2)
+            with patch.object(calls, 'RUNTIME',runtime): calls.prune_runs(keep=2)
             self.assertEqual(sorted(p.name[7] for p in runtime.iterdir() if p.is_dir()),['3','4'])
             self.assertTrue((runtime/'model-settings.json').exists())
 
@@ -338,21 +343,21 @@ class Tests(unittest.TestCase):
 
     def test_last_elite_before_boss_is_flagged_when_the_boss_leaves_too_little(self):
         rooms=[{'type':'Elite','row':13},{'type':'RestSite','row':14},{'type':'Boss','row':15}]
-        damage={**facts.DEFAULT_DAMAGE,'elite':35,'boss':54}
-        projected=facts.project_route(rooms,59,75,damage)
+        damage={**routing.DEFAULT_DAMAGE,'elite':35,'boss':54}
+        projected=routing.project_route(rooms,59,75,damage)
         self.assertEqual(projected['boss_average_damage'],54)
         self.assertEqual(projected['hp_after_boss_if_average'],projected['hp_before_boss']-54)
-        self.assertEqual(facts.deck_profile([{'id':'DEFEND_D','description':'获得5点格挡。'}],2)['short_of_block'],True)
+        self.assertEqual(deck_facts.deck_profile([{'id':'DEFEND_D','description':'获得5点格挡。'}],2)['short_of_block'],True)
 
     def test_rest_is_taken_without_the_model_when_the_projection_says_so(self):
         rest={'state_type':'rest_site','run':{'act':1,'floor':29},'player':{'hp':43,'max_hp':75,'character_id':'DEFECT'},
               'rest_site':{'options':[{'index':0,'id':'HEAL','name':'休息','is_enabled':True},{'index':1,'id':'SMITH','is_enabled':True}]}}
         route={'path':[(4,12),(5,13),(6,14)],'types':{(4,12):'Elite',(5,13):'Unknown',(6,14):'RestSite'}}
-        move=plans.rest_decision(route,rest)
+        move=route_plans.rest_decision(route,rest)
         self.assertEqual((move['action'],json.loads(move['parameters_json'])),('choose_rest_option',{'index':0}))
         calm={'path':[(4,12),(5,13)],'types':{(4,12):'Shop',(5,13):'RestSite'}}
-        self.assertIsNone(plans.rest_decision(calm,rest))  # Safe ahead: the model weighs upgrading.
-        self.assertIsNone(plans.rest_decision(None,rest))
+        self.assertIsNone(route_plans.rest_decision(calm,rest))  # Safe ahead: the model weighs upgrading.
+        self.assertIsNone(route_plans.rest_decision(None,rest))
 
     def test_runic_pyramid_keeps_the_hand_and_setup_potions_are_listed_in_hard_fights(self):
         state=self.combat(['打擊'])
@@ -464,7 +469,7 @@ class Tests(unittest.TestCase):
     def test_deck_summary_merges_copies(self):
         deck=[{'id':'STRIKE','name':'打擊','is_upgraded':False,'cost':'1','description':'造成6點傷害。'}]*4+[
               {'id':'STRIKE','name':'打擊+','is_upgraded':True,'cost':'1','description':'造成9點傷害。'}]
-        summary=facts.deck_summary(deck)
+        summary=deck_facts.deck_summary(deck)
         self.assertEqual([(c['name'],c['count']) for c in summary],[('打擊',4),('打擊+',1)])
         self.assertEqual(summary[0]['description'],'造成6點傷害。')
 
@@ -587,14 +592,14 @@ class Tests(unittest.TestCase):
                node(3,6,'RestSite',(3,7)), node(3,7,'Monster',(4,8)), node(4,8,'Elite',(4,9)), node(4,9,'Monster')]
         state={'state_type':'map','player':{'hp':25,'max_hp':75},'map':{'nodes':nodes,'next_options':[
             {'index':0,'col':2,'row':6,'type':'Monster'},{'index':1,'col':3,'row':6,'type':'RestSite'}]}}
-        fight,rest=facts.route_facts(state)['options']
+        fight,rest=routing.route_facts(state)['options']
         self.assertEqual(fight['until_next_rest_site'],{'steps':1,'elites':[0,0],'fights':[1,1]})
         self.assertEqual(fight['max_rooms_before_first_elite'],4)
         self.assertEqual(rest['until_next_rest_site']['steps'],0)
         self.assertEqual(rest['max_rooms_before_first_elite'],2)
         self.assertEqual(rest['to_act_end_min_max']['elites'],[1,1])
-        self.assertEqual(facts.route_facts(state)['hp_ratio'],0.33)
-        routes={r['style']:r for r in facts.route_facts(state)['candidate_routes']}
+        self.assertEqual(routing.route_facts(state)['hp_ratio'],0.33)
+        routes={r['style']:r for r in routing.route_facts(state)['candidate_routes']}
         self.assertEqual(routes['safest']['first_elite_at_room'],None)
         self.assertEqual([(x['col'],x['row']) for x in routes['safest']['rooms']],[(2,6),(2,7),(2,8),(2,9)])
         elite=routes.get('elite_hunt') or routes['balanced']  # Identical routes are listed once.
@@ -607,17 +612,17 @@ class Tests(unittest.TestCase):
                     'map':{'current_position':{'row':row},'next_options':[{'index':i,'col':c,'row':row+1} for i,c in enumerate(options)]}}
         drawn={'action':'choose_map_node','parameters_json':'{"index":0}',
                'next_nodes':[{'col':2,'row':2},{'col':3,'row':3},{'col':3,'row':4}]}
-        route=plans.start_route(at(0,[1,4]),drawn)
+        route=route_plans.start_route(at(0,[1,4]),drawn)
         self.assertEqual(route['path'],[(2,2),(3,3),(3,4)])
-        self.assertEqual(json.loads(plans.route_decision(route,at(1,[0,2]))['parameters_json']),{'index':1})
+        self.assertEqual(json.loads(route_plans.route_decision(route,at(1,[0,2]))['parameters_json']),{'index':1})
         # Row 3 had a single path, taken by the forced-move rule; the route skips it and continues.
-        self.assertEqual(json.loads(plans.route_decision(route,at(3,[1,3]))['parameters_json']),{'index':1})
-        self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[0,1])))  # Left the route.
-        self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],hp=40)))  # Lost 20 of 75 HP.
-        self.assertIsNone(plans.route_decision(plans.start_route(at(0,[1,4]),drawn),at(1,[2],act=2)))  # New act.
-        self.assertIsNone(plans.start_route({'state_type':'shop'},drawn))
-        elite_route=plans.start_route(at(0,[1,4]),drawn); elite_route['types'][(2,2)]='Elite'
-        self.assertIsNone(plans.route_decision(elite_route,at(1,[0,2])))  # Always re-asked before an elite.
+        self.assertEqual(json.loads(route_plans.route_decision(route,at(3,[1,3]))['parameters_json']),{'index':1})
+        self.assertIsNone(route_plans.route_decision(route_plans.start_route(at(0,[1,4]),drawn),at(1,[0,1])))  # Left the route.
+        self.assertIsNone(route_plans.route_decision(route_plans.start_route(at(0,[1,4]),drawn),at(1,[2],hp=40)))  # Lost 20 of 75 HP.
+        self.assertIsNone(route_plans.route_decision(route_plans.start_route(at(0,[1,4]),drawn),at(1,[2],act=2)))  # New act.
+        self.assertIsNone(route_plans.start_route({'state_type':'shop'},drawn))
+        elite_route=route_plans.start_route(at(0,[1,4]),drawn); elite_route['types'][(2,2)]='Elite'
+        self.assertIsNone(route_plans.route_decision(elite_route,at(1,[0,2])))  # Always re-asked before an elite.
 
     def test_guide_rules_rest_balanced_routes_and_pick_threshold(self):
         node=lambda col,row,kind,*kids: {'col':col,'row':row,'type':kind,'children':[list(k) for k in kids]}
@@ -626,13 +631,13 @@ class Tests(unittest.TestCase):
                node(2,1,'Elite',(2,2)), node(2,2,'Monster',(2,3)), node(2,3,'Monster',(2,4)), node(2,4,'Monster')]
         state={'state_type':'map','player':{'hp':60,'max_hp':75},'map':{'nodes':nodes,'next_options':[
             {'index':i,'col':c,'row':1,'type':'?'} for i,c in enumerate((0,1,2))]}}
-        routes={r['style']:r for r in facts.route_facts(state)['candidate_routes']}
+        routes={r['style']:r for r in routing.route_facts(state)['candidate_routes']}
         self.assertEqual(routes['balanced']['option_index'],0)  # The elite followed by a rest site.
         self.assertEqual(routes['balanced']['counts']['elites_rest_after'],1)
         self.assertEqual(routes['safest']['option_index'],1)
         rest={'state_type':'rest_site','player':{'hp':20,'max_hp':75},'rest_site':{'options':[{'index':0},{'index':1}]}}
         route={'path':[(0,5),(0,6)],'types':{(0,5):'Elite',(0,6):'Boss'}}
-        result=facts.rest_facts(rest,route)
+        result=routing.rest_facts(rest,route)
         self.assertEqual({k:result[k] for k in ('hp_ratio','rest_heals','hp_after_rest','planned_next_rooms')},
                          {'hp_ratio':0.27,'rest_heals':22,'hp_after_rest':42,'planned_next_rooms':['Elite','Boss']})
         self.assertTrue(result['rest_recommended'])  # Upgrading leaves an elite to face at 20 HP: projected below 30%.
@@ -671,7 +676,7 @@ class Tests(unittest.TestCase):
               {'id':'DEFEND_DEFECT','type':'Skill','description':'获得5点格挡。'}]*4+[
               {'id':'GLACIER','type':'Skill','description':'获得6点格挡。 生成2个冰霜充能球。'},
               {'id':'ASCENDERS_BANE','type':'Curse','description':'不能被打出。'}]
-        profile=facts.deck_profile(deck)
+        profile=deck_facts.deck_profile(deck)
         self.assertEqual((profile['attacks'],profile['block_sources'],profile['block_sources_besides_defend'],
                           profile['starter_strikes'],profile['unplayable']),(4,5,1,4,1))
         self.assertTrue(router.hard_screen({'state_type':'shop','shop':{'items':[]}}))
@@ -685,29 +690,29 @@ class Tests(unittest.TestCase):
         effects=facts.timed_effects(player)
         self.assertEqual([(e['turns_left'],e['fires_at_end_of_this_turn']) for e in effects],[(3,False),(1,True)])
         data={'hand':[{'name':'A','keywords':[{'name':'消耗','description':'移除'}]},{'name':'B','keywords':[{'name':'消耗','description':'移除'}]}]}
-        self.assertEqual(facts.pull_keywords(data),{'消耗':'移除'})
+        self.assertEqual(keywords.pull_keywords(data),{'消耗':'移除'})
         self.assertEqual(data['hand'][1]['keywords'],['消耗'])
 
     def test_route_projection_and_replan_when_behind(self):
         rooms=[{'type':'Monster','row':r} for r in (4,5,6,7,8)]+[{'type':'RestSite','row':9},{'type':'Boss','row':10}]
-        projected=facts.project_route(rooms,60,75,facts.DEFAULT_DAMAGE)
+        projected=routing.project_route(rooms,60,75,routing.DEFAULT_DAMAGE)
         self.assertEqual(projected['hp_by_room'][:5],[46,32,18,4,-10])  # Five normal fights of 14 with no rest.
         self.assertEqual(projected['below_25pct_at_room'],3)
         self.assertEqual(projected['lowest_before_first_rest'],-10)
-        self.assertEqual(facts.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5},{'type':'Elite','row':6}],60,75,facts.DEFAULT_DAMAGE)['lowest_before_first_rest'],46)
-        rested=facts.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5}],25,75,facts.DEFAULT_DAMAGE)
+        self.assertEqual(routing.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5},{'type':'Elite','row':6}],60,75,routing.DEFAULT_DAMAGE)['lowest_before_first_rest'],46)
+        rested=routing.project_route([{'type':'Monster','row':4},{'type':'RestSite','row':5}],25,75,routing.DEFAULT_DAMAGE)
         self.assertEqual(rested['hp_by_room'],[11,34])  # Below 40% the rest site heals 22.
         def at(col,row,kind,hp,options):
             return {'state_type':'map','run':{'act':1},'player':{'hp':hp,'max_hp':75},
                     'map':{'current_position':{'col':col,'row':row,'type':kind},'next_options':[{'index':i,'col':c,'row':row+1} for i,c in enumerate(options)],
                            'nodes':[{'col':c,'row':r,'type':'Monster'} for c in range(4) for r in range(1,6)]}}
         drawn={'action':'choose_map_node','parameters_json':'{"index":0}','next_nodes':[{'col':0,'row':2},{'col':0,'row':3}]}
-        route=plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
+        route=route_plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
         self.assertEqual(route['expected_hp'][(0,1)],52)
-        self.assertIsNotNone(plans.route_decision(route,at(0,1,'Monster',50,[0,1])))  # On plan.
-        route=plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
-        self.assertIsNone(plans.route_decision(route,at(0,1,'Monster',40,[0,1])))  # 12 below the 52 projected.
-        route=plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
-        self.assertIsNone(plans.route_decision(route,at(0,1,'RestSite',60,[0,1])))  # Rethink after a rest site.
+        self.assertIsNotNone(route_plans.route_decision(route,at(0,1,'Monster',50,[0,1])))  # On plan.
+        route=route_plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
+        self.assertIsNone(route_plans.route_decision(route,at(0,1,'Monster',40,[0,1])))  # 12 below the 52 projected.
+        route=route_plans.start_route(at(0,0,'Ancient',60,[0,1]),drawn)
+        self.assertIsNone(route_plans.route_decision(route,at(0,1,'RestSite',60,[0,1])))  # Rethink after a rest site.
 
 if __name__=='__main__': unittest.main()

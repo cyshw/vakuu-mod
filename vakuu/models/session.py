@@ -5,8 +5,8 @@ import queue
 import subprocess
 import threading
 import time
+from models import catalog as models
 
-import spire_models as models
 
 
 class CombatSession:

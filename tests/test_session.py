@@ -6,8 +6,9 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-import spire_session as transport
-import vakuu_engine as engine
+from models import session as transport
+from models import calls
+from takeover import controller as engine
 from test_choices import sample
 
 SELECTION = {'model_key': 'codex:gpt-6.1-sol', 'effort': 'low'}
@@ -90,8 +91,8 @@ class LifecycleTests(unittest.TestCase):
         answer = {'choice': 'reject', 'reject_reason': 'insufficient_information', 'reason': '完整手牌'}
         full = {'action': 'end_turn', 'parameters_json': '{}', 'stop': False, 'advice': '防禦'}
         c = engine.Controller(lambda m: None)
-        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, patch.object(engine, 'ROOT', Path(directory)), \
-             patch.object(engine, 'CombatSession') as factory, \
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, \
+             patch.object(calls, 'CombatSession') as factory, \
              patch.object(engine, 'monster_intel', return_value=None):
             session = factory.return_value
             session.selection = SELECTION
@@ -133,13 +134,13 @@ class LifecycleTests(unittest.TestCase):
     def test_codex_keeps_battle_thread_after_eight_calls(self):
         c = engine.Controller(lambda m: None)
         c.combat_key = (1, 17)
-        session = Mock(selection=SELECTION, turns=engine.SESSION_MAX_TURNS,
+        session = Mock(selection=SELECTION, turns=calls.SESSION_MAX_TURNS,
                        last_metrics={'usage': None})
         session.ask.return_value = {'action': 'end_turn'}
         c.combat_session = session
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, \
-             patch.object(engine, 'ROOT', Path(directory)), patch.object(engine, 'prune_runs'), \
-             patch.object(engine, 'CombatSession') as factory:
+             patch.object(calls, 'prune_runs'), \
+             patch.object(calls, 'CombatSession') as factory:
             c.call_model('latest state', {}, SELECTION)
         factory.assert_not_called()
         session.close.assert_not_called()
@@ -153,8 +154,8 @@ class LifecycleTests(unittest.TestCase):
         first.close.assert_called_once()
         c.stop_event.clear()
         c.combat_key = (1, 4)
-        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, patch.object(engine, 'ROOT', Path(directory)), \
-             patch.object(engine, 'CombatSession') as factory:
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, \
+             patch.object(calls, 'CombatSession') as factory:
             old = Mock(selection={'model_key': 'codex:gpt-6-luna', 'effort': 'low'})
             c.combat_session = old
             factory.return_value.ask.side_effect = RuntimeError('quota')
@@ -204,23 +205,23 @@ class ClaudeSessionTests(unittest.TestCase):
 
     def test_one_claude_process_per_fight_and_rules_sent_once(self):
         c = engine.Controller(lambda m: None); c.combat_key = (1, 5)
-        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+        with patch.object(calls, 'ClaudeCombatSession', FakeClaudeSession), patch.object(calls, 'prune_runs'):
             c.call_model(engine.instructions() + '\n狀態一', engine.SCHEMA, CLAUDE)
             c.call_model(engine.instructions() + '\n狀態二', engine.SCHEMA, CLAUDE)
         self.assertEqual(len(FakeClaudeSession.made), 1)
         first, second = FakeClaudeSession.made[0].sent
         self.assertTrue(first.startswith(engine.instructions()))
-        self.assertEqual(second, engine.REPEATED_RULES + '\n狀態二')
+        self.assertEqual(second, calls.REPEATED_RULES + '\n狀態二')
         c.combat_key = (1, 6); c.close_combat_session()
         self.assertTrue(FakeClaudeSession.made[0].closed)
 
     def test_long_fights_start_a_fresh_conversation_every_eight_calls(self):
         c = engine.Controller(lambda m: None); c.combat_key = (1, 17)
-        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
-            for turn in range(engine.SESSION_MAX_TURNS + 1):
+        with patch.object(calls, 'ClaudeCombatSession', FakeClaudeSession), patch.object(calls, 'prune_runs'):
+            for turn in range(calls.SESSION_MAX_TURNS + 1):
                 c.call_model(engine.instructions() + f'\n回合{turn}', engine.SCHEMA, CLAUDE)
         first, second = FakeClaudeSession.made
-        self.assertEqual(len(first.sent), engine.SESSION_MAX_TURNS)
+        self.assertEqual(len(first.sent), calls.SESSION_MAX_TURNS)
         self.assertTrue(first.closed)
         self.assertTrue(second.sent[0].startswith(engine.instructions()))  # The new conversation gets the rules again.
 
@@ -229,9 +230,9 @@ class ClaudeSessionTests(unittest.TestCase):
             def ask(self, prompt, schema): raise RuntimeError('pipe closed')
         c = engine.Controller(lambda m: None); c.combat_key = (1, 5)
         process = Mock(returncode=0); process.communicate.return_value = ('{}', '')
-        with patch.object(engine, 'ClaudeCombatSession', Broken), patch.object(engine, 'prune_runs'), \
+        with patch.object(calls, 'ClaudeCombatSession', Broken), patch.object(calls, 'prune_runs'), \
              patch.object(engine.models, 'find_cli', return_value='claude.exe'), \
-             patch.object(engine.subprocess, 'Popen', return_value=process), \
+             patch.object(calls.subprocess, 'Popen', return_value=process), \
              patch.object(engine.models, 'parse_answer', return_value=ANSWER):
             self.assertEqual(c.call_model(engine.instructions() + '\n狀態', engine.SCHEMA, CLAUDE), ANSWER)
         self.assertIsNone(c.combat_session)
@@ -239,16 +240,16 @@ class ClaudeSessionTests(unittest.TestCase):
 
     def test_screens_between_fights_share_one_conversation_until_the_next_fight(self):
         c = engine.Controller(lambda m: None); c.combat_key = None
-        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+        with patch.object(calls, 'ClaudeCombatSession', FakeClaudeSession), patch.object(calls, 'prune_runs'):
             c.call_model(engine.instructions() + '\n獎勵', engine.SCHEMA, CLAUDE)
             c.call_model(engine.instructions() + '\n地圖', engine.SCHEMA, CLAUDE)
             self.assertEqual(len(FakeClaudeSession.made), 1)
-            self.assertEqual(FakeClaudeSession.made[0].sent[1], engine.REPEATED_RULES + '\n地圖')
+            self.assertEqual(FakeClaudeSession.made[0].sent[1], calls.REPEATED_RULES + '\n地圖')
             c.sync_combat({'state_type': 'monster', 'run': {'act': 1, 'floor': 5}, 'battle': {'round': 1}})
             self.assertTrue(FakeClaudeSession.made[0].closed)  # A fight starts its own conversation.
             c.sync_combat({'state_type': 'map', 'run': {'act': 1, 'floor': 5}})
             c.call_model(engine.instructions() + '\n事件', engine.SCHEMA, CLAUDE)
-            c.combat_session.last_used -= engine.SESSION_IDLE_SECONDS + 1  # Left alone too long.
+            c.combat_session.last_used -= calls.SESSION_IDLE_SECONDS + 1  # Left alone too long.
             c.call_model(engine.instructions() + '\n商店', engine.SCHEMA, CLAUDE)
         self.assertEqual(len(FakeClaudeSession.made), 3)
         self.assertTrue(FakeClaudeSession.made[2].sent[0].startswith(engine.instructions()))
@@ -274,12 +275,12 @@ class ParkedSessionTests(unittest.TestCase):
     def test_auto_mode_switches_keep_each_models_conversation(self):
         haiku, sonnet = {'model_key': 'claude:haiku', 'effort': 'low'}, {'model_key': 'claude:sonnet', 'effort': 'low'}
         c = engine.Controller(lambda m: None); c.combat_key = (1, 9)
-        with patch.object(engine, 'ClaudeCombatSession', FakeClaudeSession), patch.object(engine, 'prune_runs'):
+        with patch.object(calls, 'ClaudeCombatSession', FakeClaudeSession), patch.object(calls, 'prune_runs'):
             for selection in (haiku, sonnet, haiku, sonnet):
                 c.call_model(engine.instructions() + '\n局面', engine.SCHEMA, selection)
         self.assertEqual(len(FakeClaudeSession.made), 2)  # One per model, reused after each switch.
         first, second = FakeClaudeSession.made
         self.assertEqual((len(first.sent), len(second.sent)), (2, 2))
-        self.assertTrue(first.sent[1].startswith(engine.REPEATED_RULES))  # Haiku resumed its own conversation.
+        self.assertTrue(first.sent[1].startswith(calls.REPEATED_RULES))  # Haiku resumed its own conversation.
         c.close_combat_session()
         self.assertTrue(first.closed and second.closed)

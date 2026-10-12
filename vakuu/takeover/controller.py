@@ -1,80 +1,35 @@
-"""Vakuu takeover engine and the HTTP bridge used by the in-game panel."""
-import argparse
+"""The takeover loop: read the screen, decide locally or ask the model, execute and wait."""
 import json
-import os
-import shutil
-import subprocess
-import sys
 import threading
 import time
-import uuid
-from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
-from vakuu_paths import RUNTIME
-import sts2_control as api
-from sts2_advisor import advise
-import spire_models as models
-from spire_session import AgyCombatSession, ClaudeCombatSession, CombatSession
-import spire_quota
-from vakuu_facts import compact_poison
-from vakuu_triggers import compact_triggers
-from vakuu_relics import compact_relics
-from vakuu_facts import combat_facts, deck_profile, deck_summary, enemy_ids, enemy_notes, pile_contents, pull_keywords, rest_facts, route_ahead, route_facts, wastes_energy_card
-from spire_codex import event_advice, monster_intel
-from vakuu_plans import auto_decision, first_card, hand_signatures, plan_decision, rest_decision, route_decision, start_plan, start_route
-from vakuu_router import fight_key, hard_screen, undecided
-from vakuu_search import search_turn, turn_candidates
-from vakuu_choices import choice_offer, chosen_decision
-from vakuu_deck import deck_direction
-from vakuu_rules import (COMBAT, END_TURN, FIELDS, LEAVE_SHOP, SCHEMA, allowed_actions, fingerprint, potion_belt_full, waiting_for_teammates,
-                         still_valid, transitional, validate)
+from combat.choices import choice_offer, chosen_decision
+from combat.facts import combat_facts, compact_poison, enemy_ids, enemy_notes, pile_contents, wastes_energy_card
+from combat.relics import compact_relics
+from combat.search import search_turn, turn_candidates
+from combat.triggers import compact_triggers
+from core import game_api as api
+from core.keywords import pull_keywords
+from core.rules import COMBAT, FIELDS, SCHEMA, allowed_actions, fingerprint, potion_belt_full, still_valid, transitional, validate, waiting_for_teammates
+from core.screens import combat_choice, execution_busy, in_fight, same_screen, screen_label
+from core.spire_codex import event_advice, monster_intel
+from deck.advisor import advise
+from deck.direction import deck_direction
+from deck.facts import deck_profile, deck_summary
+from models import catalog as models
+from models.calls import ModelCalls, instructions
+from models.router import fight_key, hard_screen, undecided
+from route.facts import rest_facts, route_ahead, route_facts
+from route.plans import rest_decision, route_decision, start_route
+from takeover.plans import auto_decision, first_card, hand_signatures, plan_decision, start_plan
 
 # The same action sent this many times on an unchanged screen means the game is ignoring it.
 REPEAT_LIMIT = 3
 
 
-def execution_busy(state):
-    execution = state.get('execution')
-    if not isinstance(execution, dict): return False  # Older mod compatibility.
-    return execution.get('running') is True or execution.get('queue_empty') is False
-
-
-def combat_choice(state):
-    # Paused actions cannot complete until the player answers these prompts.
-    return state.get('state_type') in {'hand_select', 'card_select', 'bundle_select', 'relic_select'}
-
 # Panel buttons: help with what is on screen, play this fight, or play the whole run.
 SCOPE_STEPS = {'screen': 40, 'fight': 400, 'run': 5000}
-# Screens that belong to one decision (a shop's removal opens card_select, a reward opens card_reward).
-SCREEN_GROUPS = {'shop': {'shop', 'card_select'}, 'rewards': {'rewards', 'card_reward', 'card_select'},
-                 'card_reward': {'card_reward', 'rewards'}, 'rest_site': {'rest_site', 'card_select'},
-                 'event': {'event', 'card_select', 'hand_select'}, 'treasure': {'treasure', 'relic_select'}}
 
-def in_fight(state):
-    """A fight screen, including prompts that open inside it (discard/exhaust picks, Hologram's grid)."""
-    kind = state.get('state_type')
-    player = state.get('player') or {}
-    return kind in COMBAT or kind == 'hand_select' or (
-        kind in ('card_select', 'bundle_select', 'relic_select') and 'hand' in player and 'energy' in player)
-
-def same_screen(start, now):
-    """Whether the decision begun on start is still going (same turn of a fight, same shop...)."""
-    kind = start.get('state_type')
-    if kind in COMBAT:
-        return in_fight(now) and (now.get('battle') or {}).get('round') in (None, (start.get('battle') or {}).get('round'))
-    if kind == 'map': return now.get('state_type') == 'map' and (now.get('run') or {}).get('floor') == (start.get('run') or {}).get('floor')
-    return now.get('state_type') in SCREEN_GROUPS.get(kind, {kind})
-
-def screen_label(state):
-    """What "help me choose" means on this screen, for the panel button."""
-    kind = state.get('state_type')
-    if kind in COMBAT or kind == 'hand_select': return '幫我打這回合'
-    return {'map': '幫我畫路線', 'card_reward': '幫我選牌', 'shop': '幫我逛商店', 'rest_site': '幫我選休息',
-            'event': '幫我選事件', 'rewards': '幫我領獎勵', 'card_select': '幫我選牌', 'treasure': '幫我開寶箱'}.get(kind, '幫我選')
 
 # Tuned for the game's Instant fast mode; wait_until_settled covers screens that still animate.
 ACTION_PAUSE = 0.5
@@ -82,29 +37,8 @@ POLL_INTERVAL = 0.25
 CARD_POLL_INTERVAL = 0.1
 CARD_SETTLE_WINDOW = 0.2
 
-def prune_runs(keep=40, exclude=(), min_age=600):
-    # Each call leaves a schema/log folder; keep only recent ones for debugging. Folders younger than
-    # min_age may belong to a call still running (replays ask several at once) and are never removed.
-    def modified(path):
-        try: return path.stat().st_mtime
-        except OSError: return None  # Removed meanwhile by another call pruning in parallel.
-    runs = sorted(((modified(p), p) for p in RUNTIME.glob('*-*-*-*-*') if p.is_dir()),
-                  key=lambda item: item[0] or 0)
-    cutoff = time.time() - min_age
-    for stamp, old in runs[:-keep]:
-        if old not in exclude and stamp is not None and stamp < cutoff: shutil.rmtree(old, ignore_errors=True)
 
-PROMPT = ROOT / 'vakuu_prompt.md'
-SESSION_MAX_TURNS = 8  # Model calls one combat conversation answers before a fresh one starts.
-SESSION_IDLE_SECONDS = 300  # A conversation unused this long is restarted: its prompt cache has likely expired.
-REPEATED_RULES = '（遊戲指示與這段對話第一則訊息相同，不再重複，照那份指示判斷。）'
-
-def instructions():
-    """Model instructions, read on every call so edits apply without restarting the game."""
-    text = PROMPT.read_text(encoding='utf-8')
-    return text.replace('{{END_TURN}}', str(END_TURN)).replace('{{LEAVE_SHOP}}', str(LEAVE_SHOP)).strip()
-
-class Controller:
+class Controller(ModelCalls):
     def __init__(self, report, allow_model=True, program_comparison=False, program_first=False):
         self.report = report
         self.program_comparison = program_comparison
@@ -122,37 +56,6 @@ class Controller:
         self.parked_sessions = {}
         self.combat_key = None
         self.combat_round = None
-
-    def close_combat_session(self):
-        """End this fight's conversations: the active one and any parked by a model switch."""
-        with self.lock:
-            sessions = [self.combat_session] + list(self.parked_sessions.values())
-            self.combat_session, self.parked_sessions = None, {}
-        for session in sessions:
-            if session: session.close()
-
-    def sync_combat(self, state):
-        previous_key = self.combat_key
-        key = fight_key(state)
-        # Exhaust/discard prompts are still part of the fight. The API supplies
-        # battle data on hand_select, even though ordinary combat actions pause.
-        if state.get('state_type') == 'hand_select' and state.get('battle'):
-            run = state.get('run') or {}
-            key = (run.get('act'), run.get('floor'))
-        player = state.get('player') or {}
-        # Grid overlays (e.g. Hologram's discard-pile selection) omit battle.
-        # The API only includes hand/energy while CombatManager is in progress.
-        if state.get('state_type') in {'card_select', 'bundle_select', 'relic_select'} and 'hand' in player and 'energy' in player:
-            run = state.get('run') or {}
-            key = (run.get('act'), run.get('floor'))
-        round_number = (state.get('battle') or {}).get('round')
-        restarted = (key is not None and key == self.combat_key
-                     and type(round_number) is int and type(self.combat_round) is int
-                     and round_number < self.combat_round)
-        if key != self.combat_key or restarted: self.close_combat_session()
-        self.combat_key = key
-        if key is None: self.combat_round = None
-        elif round_number is not None or key != previous_key: self.combat_round = round_number
 
     def stop(self):
         self.stop_event.set()
@@ -364,100 +267,6 @@ class Controller:
                   + '\n遊戲狀態：' + json.dumps(compact, ensure_ascii=False))
         return self.call_model(prompt, SCHEMA, selection)
 
-    def call_model(self, prompt, schema, selection, candidate=False):
-        started = time.perf_counter()
-        agy = selection['model_key'].startswith('agy:')
-        # "claude" below means a stream-json CLI kept open per fight: Claude Code or Antigravity's agy.
-        claude = selection['model_key'].startswith('claude:') or agy
-        # Fights keep one conversation; so does the run of screens between two fights (rewards, card
-        # pick, map, event come within a minute), whose rules then need not be resent.
-        persistent = (self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))) or \
-                     (self.combat_key is None and claude)
-        stale = lambda session: time.monotonic() - getattr(session, 'last_used', time.monotonic()) > SESSION_IDLE_SECONDS
-        if self.parked_sessions and any(stale(s) for s in self.parked_sessions.values()):
-            with self.lock: old = [k for k, s in self.parked_sessions.items() if stale(s)]
-            for key in old: self.parked_sessions.pop(key).close()
-        if persistent and self.combat_session and self.combat_session.selection != selection:
-            with self.lock:  # Another model's turn: park the active conversation, resume this model's own.
-                parked = self.combat_session
-                self.parked_sessions[parked.selection['model_key'] + '@' + parked.selection.get('effort', '')] = parked
-                self.combat_session = self.parked_sessions.pop(selection['model_key'] + '@' + selection.get('effort', ''), None)
-        if self.combat_session and (not persistent or self.combat_session.selection != selection
-                                    or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
-                                    or (claude and self.combat_session.turns >= SESSION_MAX_TURNS)
-                                    or (claude and stale(self.combat_session))):  # Its cache has likely expired.
-            # Claude's CLI keeps its bounded sessions; Codex retains one thread per battle.
-            with self.lock: session, self.combat_session = self.combat_session, None
-            session.close()
-        if not persistent and self.parked_sessions: self.close_combat_session()
-        prune_runs(exclude=tuple(s.directory for s in [self.combat_session, *self.parked_sessions.values()] if s))
-        run_dir = RUNTIME / str(uuid.uuid4())
-        run_dir.mkdir(parents=True)
-        schema_path = run_dir / 'schema.json'
-        answer_path = run_dir / 'answer.json'
-        schema_path.write_text(json.dumps(schema), encoding='utf-8')
-        if persistent:
-            with self.lock:
-                if self.stop_event.is_set(): raise InterruptedError('已停止')
-                if self.combat_session is None:
-                    self.combat_session = (AgyCombatSession(selection, run_dir, self.stop_event, schema) if agy
-                                           else ClaudeCombatSession(selection, run_dir, self.stop_event, schema) if claude
-                                           else CombatSession(selection, run_dir, self.stop_event))
-                session = self.combat_session
-            rules, sent = instructions(), prompt
-            if session.turns and prompt.startswith(rules):
-                # The conversation already holds the instructions; resending ~6k characters every turn
-                # would only grow the context. A fallback call below still gets the whole prompt.
-                sent = REPEATED_RULES + prompt[len(rules):]
-            try:
-                answer = session.ask(sent, schema); session.last_used = time.monotonic()
-            except ValueError:
-                # A malformed candidate may receive one full-state follow-up
-                # in this same conversation, just like an explicit rejection.
-                raise
-            except InterruptedError:
-                self.close_combat_session()
-                raise
-            except Exception:
-                self.close_combat_session()
-                if not claude: raise
-                session = None  # A broken Claude session falls back to a one-off call below.
-            finally:
-                if session and session.last_metrics:
-                    self.last_call_metrics = {'stage': 'candidate_choice' if candidate else 'full_state',
-                        'model': selection, 'prompt_chars': len(sent),
-                        'seconds': round(time.perf_counter() - started, 2), **session.last_metrics}
-                    (run_dir / 'call-metrics.json').write_text(json.dumps(self.last_call_metrics, ensure_ascii=False), encoding='utf-8')
-            if session:
-                answer_path.write_text(json.dumps(answer, ensure_ascii=False), encoding='utf-8')
-                return answer
-        command,provider=models.build_command(selection,run_dir,schema)
-        flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-        with self.lock:
-            if self.stop_event.is_set(): raise InterruptedError('已停止')
-            self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            stderr=subprocess.PIPE, text=True, encoding='utf-8',
-                                            errors='replace', creationflags=flags,cwd=run_dir)
-            process = self.process
-        try:
-            out, err = process.communicate(models.stdin_for(provider, prompt), timeout=180)
-        except subprocess.TimeoutExpired:
-            process.kill(); process.communicate()
-            raise RuntimeError('模型回覆逾時，請稍後重試')
-        finally:
-            with self.lock: self.process = None
-        if self.stop_event.is_set(): raise InterruptedError('已停止')
-        (run_dir / 'codex.log').write_text(out + '\n' + err,encoding='utf-8')
-        if process.returncode != 0:
-            raise RuntimeError(provider+' 呼叫失敗：' + (err or out)[-700:])
-        self.last_call_metrics = {'stage': 'candidate_choice' if candidate else 'full_state',
-                                  'model': selection, 'prompt_chars': len(prompt),
-                                  'seconds': round(time.perf_counter() - started, 2),
-                                  'usage': models.token_usage(provider, out)}
-        (run_dir / 'call-metrics.json').write_text(json.dumps(self.last_call_metrics, ensure_ascii=False), encoding='utf-8')
-        parser = models.parse_json_answer if candidate else models.parse_answer
-        return parser(provider,out,answer_path)
-
     def run(self, takeover=False, max_steps=30, finish_candidate=False, scope=None):
         """scope: None (max_steps), 'screen' (only the decision on screen now), 'fight' or 'run'."""
         opened_cards = set()
@@ -574,98 +383,3 @@ class Controller:
         finally:
             if self.stop_event.is_set(): self.report('也好，讓我看看你的本事。\n已停止接手，控制權歸你。')
             self.report('__DONE__')
-
-def bridge_server(port):
-    guard=threading.Lock()
-    status={'busy':False,'mode':'idle','message':'又來尋求力量了？很好，我有一份提案。\n「幫我選」只處理眼前這一步，也能接手這場戰鬥或整局。','sequence':0}
-    def report(message):
-        with guard:
-            if message=='__DONE__': status.update(busy=False,mode='idle')
-            else: status['message']=message
-            status['sequence']+=1
-    controller=Controller(report)
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self,*args): pass
-        def respond(self,value,code=200):
-            body=json.dumps(value,ensure_ascii=False).encode('utf-8')
-            self.send_response(code); self.send_header('Content-Type','application/json; charset=utf-8')
-            self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
-        def do_GET(self):
-            url=urlsplit(self.path)
-            if url.path=='/quota':
-                key=parse_qs(url.query).get('model',[models.settings()['model_key']])[0]
-                if key not in {m['key'] for m in models.MODELS}: self.respond({'error':'unknown model'},400); return
-                self.respond(spire_quota.quota(key)); return
-            if self.path=='/claude-auth':
-                self.respond(models.claude_auth_status()); return
-            if self.path=='/providers':
-                self.respond(models.provider_status()); return
-            if self.path=='/models':
-                self.respond({'models':models.MODELS,'selection':models.settings()}); return
-            if self.path!='/status': self.respond({'error':'unknown endpoint'},404); return
-            with guard: snapshot=dict(status)
-            try:  # The panel names its "help me choose" button after the screen.
-                state=api.request('/api/v1/singleplayer?format=json')
-                snapshot.update(screen=state.get('state_type'),screen_label=screen_label(state),in_fight=in_fight(state))
-            except Exception: snapshot.update(screen=None,screen_label='幫我選',in_fight=False)
-            self.respond(snapshot)
-        def do_POST(self):
-            # No CORS support; JSON-only requests cannot be sent cross-origin by webpages.
-            if self.headers.get('Content-Type','').split(';')[0]!='application/json':
-                self.respond({'error':'JSON required'},415); return
-            length=int(self.headers.get('Content-Length','0'))
-            if length>1024: self.respond({'error':'request too large'},413); return
-            raw=self.rfile.read(length)
-            if self.path=='/settings':
-                try:
-                    with guard:
-                        if status['busy']: self.respond({'error':'busy'},409); return
-                        result=models.save_settings(json.loads(raw))
-                    self.respond(result)
-                except (ValueError,KeyError) as exc: self.respond({'error':str(exc)},400)
-                return
-            if self.path in ('/login-claude','/login-codex','/login-agy'):
-                # Each player signs in to their own subscription in the tool's official flow.
-                provider=self.path.split('-',1)[1]
-                try:
-                    executable=models.find_cli(provider)
-                    args={'claude':'auth login --claudeai','codex':'login','agy':''}[provider]
-                    launcher=RUNTIME/f'login-{provider}.cmd'
-                    launcher.write_text('@echo off\r\nchcp 65001 >nul\r\n"'+executable+'" '+args+'\r\npause\r\n',encoding='utf-8')
-                    subprocess.Popen(['cmd.exe','/c',str(launcher)],creationflags=subprocess.CREATE_NEW_CONSOLE)
-                    models.forget_provider_status()
-                    self.respond({'status':'ok'})
-                except Exception as exc: self.respond({'error':str(exc)},500)
-                return
-            if self.path=='/stop':
-                controller.stop(); report('這麼快就想收回控制權？\n正在停止，稍候便交還給你。'); self.respond({'status':'ok'}); return
-            if self.path=='/shutdown':
-                controller.stop(); self.respond({'status':'ok'})
-                threading.Thread(target=self.server.shutdown,daemon=True).start(); return
-            scopes={'/takeover-screen':'screen','/takeover-fight':'fight','/takeover-run':'run'}
-            if self.path not in ('/advice','/takeover',*scopes):
-                self.respond({'error':'unknown endpoint'},404); return
-            with guard:
-                if status['busy']: self.respond({'error':'busy'},409); return
-                status.update(busy=True,mode=self.path[1:],message='讓我看看，你又把自己帶進了什麼局面……\n正在讀取遊戲狀態。')
-                controller.stop_event.clear()
-            threading.Thread(target=controller.run,args=(self.path!='/advice',),
-                             kwargs={'scope':scopes.get(self.path)},daemon=True).start()
-            self.respond({'status':'ok'})
-    server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
-    try: server.serve_forever()
-    finally: controller.stop(); server.server_close()
-
-def main():
-    parser = argparse.ArgumentParser(description='Bridge between the in-game Vakuu panel and the model CLIs.')
-    parser.add_argument('--bridge-server', type=int, help='Serve the panel on this localhost port')
-    parser.add_argument('--check', action='store_true', help='Print the game API health check')
-    args = parser.parse_args()
-    if args.bridge_server:
-        bridge_server(args.bridge_server)
-    elif args.check:
-        print(json.dumps(api.request('/'), ensure_ascii=False))
-    else:
-        parser.print_help()
-
-if __name__=='__main__': main()

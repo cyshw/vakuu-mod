@@ -1,7 +1,7 @@
 import copy
 import unittest
-from vakuu_rules import still_valid
-from vakuu_search import search_turn
+from core.rules import still_valid
+from combat.search import search_turn
 from test_search import card, enemy, state
 
 

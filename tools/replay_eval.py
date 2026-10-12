@@ -19,10 +19,11 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
 sys.path.insert(0, str(SOURCE))
-import vakuu_engine as engine  # noqa: E402
-from sts2_advisor import advise  # noqa: E402
-from vakuu_facts import card_cost, combat_facts, gives_energy_now, incoming_damage, route_facts  # noqa: E402
-from vakuu_rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
+from takeover import controller as engine  # noqa: E402
+from deck.advisor import advise  # noqa: E402
+from combat.facts import card_cost, combat_facts, gives_energy_now, incoming_damage  # noqa: E402
+from route.facts import route_facts  # noqa: E402
+from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
 LOGS = SOURCE / 'button-runtime' / 'logs'
 OUT = SOURCE / 'button-runtime' / 'eval'

@@ -17,8 +17,8 @@ SOURCE = Path(__file__).resolve().parent.parent / 'vakuu'
 
 def load_engine():
     sys.path.insert(0, str(SOURCE))
-    import vakuu_engine
-    return vakuu_engine
+    from takeover import controller
+    return controller
 
 
 # Floors of the last rest row before each act's boss, used only when no route is planned.

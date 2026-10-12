@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-import spire_models as m
+from models import catalog as m
 
 class Tests(unittest.TestCase):
     def test_selection_roundtrip_and_rejection(self):

@@ -7,8 +7,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'vakuu'))
-from vakuu_search import search_turn, turn_candidates
-import vakuu_engine as engine
+from combat.search import search_turn, turn_candidates
+from models import calls
+from takeover import controller as engine
 from test_search import card, enemy, state
 
 
@@ -99,11 +100,11 @@ class CandidateTests(unittest.TestCase):
         session.last_metrics = {'usage': None}
         c = engine.Controller(lambda m: None)
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory, \
-             patch.object(engine, 'ROOT', Path(directory)), \
+             \
              patch.object(engine, 'instructions', return_value='instructions'), \
              patch.object(engine, 'enemy_notes', return_value=None), \
              patch.object(engine, 'monster_intel', return_value=None), \
-             patch.object(engine, 'CombatSession', return_value=session):
+             patch.object(calls, 'CombatSession', return_value=session):
             self.assertEqual(c.decide(s, {'model_key': 'codex:gpt-6.1-sol', 'effort': 'low'}), decision)
             c.close_combat_session()
         prompt = session.ask.call_args.args[0]

@@ -14,9 +14,16 @@ New-Item -ItemType Directory -Path (Join-Path $stage 'vakuu') -Force | Out-Null
 foreach ($name in @('STS2_MCP.dll','STS2_MCP.json')) {
     Copy-Item (Join-Path $repoRoot "build/mod/$name") $stage
 }
-Get-ChildItem (Join-Path $repoRoot 'vakuu') -File |
-    Where-Object { $_.Extension -in '.py','.md' } |
-    ForEach-Object { Copy-Item $_.FullName (Join-Path $stage 'vakuu') }
+$source = Join-Path $repoRoot 'vakuu'
+# Only tracked code: the vakuu_engine.py entry and its packages (core/, combat/, ...), not local folders.
+git -C $repoRoot -c core.quotepath=off ls-files -- vakuu |
+    Where-Object { [IO.Path]::GetExtension($_) -in '.py','.md' } |
+    ForEach-Object {
+        $relative = $_.Substring('vakuu/'.Length)
+        $target = Join-Path (Join-Path $stage 'vakuu') $relative
+        New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
+        Copy-Item (Join-Path $source $relative) $target
+    }
 Copy-Item (Join-Path $repoRoot 'docs/安裝說明.md') (Join-Path $stage 'vakuu/安裝說明.md')
 Copy-Item (Join-Path $repoRoot 'mod/LICENSE') (Join-Path $stage 'vakuu/STS2MCP-LICENSE.txt')
 $version = (git -C $repoRoot describe --tags --always)

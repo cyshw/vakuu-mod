@@ -17,10 +17,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import replay_eval  # noqa: E402
 import regression  # noqa: E402
-from spire_codex import event_advice  # noqa: E402
-from vakuu_deck import deck_direction  # noqa: E402
-from vakuu_facts import combat_facts, gives_energy_now, rest_facts  # noqa: E402
-from vakuu_search import card_move, search_turn  # noqa: E402
+from core.spire_codex import event_advice  # noqa: E402
+from deck.direction import deck_direction  # noqa: E402
+from combat.facts import combat_facts, gives_energy_now  # noqa: E402
+from route.facts import rest_facts  # noqa: E402
+from combat.search import card_move, search_turn  # noqa: E402
 
 EVENT_LIFT_GAP = 4  # Community lift points between an event's best and worst option.
 

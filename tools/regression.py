@@ -57,7 +57,7 @@ def played_route(path, case):
     The rest site screen shows no map; rows are recovered from floors (row = floor - offset, with the
     offset read off the map screen where the route was drawn).
     """
-    from vakuu_plans import start_route
+    from route.plans import start_route
     drawn = None
     last = None
     for line in open(path, encoding='utf-8'):

@@ -6,10 +6,10 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'vakuu'))
-from vakuu_choices import choice_offer
-from vakuu_search import search_turn
-from vakuu_rules import COMBAT
-from vakuu_facts import combat_facts
+from combat.choices import choice_offer
+from combat.search import search_turn
+from core.rules import COMBAT
+from combat.facts import combat_facts
 
 
 def audit(paths):

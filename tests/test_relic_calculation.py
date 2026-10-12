@@ -2,9 +2,9 @@ import copy
 import unittest
 
 from test_search import state, card, enemy
-from vakuu_search import search_turn
-from vakuu_relics import ENTRY_RELICS, CONDITIONAL_RELICS, turn_end_defense, compact_relics
-from vakuu_facts import combat_facts
+from combat.search import search_turn
+from combat.relics import ENTRY_RELICS, CONDITIONAL_RELICS, turn_end_defense, compact_relics
+from combat.facts import combat_facts
 
 
 def relic(key):

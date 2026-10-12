@@ -63,14 +63,14 @@ def main():
                 parser.error("action JSON must be an object with a string 'action' field")
             result = request(endpoint, action)
         elif args.command == "advice":
-            from sts2_advisor import advise
             state = (json.loads(args.file.read_text(encoding="utf-8-sig")) if args.file
                      else request(endpoint + "?format=json"))
+            from deck.advisor import advise
             result = advise(state)
         else:
             result = request(endpoint + "?format=json")
             if result.get("state_type") == "card_reward":
-                from sts2_advisor import advise
+                from deck.advisor import advise
                 result["card_advice"] = advise(result)
             if not args.full:
                 result = compact(result)

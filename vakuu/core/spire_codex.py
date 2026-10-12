@@ -9,9 +9,9 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from core.paths import RUNTIME
 
-ROOT = Path(__file__).resolve().parent
-from vakuu_paths import RUNTIME
+ROOT = Path(__file__).resolve().parents[1]
 CACHE = RUNTIME / 'spire-codex'
 URL = 'https://spire-codex.com/api/runs/metrics/cards?bracket={bracket}&character={character}'
 MAX_AGE = 24 * 3600

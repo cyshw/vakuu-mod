@@ -10,7 +10,7 @@
 | .NET | SDK 9.0.318，net9.0；不提交 SDK 或編譯結果 |
 | Python | 3.12，標準庫；沒有額外 pip 依賴 |
 | Claude Code | 官方原生 Windows CLI 2.1.295，訂閱登入；不提交執行檔或登入資料 |
-| Codex | 本機已登入 CLI；預設模型依本機設定，指定模型由 spire_models.py 控制 |
+| Codex | 本機已登入 CLI；預設模型依本機設定，指定模型由 vakuu/models/catalog.py 控制 |
 
 卡牌獎勵與商店卡牌評分使用 Spire Codex 的 Codex Score（進階10以上社群對局的勝率），每天更新並快取在本機。2026-10-12 起移除先前的 BoberInSpire 離線評分（其原專案沒有授權條款，不能隨公開倉庫散布），只依社群數據與牌組方向（vakuu_deck.py）判斷。
 

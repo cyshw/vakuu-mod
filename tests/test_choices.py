@@ -6,9 +6,9 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'vakuu'))
-import vakuu_engine as engine
-import vakuu_plans as plans
-from vakuu_choices import choice_offer, chosen_decision
+from takeover import controller as engine
+from takeover import plans
+from combat.choices import choice_offer, chosen_decision
 from test_search import card, enemy, state
 
 
@@ -61,12 +61,12 @@ class ChoiceTests(unittest.TestCase):
         menu = {'search_reason': 'unsupported_hand', 'plans': [
             {'id': 'P1', 'sequence': [], 'confidence': 'partial', 'end_turn': True},
             {'id': 'P2', 'sequence': [{'card_index': 1}], 'confidence': 'partial', 'end_turn': False}]}
-        with patch('vakuu_choices.turn_candidates', return_value=menu):
+        with patch('combat.choices.turn_candidates', return_value=menu):
             offer = choice_offer(sample())
         self.assertEqual(offer['schema']['properties']['choice']['enum'], ['P2', 'reject'])
         self.assertEqual(len(offer['payload']['plans']), 1)
         menu['plans'] = menu['plans'][:1]
-        with patch('vakuu_choices.turn_candidates', return_value=menu):
+        with patch('combat.choices.turn_candidates', return_value=menu):
             self.assertIsNone(choice_offer(sample()))
 
     def test_held_void_is_known_but_changed_description_still_blocks(self):

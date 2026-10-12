@@ -1,9 +1,9 @@
 """Auto mode routing: which screens need a stronger model, and when a model failed to decide."""
 import json
+from combat.facts import combat_facts
+from core.rules import COMBAT, validate
+from deck.advisor import advise
 
-from sts2_advisor import advise
-from vakuu_facts import combat_facts
-from vakuu_rules import COMBAT, validate
 
 # An elite or boss turn that would cost this share of max HP unblocked goes to the stronger model.
 DANGER_SHARE = 0.2

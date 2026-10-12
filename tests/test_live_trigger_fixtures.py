@@ -5,8 +5,8 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'vakuu'))
-from vakuu_search import search_turn
-from vakuu_plans import start_turn_plan, plan_decision
+from combat.search import search_turn
+from takeover.plans import start_turn_plan, plan_decision
 
 FIXTURE = json.loads((Path(__file__).parent / 'fixtures/controlled-combat-triggers.json').read_text(encoding='utf-8'))
 

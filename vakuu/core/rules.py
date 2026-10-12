@@ -58,6 +58,10 @@ COMBAT = {'monster', 'elite', 'boss'}
 END_TURN = -1  # hand_index that means "end the turn" in next_cards.
 LEAVE_SHOP = -1  # Item index that means "leave the shop" in next_purchases.
 
+def program_move(advice, action, **params):
+    """A decision the program makes itself, shaped like a model answer."""
+    return {'advice': advice, 'stop': False, 'action': action, 'parameters_json': json.dumps(params)}
+
 def still_valid(before, now, body):
     """Whether the chosen move still means the same thing on the current screen.
 

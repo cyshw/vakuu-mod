@@ -8,19 +8,20 @@
 
 開發中的[自訂戰鬥練習](docs/custom-battle-lab.md)：可編輯牌組與升級、資源及遭遇，手動打牌並錄製；包含來自 Spire Codex 的進階 10 通關牌組範例。重打重新隨機化，錄製不呼叫模型。
 
-一般玩家不需要建置：下載 Releases 的 `vakuu-mod-版本.zip`，解壓縮到遊戲的 `mods` 資料夾，照 [docs/安裝說明.md](docs/安裝說明.md) 安裝 Python 與至少一個 AI 命令列工具即可。發行包由 `scripts/package.ps1` 產生，不含任何 Claude Code 程式；模組會自行尋找 `vakuu` 資料夾與 Python，設定寫入遊戲資料夾或 `%LOCALAPPDATA%akuu`。
+一般玩家不需要建置：下載 Releases 的 `vakuu-mod-版本.zip`，解壓縮到遊戲的 `mods` 資料夾，照 [docs/安裝說明.md](docs/安裝說明.md) 安裝 Python 與至少一個 AI 命令列工具即可。發行包由 `scripts/package.ps1` 產生，不含任何 Claude Code 程式；模組會自行尋找 `vakuu` 資料夾與 Python，設定寫入遊戲資料夾或 `%LOCALAPPDATA%\vakuu`。
 
 ## 資料夾
 
 - `mod`：修改後的 C# 模組原始碼（STS2MCP）、模組資訊檔與原作者授權。
 - `vakuu`：Python 程式、資料及使用說明。
-  - `vakuu_engine.py`：接手主流程（讀局面、等待畫面穩定、執行動作）與遊戲內面板的 HTTP 背景程式。
-  - `vakuu_rules.py`：各畫面允許的動作、檢查模型動作、比對局面、過渡畫面判斷。
-  - `vakuu_facts.py`：替模型先算好的數字：戰鬥、能量、牌組摘要、路線。
-  - `vakuu_plans.py`：不問模型的步驟：固定規則、出牌計畫、購物計畫。
-  - `vakuu_search.py`：有限範圍的回合搜尋；先由程式找擊殺與減傷方案，未知機制交給所選模型。
-  - `vakuu_router.py`：自動調度：哪些畫面交給強模型、何時換更強的模型。
-  - `spire_models.py`、`spire_quota.py`、`spire_codex.py`、`sts2_advisor.py`、`sts2_control.py`：模型命令列、額度、Spire Codex 評分、抓牌評分、遊戲 API。
+  - `vakuu_engine.py`：遊戲模組啟動的入口（檔名不變，已安裝的設定都指向它）。
+  - `core/`：遊戲 API（`game_api.py`）、各畫面允許的動作與檢查（`rules.py`）、畫面判斷（`screens.py`）、Spire Codex 資料（`spire_codex.py`）、存放位置（`paths.py`）。
+  - `combat/`：戰鬥數字（`facts.py`：傷害、格擋、藥水、能量、充能球）、有限範圍的回合搜尋（`search.py`）、觸發與遺物計算、候選選單（`choices.py`）。
+  - `deck/`：牌組摘要與輪廓（`facts.py`）、抓牌評分（`advisor.py`）、牌組方向（`direction.py`）。
+  - `route/`：路線與休息點預估（`facts.py`）、照既定路線前進與自動休息（`plans.py`）。
+  - `models/`：模型清單與設定（`catalog.py`）、每場戰鬥的對話（`session.py`）、呼叫模型（`calls.py`）、自動調度（`router.py`）、額度（`quota.py`）。
+  - `takeover/`：接手主流程（`controller.py`：讀局面、等待畫面穩定、執行動作）與不問模型的步驟（`plans.py`：固定規則、出牌計畫、購物計畫）。
+  - `bridge/`：遊戲內面板的 HTTP 背景程式（`server.py`）。
 - `vakuu/vakuu_prompt.md`：給模型的指示（角色語氣與各畫面規則）。每次呼叫都重新讀取，修改後不必重開遊戲；`{{END_TURN}}`、`{{LEAVE_SHOP}}` 由程式代入。
 - `tests`：自動化測試。
 - `scripts`：建置、測試與安裝工具。

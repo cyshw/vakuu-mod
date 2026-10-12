@@ -3,9 +3,9 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from core.paths import RUNTIME
 
-ROOT=Path(__file__).resolve().parent
-from vakuu_paths import RUNTIME
+ROOT=Path(__file__).resolve().parents[1]
 PREFS=RUNTIME/'model-settings.json'
 # Verified against Claude Code 2.1.295 and official model configuration.
 # Pin IDs so the displayed version and the requested version stay consistent.
