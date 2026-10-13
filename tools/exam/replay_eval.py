@@ -21,7 +21,7 @@ SOURCE = Path(__file__).resolve().parents[2] / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402
-from combat.facts import card_cost, combat_facts, gives_energy_now, incoming_damage  # noqa: E402
+from combat.facts import card_cost, combat_facts, gives_energy_now, incoming_damage, wastes_energy_card  # noqa: E402
 from route.facts import route_facts  # noqa: E402
 from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
@@ -125,7 +125,7 @@ def score_combat(state, decision):
             'left_affordable_cards': len(affordable_left) if ends else None,
             'block': block, 'damage': damage, 'block_surplus': surplus if ends else None, 'unblocked': unblocked if ends else None,
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
-            'wasted_energy_card': any(gives_energy_now(c) for c in cards) and facts['spare_energy_without_energy_cards'] >= 0,
+            'wasted_energy_card': any(wastes_energy_card(state, c) for c in cards),
             'drank_potion': bool(drunk_potions(decision)),
             # Every living enemy dies to the plan's targeted damage and end-of-turn orbs.
             'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),

@@ -4,7 +4,7 @@ import threading
 import time
 
 from combat.choices import choice_offer, chosen_decision
-from combat.facts import combat_facts, compact_poison, enemy_ids, enemy_notes, pile_contents, wastes_energy_card
+from combat.facts import combat_facts, compact_poison, hand_verdicts, enemy_ids, enemy_notes, pile_contents, wastes_energy_card
 from combat.relics import compact_relics
 from combat.search import search_turn, turn_candidates
 from combat.triggers import compact_triggers
@@ -250,6 +250,10 @@ class Controller(ModelCalls):
             candidates = None if rejection else turn_candidates(state, result)
             if candidates: compact['turn_candidates'] = candidates
             compact['combat_facts'] = combat_facts(state)
+            # Verdicts on the cards themselves; Haiku missed them when left to compare numbers.
+            verdicts = hand_verdicts(state, compact['combat_facts'])
+            for card in (compact.get('player') or {}).get('hand') or []:
+                if card.get('index') in verdicts: card['skip_this_turn'] = verdicts[card['index']]
             compact_poison(compact, state)
             compact_triggers(compact, state)
             compact_relics(compact, state)

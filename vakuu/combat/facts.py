@@ -238,8 +238,11 @@ def spare_energy(state):
 
 def wastes_energy_card(state, card):
     """Playing an energy card while the current energy already covers the whole hand throws it away,
-    and cards like Supercritical exhaust, so it is gone for the rest of the fight."""
-    return gives_energy_now(card) and spare_energy(state) >= 0
+    and cards like Supercritical exhaust, so it is gone for the rest of the fight.
+
+    A card that also draws (Fuel: "获得[energy]。 抽1张牌。 消耗。") is worth playing for the draw.
+    """
+    return gives_energy_now(card) and '抽' not in str(card.get('description') or '') and spare_energy(state) >= 0
 
 
 ENEMY_NOTES = Path(__file__).resolve().parent / 'enemy_notes.md'
@@ -259,4 +262,25 @@ def enemy_ids(state):
     """Distinct monster ids in the fight (entity ids without the _0, _1 suffix)."""
     return sorted({re.sub(r'_\d+$', '', str(e.get('entity_id') or '')) for e in (state.get('battle') or {}).get('enemies') or []} - {''})
 
+
+PURE_BLOCK = re.compile(r'^[获獲]得\s*\d+\s*[点點]格[挡擋]。?$')
+
+def hand_verdicts(state, facts):
+    """Per-card "do not play this turn" notes, keyed by hand index.
+
+    Haiku passed every exam rule given as a yes/no flag and missed the ones it had to work out from
+    numbers: it still played Turbo-like energy cards with energy to spare and Defend over block
+    already above the attack. The verdict sits on the card it chooses, with the reason.
+    """
+    notes = {}
+    safe = not facts.get('lethal_if_no_more_block')
+    enough_block = safe and ('block_surplus' in facts or 'can_afford_to_attack' in facts)
+    for card in (state.get('player') or {}).get('hand') or []:
+        if not card.get('can_play'): continue
+        if wastes_energy_card(state, card):
+            notes[card.get('index')] = '能量已夠打完其他手牌，這張的能量會浪費' + ('，而且打了就消耗' if '消耗' in str(card.get('description')) else '') + '：本回合不要打'
+        elif enough_block and PURE_BLOCK.match(str(card.get('description') or '').strip()):
+            notes[card.get('index')] = ('格擋已超過敵人本回合攻擊' if 'block_surplus' in facts else
+                                        '血量夠厚、這回合不致命，不必補格擋') + '：本回合不要打，能量改打傷害'
+    return notes
 
