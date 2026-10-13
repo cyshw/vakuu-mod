@@ -162,6 +162,10 @@ REST_HEAL = 0.3  # Resting heals 30% of max HP.
 
 REST_FLOOR = 0.3  # Rest when upgrading would leave less than this share of max HP before the next rest site.
 
+def ahead_nodes(route):
+    """The drawn route, then the assumed safest way on to the boss where the drawing stopped short."""
+    return list(route.get('path') or []) + list(route.get('assumed') or [])
+
 def rest_facts(state, route):
     """Numbers for rest-or-upgrade, with the HP projected to the next rest site if this one upgrades.
 
@@ -173,15 +177,16 @@ def rest_facts(state, route):
     heal = min(int(max_hp * REST_HEAL), max_hp - hp)
     facts = {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal}
     if not route or not route.get('types'): return {**facts, 'planned_next_rooms': None}
+    ahead = ahead_nodes(route)
     rooms = []
-    for node in route.get('path') or []:
+    for node in ahead:
         kind = route['types'].get(node)
         if kind in ('RestSite', 'Boss'): break
         rooms.append({'type': kind, 'row': node[1]})
     damage = route_damage(state)
     lowest = lambda start: min(project_route(rooms, start, max_hp, damage)['hp_by_room'] or [start])
     if_upgrade, if_rest = lowest(hp), lowest(hp + heal)
-    return {**facts, 'planned_next_rooms': [route['types'].get(node) for node in (route.get('path') or [])[:4]],
+    return {**facts, 'planned_next_rooms': [route['types'].get(node) for node in ahead[:4]],
             'rooms_before_next_rest_site': [r['type'] for r in rooms],
             'lowest_hp_before_next_rest_if_upgrade': round(if_upgrade),
             'lowest_hp_before_next_rest_if_rest': round(if_rest),
@@ -194,7 +199,7 @@ def route_ahead(route):
     site and shop, which the event screen does not show.
     """
     if not route or not route.get('types'): return None
-    rooms = [route['types'].get(node) for node in route.get('path') or []]
+    rooms = [route['types'].get(node) for node in ahead_nodes(route)]
     if not rooms: return None
     distance = lambda kind: next((i + 1 for i, room in enumerate(rooms) if room == kind), None)
     return {'next_rooms': rooms[:8], 'rooms_to_rest_site': distance('RestSite'), 'rooms_to_shop': distance('Shop'),

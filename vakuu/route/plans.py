@@ -28,9 +28,34 @@ def start_route(state, decision):
     player = state.get('player') or {}
     curve = project_route([{'type': kinds.get(node), 'row': node[1]} for node in walk],
                           player.get('hp') or 0, player.get('max_hp') or 1, route_damage(state))['hp_by_room']
+    assumed = safest_tail(state.get('map') or {}, walk[-1])
     return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path,
-            'types': {node: kinds.get(node) for node in walk}, 'expected_hp': dict(zip(walk, curve)),
-            'max_hp': player.get('max_hp') or 1}
+            'assumed': assumed, 'types': {node: kinds.get(node) for node in walk + assumed},
+            'expected_hp': dict(zip(walk, curve)), 'max_hp': player.get('max_hp') or 1}
+
+def safest_tail(world, last):
+    """The rooms after the drawn route's last one, on the safest way to the boss.
+
+    The model drew a route that ended at a rest site; at that rest site the program saw no rooms ahead,
+    projected upgrading as free, and the player upgraded at 41/80 into the only next room, an elite.
+    The tail is only assumed for projections: takeover still asks the model at the next fork.
+    """
+    nodes = {(n['col'], n['row']): n for n in world.get('nodes') or [] if 'col' in n and 'row' in n}
+    children = lambda key: [tuple(c) for c in (nodes.get(key) or {}).get('children') or [] if tuple(c) in nodes]
+    best = {}
+
+    def cost(key):  # (elites, fights, -rests) from key to the act's end, and the path that achieves it.
+        if key not in best:
+            kind = nodes[key].get('type')
+            own = (int(kind == 'Elite'), int(kind in ('Monster', 'Elite')), -int(kind == 'RestSite'))
+            tails = [cost(child) for child in children(key)]
+            score, path = min(tails, key=lambda tail: tail[0]) if tails else ((0, 0, 0), [])
+            best[key] = (tuple(a + b for a, b in zip(own, score)), [key] + path)
+        return best[key]
+
+    if last not in nodes: return []
+    tails = [cost(child) for child in children(last)]
+    return min(tails, key=lambda tail: tail[0])[1] if tails else []
 
 def rest_decision(route, state):
     """Rest without asking when upgrading would leave the run below 30% HP before the next rest site.
@@ -62,6 +87,7 @@ def route_decision(route, state):
     if expected is not None and expected - ((state.get('player') or {}).get('hp') or 0) >= ROUTE_BEHIND * route.get('max_hp', 1):
         return None
     route['path'] = [node for node in route['path'] if node[1] > row]  # Drop rooms already passed.
+    route['assumed'] = [node for node in route.get('assumed') or [] if node[1] > row]
     if not route['path']: return None
     col, next_row = route['path'][0]
     # Entering an elite is decided with the HP and deck of that moment, not the plan's: a route drawn
@@ -70,4 +96,5 @@ def route_decision(route, state):
     option = next((o for o in world.get('next_options') or [] if (o.get('col'), o.get('row')) == (col, next_row)), None)
     if option is None: return None
     route['path'].pop(0)
+    route['assumed'] = [node for node in route.get('assumed') or [] if node[1] > next_row]
     return program_move('照既定路線前進。\n建議：前往路線上的下一個地點。', 'choose_map_node', index=option['index'])

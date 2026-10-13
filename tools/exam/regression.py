@@ -76,6 +76,7 @@ def played_route(path, case):
     row = case['state']['run']['floor'] - offset
     return {'act': route['act'], 'hp_ratio': route['hp_ratio'], 'max_hp': route['max_hp'],
             'path': [list(n) for n in route['path'] if n[1] > row],
+            'assumed': [list(n) for n in route.get('assumed') or [] if n[1] > row],
             'types': [[n[0], n[1], t] for n, t in route['types'].items()]}
 
 
@@ -83,6 +84,7 @@ def as_route(saved):
     """Back from JSON: node tuples and the (col, row) -> type map start_route builds."""
     if not saved: return None
     return {**saved, 'path': [tuple(n) for n in saved['path']], 'expected_hp': {},
+            'assumed': [tuple(n) for n in saved.get('assumed') or []],
             'types': {(c, r): t for c, r, t in saved['types']}}
 
 
