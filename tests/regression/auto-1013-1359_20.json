@@ -1,0 +1,483 @@
+{
+ "id": "auto-1013-1359#20",
+ "type": "rest_site",
+ "note": "第8層 55/80：路線把腳下這個休息點當成下一個，看不出前面有菁英",
+ "expect": {
+  "rested": [
+   "=",
+   true
+  ]
+ },
+ "original": {
+  "action": "choose_rest_option",
+  "advice": "血還夠，不必跪下求藥。\n建議：選鍛造（index 1）。血量約69%，程式判定不需要休息，而且下一個房間沒有休息點，現在把牌升級更划算。升級時優先選一張防御，牌組缺格擋，升級後每張8點格擋，搭配坚定不移會更有效。",
+  "stop": false,
+  "parameters_json": "{\"index\": 1}",
+  "next_cards": [],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "state_type": "rest_site",
+  "rest_site": {
+   "options": [
+    {
+     "index": 0,
+     "id": "HEAL",
+     "name": "休息",
+     "description": "回复最大生命值的30%（24）。",
+     "is_enabled": true
+    },
+    {
+     "index": 1,
+     "id": "SMITH",
+     "name": "锻造",
+     "description": "升级你牌组中的1张牌。",
+     "is_enabled": true
+    }
+   ],
+   "can_proceed": false
+  },
+  "run": {
+   "act": 1,
+   "floor": 8,
+   "ascension": 2
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成8点伤害。 给予2层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "IRON_WAVE",
+     "name": "铁斩波",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。 造成5点伤害。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "GUILTY",
+     "name": "愧疚",
+     "type": "Curse",
+     "cost": "0",
+     "star_cost": null,
+     "description": "不能被打出。 在3场战斗后从你的牌组中移除。",
+     "rarity": "Curse",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "不能被打出",
+       "description": "不能被打出的牌无法被打出。"
+      }
+     ]
+    },
+    {
+     "id": "BULLY",
+     "name": "欺凌",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 该敌人身上每有一层易伤就额外造成2点伤害。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "SWORD_BOOMERANG",
+     "name": "飞剑回旋镖",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "随机对敌人造成3点伤害3次。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "UNMOVABLE",
+     "name": "坚定不移",
+     "type": "Power",
+     "cost": "2",
+     "star_cost": null,
+     "description": "翻倍你每回合第一次从卡牌中获得的格挡。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "TRUE_GRIT",
+     "name": "坚毅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。  随机消耗1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "hp": 55,
+   "max_hp": 80,
+   "block": 0,
+   "gold": 41,
+   "status": [],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "LARGE_CAPSULE",
+     "name": "巨大扭蛋",
+     "description": "拾起时，获得2件随机遗物。额外将一对打击和防御，加入你的牌组。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "UNCEASING_TOP",
+     "name": "不休陀螺",
+     "description": "在你的回合，当你没有手牌时，抽一张牌。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "GREMLIN_HORN",
+     "name": "地精之角",
+     "description": "每当有一名敌人死亡时，获得[ironclad_energy_icon.png]并抽1张牌。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    }
+   ],
+   "potions": [
+    {
+     "id": "STABLE_SERUM",
+     "name": "稳定血清",
+     "description": "保留你的手牌2回合。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "保留",
+       "description": "保留的牌不会在回合结束时被弃掉。"
+      }
+     ]
+    }
+   ],
+   "max_potion_slots": 3
+  }
+ },
+ "route": {
+  "act": 1,
+  "hp_ratio": 0.8,
+  "max_hp": 80,
+  "path": [
+   [
+    3,
+    8
+   ],
+   [
+    3,
+    9
+   ],
+   [
+    2,
+    10
+   ],
+   [
+    3,
+    11
+   ],
+   [
+    3,
+    12
+   ],
+   [
+    2,
+    13
+   ],
+   [
+    2,
+    14
+   ],
+   [
+    2,
+    15
+   ],
+   [
+    3,
+    16
+   ]
+  ],
+  "assumed": [],
+  "types": [
+   [
+    4,
+    1,
+    "Monster"
+   ],
+   [
+    5,
+    2,
+    "Unknown"
+   ],
+   [
+    5,
+    3,
+    "Unknown"
+   ],
+   [
+    5,
+    4,
+    "Unknown"
+   ],
+   [
+    6,
+    5,
+    "Monster"
+   ],
+   [
+    5,
+    6,
+    "Shop"
+   ],
+   [
+    4,
+    7,
+    "RestSite"
+   ],
+   [
+    3,
+    8,
+    "Monster"
+   ],
+   [
+    3,
+    9,
+    "Treasure"
+   ],
+   [
+    2,
+    10,
+    "Elite"
+   ],
+   [
+    3,
+    11,
+    "RestSite"
+   ],
+   [
+    3,
+    12,
+    "Unknown"
+   ],
+   [
+    2,
+    13,
+    "Elite"
+   ],
+   [
+    2,
+    14,
+    "Shop"
+   ],
+   [
+    2,
+    15,
+    "RestSite"
+   ],
+   [
+    3,
+    16,
+    "Boss"
+   ]
+  ]
+ }
+}

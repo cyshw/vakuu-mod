@@ -166,6 +166,10 @@ def ahead_nodes(route):
     """The drawn route, then the assumed safest way on to the boss where the drawing stopped short."""
     return list(route.get('path') or []) + list(route.get('assumed') or [])
 
+# Before a boss, rest when an average boss fight would leave less than this share of max HP after
+# upgrading. Lower than REST_FLOOR: the act ends with a heal, so the boss only has to be survived.
+BOSS_REST_FLOOR = 0.15
+
 def rest_facts(state, route):
     """Numbers for rest-or-upgrade, with the HP projected to the next rest site if this one upgrades.
 
@@ -178,19 +182,30 @@ def rest_facts(state, route):
     facts = {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal}
     if not route or not route.get('types'): return {**facts, 'planned_next_rooms': None}
     ahead = ahead_nodes(route)
-    rooms = []
+    rooms, boss_next = [], False
     for node in ahead:
         kind = route['types'].get(node)
-        if kind in ('RestSite', 'Boss'): break
+        if kind in ('RestSite', 'Boss'):
+            boss_next = kind == 'Boss'
+            break
         rooms.append({'type': kind, 'row': node[1]})
     damage = route_damage(state)
-    lowest = lambda start: min(project_route(rooms, start, max_hp, damage)['hp_by_room'] or [start])
+    walk = lambda start: project_route(rooms, start, max_hp, damage)['hp_by_room'] or [start]
+    lowest = lambda start: min(walk(start))
     if_upgrade, if_rest = lowest(hp), lowest(hp + heal)
-    return {**facts, 'planned_next_rooms': [route['types'].get(node) for node in ahead[:4]],
-            'rooms_before_next_rest_site': [r['type'] for r in rooms],
-            'lowest_hp_before_next_rest_if_upgrade': round(if_upgrade),
-            'lowest_hp_before_next_rest_if_rest': round(if_rest),
-            'rest_recommended': if_upgrade < REST_FLOOR * max_hp}
+    facts.update({'planned_next_rooms': [route['types'].get(node) for node in ahead[:4]],
+                  'rooms_before_next_rest_site': [r['type'] for r in rooms],
+                  'lowest_hp_before_next_rest_if_upgrade': round(if_upgrade),
+                  'lowest_hp_before_next_rest_if_rest': round(if_rest),
+                  'rest_recommended': if_upgrade < REST_FLOOR * max_hp})
+    if boss_next:
+        # Two Ironclad runs upgraded at 40/80 before a boss that costs 51 HP on average and died in it:
+        # with no rest site before the boss, the projection stopped short of the fight that mattered.
+        after_upgrade, after_rest = walk(hp)[-1] - damage['boss'], walk(hp + heal)[-1] - damage['boss']
+        facts.update({'boss_next': True, 'boss_average_damage': round(damage['boss']),
+                      'hp_after_boss_if_upgrade': round(after_upgrade), 'hp_after_boss_if_rest': round(after_rest),
+                      'rest_recommended': facts['rest_recommended'] or after_upgrade < BOSS_REST_FLOOR * max_hp})
+    return facts
 
 def route_ahead(route):
     """The planned rooms after this one, and how far the next rest site, shop and elite are.

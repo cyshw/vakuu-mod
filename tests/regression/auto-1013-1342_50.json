@@ -1,0 +1,464 @@
+{
+ "id": "auto-1013-1342#50",
+ "type": "rest_site",
+ "note": "第16層頭目前 40/80：頭目平均掉51血，升級的話預估死在頭目",
+ "expect": {
+  "rested": [
+   "=",
+   true
+  ]
+ },
+ "original": {
+  "advice": "戰士，血量還過半，先把牌磨利再談休息。\n建議：選鍛造（index 1），升級牌組中的一張關鍵牌。目前血量40/80，約五成，高於需要休息回血的門檻，而鍛造比休息的24點回復更能長期提升戰力。優先升級你最常打的牌，例如打擊或堅毅，之後再遇到休息點時再回血。",
+  "stop": false,
+  "action": "choose_rest_option",
+  "parameters_json": "{\"index\": 1}",
+  "next_cards": [],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "state_type": "rest_site",
+  "rest_site": {
+   "options": [
+    {
+     "index": 0,
+     "id": "HEAL",
+     "name": "休息",
+     "description": "回复最大生命值的30%（24）。",
+     "is_enabled": true
+    },
+    {
+     "index": 1,
+     "id": "SMITH",
+     "name": "锻造",
+     "description": "升级你牌组中的1张牌。",
+     "is_enabled": true
+    }
+   ],
+   "can_proceed": false
+  },
+  "run": {
+   "act": 1,
+   "floor": 16,
+   "ascension": 2
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成10点伤害。 给予3层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "BLOOD_WALL",
+     "name": "血墙+",
+     "type": "Skill",
+     "cost": "2",
+     "star_cost": null,
+     "description": "失去2点生命。 获得20点格挡。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BODY_SLAM",
+     "name": "全身撞击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成你当前格挡值的伤害。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BULLY",
+     "name": "欺凌",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 该敌人身上每有一层易伤就额外造成2点伤害。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "MOLTEN_FIST",
+     "name": "熔融之拳",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成10点伤害。 将该敌人身上的易伤层数翻倍。 消耗。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "TRUE_GRIT",
+     "name": "坚毅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。  随机消耗1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "COLOSSUS",
+     "name": "巨像",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得4点格挡。 在本回合中，有易伤状态的敌人对你造成的伤害降低50%。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "UNMOVABLE",
+     "name": "坚定不移",
+     "type": "Power",
+     "cost": "2",
+     "star_cost": null,
+     "description": "翻倍你每回合第一次从卡牌中获得的格挡。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "TRUE_GRIT",
+     "name": "坚毅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。  随机消耗1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "hp": 40,
+   "max_hp": 80,
+   "block": 0,
+   "gold": 213,
+   "status": [],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "BOOMING_CONCH",
+     "name": "轰鸣海螺",
+     "description": "在精英战的战斗开始时，额外抽2张牌并获得[ironclad_energy_icon.png]。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    },
+    {
+     "id": "ETERNAL_FEATHER",
+     "name": "永恒羽毛",
+     "description": "你的牌组中每有5张牌，当你进入休息处时就会回复3点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "PEN_NIB",
+     "name": "钢笔尖",
+     "description": "你每打出的第10张攻击牌将会造成双倍伤害。",
+     "counter": 0,
+     "keywords": []
+    },
+    {
+     "id": "POTION_BELT",
+     "name": "药水腰带",
+     "description": "拾起时，获得2个药水栏位。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "ODDLY_SMOOTH_STONE",
+     "name": "意外光滑的石头",
+     "description": "在每场战斗开始时，获得1点敏捷。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "敏捷",
+       "description": "敏捷会增加从卡牌中获得的格挡。"
+      }
+     ]
+    },
+    {
+     "id": "PLANISPHERE",
+     "name": "活动星图",
+     "description": "每当你进入？房间的时候，回复5点生命。",
+     "counter": null,
+     "keywords": []
+    }
+   ],
+   "potions": [
+    {
+     "id": "LIQUID_BRONZE",
+     "name": "流动铜液",
+     "description": "获得3点荆棘。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "荆棘",
+       "description": "当被攻击命中时，反击造成伤害。"
+      }
+     ]
+    },
+    {
+     "id": "ENTROPIC_BREW",
+     "name": "混沌药水",
+     "description": "在所有空药水栏位中获得随机药水。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    }
+   ],
+   "max_potion_slots": 5
+  }
+ },
+ "route": {
+  "act": 1,
+  "hp_ratio": 0.2125,
+  "max_hp": 80,
+  "path": [
+   [
+    3,
+    16
+   ]
+  ],
+  "assumed": [],
+  "types": [
+   [
+    2,
+    12,
+    "RestSite"
+   ],
+   [
+    2,
+    13,
+    "Elite"
+   ],
+   [
+    1,
+    14,
+    "Unknown"
+   ],
+   [
+    1,
+    15,
+    "RestSite"
+   ],
+   [
+    3,
+    16,
+    "Boss"
+   ]
+  ]
+ }
+}

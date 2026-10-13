@@ -24,6 +24,10 @@ def start_route(state, decision):
     # Expected HP at each room of the chosen route, to notice when the run falls behind the plan.
     options = {o.get('index'): (o.get('col'), o.get('row')) for o in (state.get('map') or {}).get('next_options') or []}
     first = options.get(json.loads(decision['parameters_json']).get('index'))
+    if first:
+        # The model often repeats the chosen node as the first of next_nodes; left in, the rest site
+        # being entered counted as the next one ahead, and the projection saw nothing to rest for.
+        path = [node for node in path if node[1] > first[1]]
     walk = ([first] if first else []) + path
     player = state.get('player') or {}
     curve = project_route([{'type': kinds.get(node), 'row': node[1]} for node in walk],
