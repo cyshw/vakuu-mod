@@ -4,15 +4,11 @@
  "tags": [
   "tempo"
  ],
- "note": "血量夠厚且不致命，格擋不要溢出，要打出傷害",
+ "note": "血量夠厚且不致命，標了 skip_this_turn 的防禦與加能量牌不要打",
  "expect": {
-  "block_surplus": [
-   "<=",
-   0
-  ],
-  "damage": [
-   ">=",
-   1
+  "played_skipped_card": [
+   "=",
+   false
   ]
  },
  "original": {

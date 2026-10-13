@@ -21,7 +21,7 @@ SOURCE = Path(__file__).resolve().parents[2] / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402
-from combat.facts import card_cost, combat_facts, gives_energy_now, incoming_damage, wastes_energy_card  # noqa: E402
+from combat.facts import card_cost, combat_facts, gives_energy_now, hand_verdicts, incoming_damage, wastes_energy_card  # noqa: E402
 from route.facts import route_facts  # noqa: E402
 from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
@@ -127,6 +127,8 @@ def score_combat(state, decision):
             'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
             'wasted_energy_card': any(wastes_energy_card(state, c) for c in cards),
             'drank_potion': bool(drunk_potions(decision)),
+            # Played a card the prompt marked skip_this_turn (wasted energy, block not needed).
+            'played_skipped_card': any(c.get('index') in hand_verdicts(state, facts) for c in cards),
             # Every living enemy dies to the plan's targeted damage and end-of-turn orbs.
             'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
