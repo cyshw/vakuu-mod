@@ -1,0 +1,96 @@
+{
+  "name": "Haiku 鐵甲 A2 第一幕頭目仪式兽（auto-1013-1342 重建）",
+  "notes": "照紀錄第 17 層頭目開打時重建：40/80、18 張牌、2 藥水。只放得進燃燒之血；奇異光滑石、鋼筆尖、号角海螺、永恆羽毛、藥水腰帶、星盤不在練習工具支援範圍。亂數重新產生。",
+  "spec": {
+    "character": "IRONCLAD",
+    "encounter": "CEREMONIAL_BEAST_BOSS",
+    "ascension": 2,
+    "act": 1,
+    "floor": 17,
+    "act_floor": 17,
+    "hp": 64,
+    "max_hp": 80,
+    "gold": 213,
+    "deck": [
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "STRIKE_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "DEFEND_IRONCLAD",
+        "upgrades": 0
+      },
+      {
+        "id": "BASH",
+        "upgrades": 1
+      },
+      {
+        "id": "BLOOD_WALL",
+        "upgrades": 1
+      },
+      {
+        "id": "BODY_SLAM",
+        "upgrades": 0
+      },
+      {
+        "id": "BULLY",
+        "upgrades": 0
+      },
+      {
+        "id": "MOLTEN_FIST",
+        "upgrades": 0
+      },
+      {
+        "id": "TRUE_GRIT",
+        "upgrades": 1
+      },
+      {
+        "id": "COLOSSUS",
+        "upgrades": 0
+      },
+      {
+        "id": "UNMOVABLE",
+        "upgrades": 0
+      },
+      {
+        "id": "TRUE_GRIT",
+        "upgrades": 0
+      }
+    ],
+    "relics": [
+      "BURNING_BLOOD"
+    ],
+    "potions": [
+      "LIQUID_BRONZE",
+      "ENTROPIC_BREW"
+    ]
+  }
+}

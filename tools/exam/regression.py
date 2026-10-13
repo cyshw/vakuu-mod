@@ -154,8 +154,8 @@ def cached_calls(enabled):
     except (OSError, ValueError): store = {}
     hits = [0]
 
-    def call_model(self, prompt, schema, selection, candidate=False):
-        if not enabled or not getattr(local, 'use', False): return raw(self, prompt, schema, selection, candidate)
+    def call_model(self, prompt, schema, selection, candidate=False, **extra):
+        if not enabled or not getattr(local, 'use', False) or extra: return raw(self, prompt, schema, selection, candidate, **extra)
         key = hashlib.sha256(json.dumps([prompt, schema, selection, candidate], ensure_ascii=False).encode()).hexdigest()
         with lock: answer = store.get(key)
         if answer is not None:

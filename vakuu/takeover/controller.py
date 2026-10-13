@@ -16,6 +16,7 @@ from core.spire_codex import event_advice, monster_intel
 from deck.advisor import advise
 from deck.direction import deck_direction
 from deck.facts import deck_profile, deck_summary
+from deck.playbook import deck_playbook
 from models import catalog as models
 from models.calls import ModelCalls, instructions
 from models.router import fight_key, hard_screen, undecided
@@ -56,6 +57,8 @@ class Controller(ModelCalls):
         self.parked_sessions = {}
         self.combat_key = None
         self.combat_round = None
+        # e.g. 'codex:gpt-6.1-sol@low': writes how the deck is played once per deck (deck/playbook.py).
+        self.playbook_model = None
 
     def stop(self):
         self.stop_event.set()
@@ -250,6 +253,12 @@ class Controller(ModelCalls):
             candidates = None if rejection else turn_candidates(state, result)
             if candidates: compact['turn_candidates'] = candidates
             compact['combat_facts'] = combat_facts(state)
+            if self.playbook_model:
+                model_key, effort = (self.playbook_model.split('@') + ['low'])[:2]
+                ask = lambda prompt, schema: self.call_model(prompt, schema, {'model_key': model_key, 'effort': effort},
+                                                             candidate=True, one_off=True)
+                book = deck_playbook(state, ask)
+                if book: compact['deck_playbook'] = book
             # Verdicts on the cards themselves; Haiku missed them when left to compare numbers.
             verdicts = hand_verdicts(state, compact['combat_facts'])
             for card in (compact.get('player') or {}).get('hand') or []:
