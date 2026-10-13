@@ -108,6 +108,10 @@ def score_combat(state, decision):
     lightning = next((o.get('passive_val') or 0 for o in player.get('orbs') or [] if o.get('id') == 'LIGHTNING_ORB'),
                      LIGHTNING_PASSIVE)
     damage = sum((e['damage'] + e['damage_all']) * e['hits'] + e['lightning'] * lightning for e in known)
+    held = facts['current_block']
+    for e in known:  # Body Slam hits for the block at the moment it is played.
+        if e['block_damage']: damage += held
+        held += e['block']
     slots = set(drunk_potions(decision))
     potions = [p for p in facts.get('usable_potions') or [] if p['slot'] in slots]
     block += sum(p.get('block', 0) for p in potions)
@@ -171,13 +175,15 @@ def planned_kills(state, decision, facts):
     enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
     dealt = collections.Counter()
     channelled = new_lightning = 0
+    held = player.get('block') or 0
     for kind, key, target in moves:
         if kind == 'potion':
             single, every = (potions.get(key) or {}).get('damage', 0), 0
         else:
             if not isinstance(key, int) or not 0 <= key < len(hand): continue
             effects = card_effects(hand[key])
-            single = effects.get('damage', 0) * effects.get('hits', 1)
+            single = effects.get('damage', 0) * effects.get('hits', 1) + (held if effects['block_damage'] else 0)
+            held += effects['block']
             every = effects.get('damage_all', 0) * effects.get('hits', 1)
             channelled += effects.get('lightning', 0) + effects.get('frost', 0)
             new_lightning += effects.get('lightning', 0)

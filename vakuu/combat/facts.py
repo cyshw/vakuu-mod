@@ -274,7 +274,10 @@ def hand_verdicts(state, facts):
     """
     notes = {}
     safe = not facts.get('lethal_if_no_more_block')
-    enough_block = safe and ('block_surplus' in facts or 'can_afford_to_attack' in facts)
+    hand = (state.get('player') or {}).get('hand') or []
+    # With Body Slam in hand, more block is more damage.
+    enough_block = (safe and ('block_surplus' in facts or 'can_afford_to_attack' in facts)
+                    and not any(c.get('can_play') and BLOCK_DAMAGE in str(c.get('description') or '') for c in hand))
     for card in (state.get('player') or {}).get('hand') or []:
         if not card.get('can_play'): continue
         if wastes_energy_card(state, card):
@@ -288,6 +291,7 @@ def hand_verdicts(state, facts):
 
 ENERGY_ICON = r'\[[^\]]*energy[^\]]*\]'
 EFFECT_SENTENCES = [
+    ('block_damage', re.compile(r'造成你当前格挡值的伤害')),
     ('damage_all', re.compile(r'对所有敌人造成(\d+)点伤害(?:(\d+)次)?')),
     ('damage', re.compile(r'造成(\d+)点伤害(?:(\d+)次)?')),
     ('block', re.compile(r'获得(\d+)点格挡')),
@@ -295,7 +299,7 @@ EFFECT_SENTENCES = [
     ('lightning', re.compile(r'生成(\d+)个闪电充能球')),
     ('frost', re.compile(r'生成(\d+)个冰霜充能球')),
     # No effect on this turn's damage, block or energy.
-    ('none', re.compile(r'消耗|抽\d+张牌|不能被打出|虚无|永恒|固有|保留|在下个回合获得(?:' + ENERGY_ICON + r')+'
+    ('none', re.compile(r'消耗|抽\d+张牌|（造成\d+点伤害）|失去\d+点生命|不能被打出|虚无|永恒|固有|保留|在下个回合获得(?:' + ENERGY_ICON + r')+'
                         r'|将一张\S+?(?:加入|添加到)你的弃牌堆中?|在你的弃牌堆中加入一张\S+'
                         r'|将这张牌的一张\d*(?:' + ENERGY_ICON + r')?复制品添加到你的弃牌堆'
                         r'|将弃牌堆中的一张牌放入你的手牌|将你手牌中的全部状态牌变化为燃料')),
@@ -310,7 +314,7 @@ def card_effects(card):
     conditional damage was counted.
     """
     effects = {'damage': 0, 'hits': 1, 'damage_all': 0, 'block': 0, 'energy': 0, 'lightning': 0, 'frost': 0,
-               'complete': True}
+               'block_damage': False, 'complete': True}
     for sentence in re.split(r'[。\n]', str(card.get('description') or '')):
         sentence = re.sub(r'\s+', '', sentence)
         if not sentence: continue
@@ -319,6 +323,8 @@ def card_effects(card):
             if not match: continue
             if name in ('damage', 'damage_all'):
                 effects[name] += int(match[1]); effects['hits'] = int(match[2] or 1)
+            elif name == 'block_damage':
+                effects['block_damage'] = True
             elif name == 'energy':
                 effects['energy'] += int(match[1]) if match[1] else len(re.findall(ENERGY_ICON, match[2]))
             elif name != 'none':
@@ -327,3 +333,44 @@ def card_effects(card):
         else:
             effects['complete'] = False
     return effects
+
+
+BLOCK_DAMAGE = '造成你当前格挡值的伤害'
+
+def block_damage_notes(state):
+    """For Body Slam-like cards, the damage after first playing the best block the energy allows.
+
+    The card text shows the damage at the current block ("（造成0点伤害）"), and Haiku read it as a
+    0-damage card: an Ironclad boss fight went 17 turns with Blood Wall (42 to 86 block) and Body Slam
+    in hand together, the Body Slam never played. Card texts already include Dexterity and a doubled
+    first block, so the sum is approximate.
+    """
+    player = state.get('player') or {}
+    hand = [c for c in player.get('hand') or [] if c.get('can_play')]
+    block, energy = player.get('block') or 0, player.get('energy') or 0
+    notes = {}
+    for slam in hand:
+        if BLOCK_DAMAGE not in str(slam.get('description') or ''): continue
+        budget = energy - card_cost(slam)
+        if budget < 0: continue
+        blockers = [(c, card_effects(c)['block']) for c in hand if c is not slam and card_effects(c)['block'] > 0]
+        best, chosen = 0, []
+        for mask in range(1 << len(blockers)):
+            picked = [blockers[i] for i in range(len(blockers)) if mask >> i & 1]
+            if sum(card_cost(c) for c, _ in picked) > budget: continue
+            gained = sum(b for _, b in picked)
+            if gained > best: best, chosen = gained, picked
+        if not chosen:
+            notes[slam.get('index')] = f'傷害等於打出當下的格擋：現在打是 {block} 點傷害'
+            continue
+        names = '、'.join(f"{c.get('name')}（+{b} 格擋）" for c, b in chosen)
+        note = f'牌面的傷害只是目前的格擋 {block}；先打 {names} 再打這張，約可造成 {block + best} 點傷害'
+        # Haiku still spent the last energy on a 12-damage Strike after Blood Wall: compare outright.
+        rivals = [(c, card_effects(c)) for c in hand if c is not slam and c.get('type') == 'Attack']
+        rivals = [(c, (e['damage'] + e['damage_all']) * e['hits']) for c, e in rivals if not e['block_damage']]
+        top = max(rivals, key=lambda rival: rival[1], default=None)
+        if top and top[1] < block + best:
+            note += f"，比手上最強的其他攻擊 {top[0].get('name')}（{top[1]}）多 {block + best - top[1]}：剩下的能量優先打這張"
+        notes[slam.get('index')] = note
+    return notes
+
