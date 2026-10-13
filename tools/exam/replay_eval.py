@@ -11,7 +11,6 @@ import argparse
 import collections
 import json
 import random
-import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,7 +20,7 @@ SOURCE = Path(__file__).resolve().parents[2] / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402
-from combat.facts import card_cost, combat_facts, gives_energy_now, hand_verdicts, incoming_damage, wastes_energy_card  # noqa: E402
+from combat.facts import card_cost, card_effects, combat_facts, gives_energy_now, hand_verdicts, incoming_damage, wastes_energy_card  # noqa: E402
 from route.facts import route_facts  # noqa: E402
 from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
@@ -29,9 +28,6 @@ LOGS = SOURCE / 'button-runtime' / 'logs'
 OUT = SOURCE / 'button-runtime' / 'eval'
 TYPES = {'combat': COMBAT, 'map': {'map'}, 'rest_site': {'rest_site'}, 'card_reward': {'card_reward'},
          'shop': {'shop'}, 'event': {'event'}, 'card_select': {'card_select'}}
-BLOCK = re.compile(r'获得(\d+)点格挡')
-DAMAGE = re.compile(r'造成(\d+)点伤害(?:(\d+)次)?')
-ENERGY = re.compile(r'获得(\d+)\[')
 
 
 def case_type(state):
@@ -104,23 +100,31 @@ def score_combat(state, decision):
     player = state.get('player') or {}
     facts = combat_facts(state)
     cards, ends, broken = plan_cards(state, decision)
-    gained = sum(int(m.group(1)) for c in cards if gives_energy_now(c) for m in [ENERGY.search(c.get('description') or '')] if m)
-    budget = (player.get('energy') or 0) + gained
+    known = [card_effects(c) for c in cards]
+    budget = (player.get('energy') or 0) + sum(e['energy'] for e in known)
     cost = sum(card_cost(c) for c in cards)
-    block = sum(int(m.group(1)) for c in cards for m in BLOCK.finditer(c.get('description') or ''))
-    damage = sum(int(m.group(1)) * int(m.group(2) or 1) for c in cards for m in DAMAGE.finditer(c.get('description') or ''))
+    block = sum(e['block'] for e in known)
+    # Lightning channelled this turn hits at the end of it; orbs already out fire whatever is played.
+    lightning = next((o.get('passive_val') or 0 for o in player.get('orbs') or [] if o.get('id') == 'LIGHTNING_ORB'),
+                     LIGHTNING_PASSIVE)
+    damage = sum((e['damage'] + e['damage_all']) * e['hits'] + e['lightning'] * lightning for e in known)
     slots = set(drunk_potions(decision))
     potions = [p for p in facts.get('usable_potions') or [] if p['slot'] in slots]
     block += sum(p.get('block', 0) for p in potions)
-    killed = planned_kills(state, decision, facts)
+    killed, orbs_known = planned_kills(state, decision, facts)
     incoming = sum(incoming_damage(i) for e in killed for i in e.get('intents') or [])
-    unblocked = max(0, facts['incoming_attack_damage'] - incoming - facts['current_block'] - block)
-    covered = facts['current_block'] + (facts.get('end_of_turn_orbs') or {}).get('block', 0) + block
+    frost = sum(e['frost'] for e in known) * FROST_PASSIVE
+    unblocked = max(0, facts['incoming_attack_damage'] - incoming - facts['current_block'] - block - frost)
+    covered = facts['current_block'] + (facts.get('end_of_turn_orbs') or {}).get('block', 0) + block + frost
     surplus = max(0, covered - (facts['incoming_attack_damage'] - incoming))
     played = {id(c) for c in cards}
     affordable_left = [c for c in player.get('hand') or [] if id(c) not in played and c.get('can_play')
                        and not gives_energy_now(c) and card_cost(c) <= budget - cost]
     return {'plan_cards': len(cards), 'complete_turn': ends, 'broken_plan': broken,
+            # The numbers below are exact only when the plan ends the turn and every card's text and
+            # orb was understood; otherwise a failed numeric check reads "cannot tell" in the exam.
+            'text_known': all(e['complete'] for e in known) and orbs_known,
+            'certain': ends and all(e['complete'] for e in known) and orbs_known,
             'overspend': cost > budget, 'unused_energy': max(0, budget - cost) if ends else None,
             'left_affordable_cards': len(affordable_left) if ends else None,
             'block': block, 'damage': damage, 'block_surplus': surplus if ends else None, 'unblocked': unblocked if ends else None,
@@ -129,7 +133,7 @@ def score_combat(state, decision):
             'drank_potion': bool(drunk_potions(decision)),
             # Played a card the prompt marked skip_this_turn (wasted energy, block not needed).
             'played_skipped_card': any(c.get('index') in hand_verdicts(state, facts) for c in cards),
-            # Every living enemy dies to the plan's targeted damage and end-of-turn orbs.
+            # Every living enemy dies to the plan's damage and end-of-turn orbs.
             'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
             # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
@@ -142,13 +146,18 @@ def score_combat(state, decision):
                                       < 0.2 * (player.get('max_hp') or 0)}
 
 
-CHANNEL_LIGHTNING = re.compile(r'生成(\d+)[个個][闪閃][电電]充能球')
 LIGHTNING_PASSIVE = 3
+FROST_PASSIVE = 2
 
 
 def planned_kills(state, decision, facts):
-    """Enemies the plan's targeted damage (cards and potions) is enough to kill; their attacks never land."""
-    hand = (state.get('player') or {}).get('hand') or []
+    """Enemies the plan's damage (cards, potions, end-of-turn orbs) is enough to kill; their attacks never land.
+
+    Also whether the orbs were followed exactly: a channel into full slots evokes the oldest orb,
+    which is not counted, and random Lightning is only certain against one enemy.
+    """
+    player = state.get('player') or {}
+    hand = player.get('hand') or []
     potions = {p['slot']: p for p in facts.get('usable_potions') or []}
     moves = []
     params = json.loads(decision['parameters_json'] or '{}')
@@ -161,26 +170,32 @@ def planned_kills(state, decision, facts):
         else: moves.append(('card', entry.get('hand_index'), entry.get('target')))
     enemies = [e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]
     dealt = collections.Counter()
+    channelled = new_lightning = 0
     for kind, key, target in moves:
         if kind == 'potion':
-            amount = (potions.get(key) or {}).get('damage', 0)
-            text = ''
+            single, every = (potions.get(key) or {}).get('damage', 0), 0
         else:
             if not isinstance(key, int) or not 0 <= key < len(hand): continue
-            text = hand[key].get('description') or ''
-            amount = sum(int(m.group(1)) * int(m.group(2) or 1) for m in DAMAGE.finditer(text))
+            effects = card_effects(hand[key])
+            single = effects.get('damage', 0) * effects.get('hits', 1)
+            every = effects.get('damage_all', 0) * effects.get('hits', 1)
+            channelled += effects.get('lightning', 0) + effects.get('frost', 0)
+            new_lightning += effects.get('lightning', 0)
         for enemy in enemies:
-            if '所有敌人' in text or enemy.get('entity_id') == target: dealt[enemy.get('entity_id')] += amount
-    # Orbs fire at end of turn before the enemies act; random Lightning is only certain against one enemy.
+            dealt[enemy.get('entity_id')] += every + (single if enemy.get('entity_id') == target else 0)
     orbs = facts.get('end_of_turn_orbs') or {}
-    lightning = next((o.get('passive_val') or 0 for o in (state.get('player') or {}).get('orbs') or []
+    lightning = next((o.get('passive_val') or 0 for o in player.get('orbs') or []
                       if o.get('id') == 'LIGHTNING_ORB'), LIGHTNING_PASSIVE)
-    channelled = sum(int(m.group(1)) for kind, key, _ in moves if kind == 'card' and isinstance(key, int) and 0 <= key < len(hand)
-                     for m in CHANNEL_LIGHTNING.finditer(hand[key].get('description') or ''))
     for enemy in enemies:
         dealt[enemy.get('entity_id')] += orbs.get('damage_to_all_enemies', 0)
-        if len(enemies) == 1: dealt[enemy.get('entity_id')] += orbs.get('damage_to_random_enemy', 0) + channelled * lightning
-    return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)]
+        if len(enemies) == 1: dealt[enemy.get('entity_id')] += orbs.get('damage_to_random_enemy', 0) + new_lightning * lightning
+    slots = player.get('orb_slots')
+    random_total = orbs.get('damage_to_random_enemy', 0) + new_lightning * lightning
+    left = lambda e: (e.get('hp') or 0) + (e.get('block') or 0) - dealt[e.get('entity_id')]
+    # Random Lightning among several enemies matters only when it could finish one of them.
+    orbs_known = ((not channelled or (isinstance(slots, int) and len(player.get('orbs') or []) + channelled <= slots))
+                  and (len(enemies) == 1 or not any(0 < left(e) <= random_total for e in enemies)))
+    return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)], orbs_known
 
 
 def drunk_potions(decision):

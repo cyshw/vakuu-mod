@@ -284,3 +284,46 @@ def hand_verdicts(state, facts):
                                         '血量夠厚、這回合不致命，不必補格擋') + '：本回合不要打，能量改打傷害'
     return notes
 
+
+
+ENERGY_ICON = r'\[[^\]]*energy[^\]]*\]'
+EFFECT_SENTENCES = [
+    ('damage_all', re.compile(r'对所有敌人造成(\d+)点伤害(?:(\d+)次)?')),
+    ('damage', re.compile(r'造成(\d+)点伤害(?:(\d+)次)?')),
+    ('block', re.compile(r'获得(\d+)点格挡')),
+    ('energy', re.compile(r'获得(\d*)((?:' + ENERGY_ICON + r')+)')),
+    ('lightning', re.compile(r'生成(\d+)个闪电充能球')),
+    ('frost', re.compile(r'生成(\d+)个冰霜充能球')),
+    # No effect on this turn's damage, block or energy.
+    ('none', re.compile(r'消耗|抽\d+张牌|不能被打出|虚无|永恒|固有|保留|在下个回合获得(?:' + ENERGY_ICON + r')+'
+                        r'|将一张\S+?(?:加入|添加到)你的弃牌堆中?|在你的弃牌堆中加入一张\S+'
+                        r'|将这张牌的一张\d*(?:' + ENERGY_ICON + r')?复制品添加到你的弃牌堆'
+                        r'|将弃牌堆中的一张牌放入你的手牌|将你手牌中的全部状态牌变化为燃料')),
+]
+
+def card_effects(card):
+    """This turn's damage, block, energy and channelled orbs from a card's text, sentence by sentence.
+
+    complete=False when a sentence is not understood (a condition, evoking orbs, Strength for later
+    cards); the understood ones still count, as a lower bound. The exam then reports "cannot tell"
+    instead of a wrong verdict, as it did when Lightning orbs finished an enemy or Hailstorm's
+    conditional damage was counted.
+    """
+    effects = {'damage': 0, 'hits': 1, 'damage_all': 0, 'block': 0, 'energy': 0, 'lightning': 0, 'frost': 0,
+               'complete': True}
+    for sentence in re.split(r'[。\n]', str(card.get('description') or '')):
+        sentence = re.sub(r'\s+', '', sentence)
+        if not sentence: continue
+        for name, pattern in EFFECT_SENTENCES:
+            match = pattern.fullmatch(sentence)
+            if not match: continue
+            if name in ('damage', 'damage_all'):
+                effects[name] += int(match[1]); effects['hits'] = int(match[2] or 1)
+            elif name == 'energy':
+                effects['energy'] += int(match[1]) if match[1] else len(re.findall(ENERGY_ICON, match[2]))
+            elif name != 'none':
+                effects[name] += int(match[1])
+            break
+        else:
+            effects['complete'] = False
+    return effects

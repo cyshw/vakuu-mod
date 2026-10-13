@@ -92,13 +92,34 @@ def load():
     return [json.loads(p.read_text(encoding='utf-8')) for p in sorted(SUITE.glob('*.json'))]
 
 
-def failures(case, decision):
+# Numbers the scorer works out from card text; a failed check on them is only trusted when the
+# score says the whole plan was understood (see replay_eval.score_combat 'certain').
+COMPUTED = {'damage', 'block', 'unblocked', 'block_surplus', 'kills_all', 'dies', 'left_affordable_cards', 'unused_energy'}
+# A plan that stops before drinking counts as holding the potion (a run died that way), so only card
+# text the scorer did not understand makes this one uncertain.
+TEXT_COMPUTED = {'potion_held_when_lethal'}
+
+
+def verdict(case, decision):
+    """(wrong, unsure): checks the answer surely failed, and failed checks the scorer cannot vouch for.
+
+    A plan that stops after a draw, or plays a card whose text the scorer does not model (Hailstorm's
+    condition, evoking orbs), used to count as a wrong answer even when the play was right.
+    """
     result = replay_eval.score(case, decision)
-    wrong = []
+    wrong, unsure = [], []
     for key, check in case['expect'].items():
         op, value = check if isinstance(check, list) else ['=', check]
-        if not CHECKS[op](result.get(key), value): wrong.append(f'{key}={result.get(key)!r}（應 {op} {value!r}）')
-    return wrong
+        if CHECKS[op](result.get(key), value): continue
+        note = f'{key}={result.get(key)!r}（應 {op} {value!r}）'
+        if (result.get(key) is None or (key in COMPUTED and result.get('certain') is False)
+                or (key in TEXT_COMPUTED and result.get('text_known') is False)): unsure.append(note)
+        else: wrong.append(note)
+    return wrong, unsure
+
+
+def failures(case, decision):
+    return verdict(case, decision)[0]
 
 
 # Tags of cases written before mining tagged them, read off their checks.
@@ -163,27 +184,32 @@ def run(args):
         try: return case, replay_eval.decide(args.config, case['state'], as_route(case.get('route'))), None
         except Exception as exc: return case, None, str(exc)
 
-    passed = {}
+    passed = {}  # case id -> one of 'pass', 'fail', 'unsure' per attempt
     def answer(jobs):
         with ThreadPoolExecutor(args.workers) as pool:
             for case, decision, error in pool.map(ask, jobs):
-                wrong = [error] if error else failures(case, decision)
-                passed.setdefault(case['id'], []).append(not wrong)
-                if wrong:
-                    print(f"✗ {case['id']}：{'；'.join(wrong)}")
+                wrong, unsure = ([error], []) if error else verdict(case, decision)
+                passed.setdefault(case['id'], []).append('fail' if wrong else 'unsure' if unsure else 'pass')
+                if wrong or unsure:
+                    print(f"{'✗' if wrong else '?'} {case['id']}：{'；'.join(wrong or unsure)}{'' if wrong else '（評分無法判定）'}")
                     if decision: print('   ', decision['action'], decision['parameters_json'], decision['advice'].replace('\n', ' ')[:160])
     try:
         answer([(case, n) for case in cases for n in range(args.repeat)])
-        failed = [c for c in cases if not all(passed[c['id']])]
+        failed = [c for c in cases if 'fail' in passed[c['id']]]
         if args.retry and failed:  # Only cases that failed are asked again, to tell a fluke from a real miss.
             print(f'\n重考 {len(failed)} 題答錯的，各 {args.retry} 次')
             answer([(case, args.repeat + n) for case in failed for n in range(args.retry)])
     finally:
         save()
-    total = sum(sum(v) for v in passed.values()); asked = sum(len(v) for v in passed.values())
-    print(f'\n{args.config}：{total}/{asked} 通過（{len(cases)} 題，沿用快取 {hits[0]} 次）')
+    count = lambda status, rows: sum(row == status for row in rows)
+    every = [row for rows in passed.values() for row in rows]
+    unsure = count('unsure', every)
+    print(f"\n{args.config}：{count('pass', every)}/{len(every) - unsure} 通過"
+          f"（{len(cases)} 題，另有 {unsure} 次評分無法判定，沿用快取 {hits[0]} 次）")
     for case in cases:
-        print(f"  {sum(passed[case['id']])}/{len(passed[case['id']])}  [{','.join(tags_of(case))}] {case['id']}  {case['note']}")
+        rows = passed[case['id']]
+        doubt = f'，{count("unsure", rows)} 無法判定' if count('unsure', rows) else ''
+        print(f"  {count('pass', rows)}/{len(rows) - count('unsure', rows)}{doubt}  [{','.join(tags_of(case))}] {case['id']}  {case['note']}")
 
 
 def main():
