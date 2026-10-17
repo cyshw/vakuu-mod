@@ -354,14 +354,17 @@ def hand_verdicts(state, facts):
 ENERGY_ICON = r'\[[^\]]*energy[^\]]*\]'
 EFFECT_SENTENCES = [
     ('block_damage', re.compile(r'造成你当前格挡值的伤害')),
-    ('damage_all', re.compile(r'对所有敌人造成(\d+)点伤害(?:(\d+)次)?')),
-    ('damage', re.compile(r'造成(\d+)点伤害(?:(\d+)次)?')),
+    ('evoke', re.compile(r'激发你最右侧的充能球(两次|\d+次)?')),
+    ('damage_all', re.compile(r'对所有敌人造成(\d+)点伤害(?:(\d+)次|(两)次)?')),
+    ('damage', re.compile(r'造成(\d+)点伤害(?:(\d+)次|(两)次)?')),
     ('block', re.compile(r'获得(\d+)点格挡')),
     ('energy', re.compile(r'获得(\d*)((?:' + ENERGY_ICON + r')+)')),
     ('lightning', re.compile(r'生成(\d+)个闪电充能球')),
     ('frost', re.compile(r'生成(\d+)个冰霜充能球')),
+    # No damage or block this turn, but they take orb slots.
+    ('other_orbs', re.compile(r'生成(\d+)个(?:黑暗|等离子)充能球')),
     # No effect on this turn's damage, block or energy.
-    ('none', re.compile(r'消耗|抽\d+张牌|（造成\d+点伤害）|失去\d+点生命|不能被打出|虚无|永恒|固有|保留|在下个回合获得(?:' + ENERGY_ICON + r')+'
+    ('none', re.compile(r'消耗|抽\d+张牌|（造成\d+点伤害）|（抽\d+张牌）|失去\d+点生命|不能被打出|虚无|永恒|固有|保留|在下个回合获得(?:' + ENERGY_ICON + r')+'
                         r'|将一张\S+?(?:加入|添加到)你的弃牌堆中?|在你的弃牌堆中加入一张\S+'
                         r'|将这张牌的一张\d*(?:' + ENERGY_ICON + r')?复制品添加到你的弃牌堆'
                         r'|将弃牌堆中的一张牌放入你的手牌|将你手牌中的全部状态牌变化为燃料')),
@@ -375,8 +378,8 @@ def card_effects(card):
     instead of a wrong verdict, as it did when Lightning orbs finished an enemy or Hailstorm's
     conditional damage was counted.
     """
-    effects = {'damage': 0, 'hits': 1, 'damage_all': 0, 'block': 0, 'energy': 0, 'lightning': 0, 'frost': 0,
-               'block_damage': False, 'complete': True}
+    effects = {'damage': 0, 'hits': 1, 'damage_all': 0, 'block': 0, 'energy': 0, 'lightning': 0, 'frost': 0, 'other_orbs': 0,
+               'block_damage': False, 'evoke': 0, 'complete': True}
     for sentence in re.split(r'[。\n]', str(card.get('description') or '')):
         sentence = re.sub(r'\s+', '', sentence)
         if not sentence: continue
@@ -384,9 +387,11 @@ def card_effects(card):
             match = pattern.fullmatch(sentence)
             if not match: continue
             if name in ('damage', 'damage_all'):
-                effects[name] += int(match[1]); effects['hits'] = int(match[2] or 1)
+                effects[name] += int(match[1]); effects['hits'] = 2 if match[3] else int(match[2] or 1)
             elif name == 'block_damage':
                 effects['block_damage'] = True
+            elif name == 'evoke':
+                effects['evoke'] += 2 if match[1] == '两次' else int(match[1][:-1]) if match[1] else 1
             elif name == 'energy':
                 effects['energy'] += int(match[1]) if match[1] else len(re.findall(ENERGY_ICON, match[2]))
             elif name != 'none':

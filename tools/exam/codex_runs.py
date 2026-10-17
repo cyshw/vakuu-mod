@@ -5,7 +5,8 @@ removed, transformed, upgraded). The deck at any card reward is rebuilt from tha
 question shows the deck the player really had on that floor, not the winning deck it became.
 
     python tools/exam/codex_runs.py fetch --characters IRONCLAD DEFECT --runs 150
-    python tools/exam/codex_runs.py agree --config claude:haiku@low --spots 60
+    python tools/exam/codex_runs.py agree --config claude:haiku@low --spots 300
+    python tools/exam/codex_runs.py agree --config claude:haiku@low --spots 300 --mode free
 
 Act 1 card rewards have no clearly wrong answer in the community's overall card statistics (the
 common cards' win-rate lifts all sit within about one point), so instead of pass/fail cases this
@@ -16,6 +17,16 @@ Measured 2026-10-13 on act 1 rewards: always taking the best-rated card matched 
 300 spots (42% of 300 in won runs, fetched with --wins); Spire Codex's deck-aware pick coach matched
 40% / 42%, no better, so it was not adopted. Haiku matched 38% of 60. A 60-spot sample once showed
 the pick coach 13 points ahead: use 300 spots before trusting a difference of a few points.
+
+--mode top (the default, as in takeover) takes the best-rated card without asking the model; rating
+shows the model only that card to take or skip (29% on seed 7: Haiku skipped 152 of 300); free lets
+it choose among all offers. Skips are scored apart: how many skipped picks the player also skipped,
+and how many of the player's skips were caught.
+
+    python tools/exam/codex_runs.py sweep --spots 300 --seed 7
+
+sweep asks no model: it tries "take the best-rated card unless its score is below N (in a deck of at
+least D cards)" for a grid of N and D, to see whether any plain skip rule beats always taking it.
 """
 import argparse
 import json
@@ -174,9 +185,10 @@ def chosen(decision):
     return json.loads(decision['parameters_json'] or '{}').get('card_index')
 
 
-def agree(config, acts, count, seed, workers):
+def agree(config, acts, count, seed, workers, mode='top'):
     import regression
     import replay_eval
+    replay_eval.engine.CARD_PICK = mode
     sample = spots(acts, count, seed)
     local, save, hits = regression.cached_calls(True)
 
@@ -195,11 +207,38 @@ def agree(config, acts, count, seed, workers):
                 tally['asked'] += 1; tally['same'] += same
                 tally['won'] += item['won']; tally['won_same'] += same and item['won']
                 tally['model_skip'] += pick is None; tally['player_skip'] += item['picked'] is None
+                tally['both_skip'] += pick is None and item['picked'] is None
+                tally['player_took'] += item['picked'] is not None; tally['took_same'] += same and item['picked'] is not None
     finally:
         save()
     rate = lambda a, b: f'{a}/{b} = {a / b:.0%}' if b else '—'
     print(f"\n{config}：與 A10 玩家選擇一致 {rate(tally['same'], tally['asked'])}；勝場 {rate(tally['won_same'], tally['won'])}"
-          f"（跳過：模型 {tally['model_skip']}、玩家 {tally['player_skip']}；錯誤 {tally['error']}；沿用快取 {hits[0]}）")
+          f"（{mode}；錯誤 {tally['error']}；沿用快取 {hits[0]}）")
+    print(f"跳過：模型 {tally['model_skip']} 次，其中玩家也跳過 {rate(tally['both_skip'], tally['model_skip'])}；"
+          f"玩家跳過 {tally['player_skip']} 次，模型抓到 {rate(tally['both_skip'], tally['player_skip'])}")
+    print(f"玩家有拿牌的 {tally['player_took']} 題：選到同一張 {rate(tally['took_same'], tally['player_took'])}")
+
+
+def sweep(acts, count, seed):
+    """Agreement of score-threshold skip rules, computed from the ratings alone."""
+    from deck.advisor import advise
+    rows = []
+    for item in spots(acts, count, seed):
+        ranked = advise(item['state']).get('ranked_cards') or []
+        if not ranked: continue
+        rows.append((ranked[0]['index'], ranked[0].get('score'), len(item['state']['player']['deck']), item['picked']))
+    player_skip = sum(picked is None for *_, picked in rows)
+    print(f'{len(rows)} 題，玩家跳過 {player_skip} 次')
+    print('分數低於  牌組至少  一致率        跳過次數  跳對      抓到玩家跳過')
+    for minimum in (0, 30, 35, 40, 45, 50, 55, 60):
+        for deck in (0, 15, 20):
+            if minimum == 0 and deck: continue
+            same = skips = right = 0
+            for top, score, size, picked in rows:
+                pick = None if score is not None and score < minimum and size >= deck else top
+                same += pick == picked; skips += pick is None; right += pick is None and picked is None
+            print(f'{minimum:>8}  {deck:>8}  {same:>3}/{len(rows)} = {same / len(rows):>4.0%}  {skips:>8}  '
+                  f'{right:>3} ({right / skips if skips else 0:.0%})  {right}/{player_skip}')
 
 
 def main():
@@ -214,11 +253,18 @@ def main():
     p.add_argument('--config', default='claude:haiku@low')
     p.add_argument('--spots', type=int, default=60)
     p.add_argument('--acts', type=int, nargs='+', default=[1])
-    p.add_argument('--seed', type=int, default=1)
+    p.add_argument('--seed', type=int, default=7)
     p.add_argument('--workers', type=int, default=4)
+    p.add_argument('--mode', choices=['top', 'rating', 'free'], default='top',
+                   help='top: best-rated card, no model; rating: model takes or skips it; free: model chooses')
+    p = sub.add_parser('sweep')
+    p.add_argument('--spots', type=int, default=300)
+    p.add_argument('--acts', type=int, nargs='+', default=[1])
+    p.add_argument('--seed', type=int, default=7)
     args = parser.parse_args()
     if args.command == 'fetch': fetch(args.characters, args.runs, args.ascension, args.wins)
-    else: agree(args.config, set(args.acts), args.spots, args.seed, args.workers)
+    elif args.command == 'sweep': sweep(set(args.acts), args.spots, args.seed)
+    else: agree(args.config, set(args.acts), args.spots, args.seed, args.workers, args.mode)
 
 
 if __name__ == '__main__': main()

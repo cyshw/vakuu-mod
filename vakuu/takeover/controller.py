@@ -10,7 +10,7 @@ from combat.search import search_turn, turn_candidates
 from combat.triggers import compact_triggers
 from core import game_api as api
 from core.keywords import pull_keywords
-from core.rules import COMBAT, FIELDS, SCHEMA, allowed_actions, fingerprint, potion_belt_full, still_valid, transitional, validate, waiting_for_teammates
+from core.rules import COMBAT, FIELDS, SCHEMA, allowed_actions, fingerprint, potion_belt_full, program_move, still_valid, transitional, validate, waiting_for_teammates
 from core.screens import combat_choice, execution_busy, has_execution_state, in_fight, same_screen, screen_label
 from core.spire_codex import event_advice, monster_intel
 from deck.advisor import advise
@@ -37,6 +37,25 @@ ACTION_PAUSE = 0.5
 POLL_INTERVAL = 0.25
 CARD_POLL_INTERVAL = 0.1
 CARD_SETTLE_WINDOW = 0.2
+
+# Card rewards: 'top' takes the best-rated card without asking the model; 'rating' shows the model only
+# that card to take or skip; 'free' lets it choose among all offers. On 300 act 1 Spire Codex spots
+# (seed 7) the A10 player's pick was matched 41% by 'top', 34-36% by Haiku in 'free' and 29% in 'rating'
+# (Haiku skipped 152 of 300; players skipped 39). tools/exam/codex_runs.py agree --mode compares them.
+CARD_PICK = 'top'
+
+
+def rating_pick(state, rating):
+    """The best-rated offer the model may only take or skip, or None when ratings cannot choose."""
+    if CARD_PICK not in ('top', 'rating') or rating.get('status') != 'ok' or rating.get('best_scored_index') is None: return None
+    return next(row for row in rating['ranked_cards'] if row['index'] == rating['best_scored_index'])
+
+
+def keep_rating_pick(decision, pick):
+    """The model decides take or skip; a different card it names becomes the rated one."""
+    if decision.get('action') == 'select_card_reward':
+        decision['parameters_json'] = json.dumps({'card_index': pick['index']})
+    return decision
 
 
 class Controller(ModelCalls):
@@ -221,6 +240,11 @@ class Controller(ModelCalls):
 
     def decide(self, state, selection=None):
         self.sync_combat(state)
+        if CARD_PICK == 'top' and state.get('state_type') == 'card_reward':
+            pick = rating_pick(state, advise(state))
+            if pick:
+                return program_move(f"照社群評分，收下 {pick['name']}。\n建議：選 {pick['name']}（{pick['score']} 分，依 Spire Codex 評分）。",
+                                    'select_card_reward', card_index=pick['index'])
         selection = selection or models.settings()
         cached = self.local_search
         result = cached[1] if cached and cached[0] == fingerprint(state) else None
@@ -244,7 +268,16 @@ class Controller(ModelCalls):
         # Deck identities are essential for decisions; pile order is not needed.
         if 'player' in state and 'deck' in state['player']:
             compact['player']['deck'] = deck_summary(state['player']['deck'])
-        if state.get('state_type') == 'card_reward': compact['card_advice'] = advise(state)
+        pick = None
+        if state.get('state_type') == 'card_reward':
+            compact['card_advice'] = advise(state)
+            pick = rating_pick(state, compact['card_advice'])
+            if pick:
+                # Only the rated card is on the table: the question is whether it earns a deck slot.
+                compact['card_advice'] = {**compact['card_advice'], 'ranked_cards': [pick]}
+                reward = compact.get('card_reward') or {}
+                compact['card_reward'] = {**reward, 'cards': [c for c in reward.get('cards') or [] if c.get('index') == pick['index']]}
+                compact['rating_pick'] = {'index': pick['index'], 'name': pick.get('name'), 'score': pick.get('score')}
         if state.get('state_type') == 'shop': compact['shop_card_advice'] = advise(state)
         if state.get('state_type') == 'map':
             compact['route_facts'] = route_facts(state)
@@ -304,7 +337,8 @@ class Controller(ModelCalls):
         actions = {a: sorted(FIELDS[a]) for a in sorted(allowed_actions(state))}
         prompt = (instructions() + '\n目前畫面可用動作與參數：' + json.dumps(actions, ensure_ascii=False)
                   + '\n遊戲狀態：' + json.dumps(compact, ensure_ascii=False))
-        return self.call_model(prompt, SCHEMA, selection)
+        decision = self.call_model(prompt, SCHEMA, selection)
+        return keep_rating_pick(decision, pick) if pick else decision
 
     def local_decision(self, state, plan, opened_cards, takeover, draining=False):
         """Priority: selected queue, forced actions, search, rest/route, ordinary queue."""

@@ -48,7 +48,15 @@ public static partial class McpMod
         "TUNING_FORK", "RUNIC_PYRAMID", "BLACK_STAR", "HORN_CLEAT", "MERCURY_HOURGLASS",
         "ARCANE_SCROLL", "MUMMIFIED_HAND", "GORGET", "RADIANT_PEARL", "UNCEASING_TOP",
         "BAG_OF_MARBLES", "VAJRA", "DIAMOND_DIADEM", "FRAGRANT_MUSHROOM", "ANCHOR",
-        "CENTENNIAL_PUZZLE", "WAR_PAINT", "STONE_CRACKER"
+        "CENTENNIAL_PUZZLE", "WAR_PAINT", "STONE_CRACKER",
+        // Combat relics without a pickup choice; counters (Pen Nib, Happy Flower) start at 0 in the lab.
+        "BAG_OF_PREPARATION", "HAPPY_FLOWER", "STRIKE_DUMMY", "PENDULUM", "RED_MASK",
+        "ODDLY_SMOOTH_STONE", "LANTERN", "BLOOD_VIAL", "BRONZE_SCALES", "FESTIVE_POPPER",
+        "VAMBRACE", "ORICHALCUM", "CANDELABRA", "PANTOGRAPH", "LETTER_OPENER",
+        "RIPPLE_BASIN", "PAELS_BLOOD", "SPARKLING_ROUGE", "ORNAMENTAL_FAN", "DATA_DISK",
+        "REPTILE_TRINKET", "AKABEKO", "PERMAFROST", "RED_SKULL", "PEN_NIB",
+        "GREMLIN_HORN", "POCKETWATCH", "NUNCHAKU", "MINIATURE_CANNON", "JOSS_PAPER",
+        "CLOAK_CLASP", "CHANDELIER", "PARRYING_SHIELD", "BOOMING_CONCH"
     };
     private static readonly List<JsonElement> _labEvents = new();
     private static readonly HashSet<GameAction> _labSeen = new();
