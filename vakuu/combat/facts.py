@@ -56,6 +56,7 @@ def combat_facts(state):
         **tempo_facts(enemies, player, incoming, block + orbs.get('block', 0), loss),
         **({'stun_thresholds': stuns} if (stuns := stun_thresholds(enemies)) else {}),
         **({'max_hp_lost_to_unblocked_hits': cuts} if (cuts := max_hp_cuts(enemies)) and loss else {}),
+        **({'steam_eruption': steam} if (steam := steam_eruptions(enemies, player)) else {}),
         'energy': player.get('energy'),
         'hand_end_of_turn_rule': ('符文金字塔使未打出的手牌不因回合結束而棄掉；虛無等效果仍依描述處理。' if retain_hand else
                                   '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。'),
@@ -100,6 +101,28 @@ def max_hp_cuts(enemies):
         if hits:
             found.append({'enemy': enemy.get('entity_id'), 'hits': hits, 'max_hp_lost_if_all_unblocked': cut * hits,
                           'rule': f'它每一段沒擋下的攻擊都會讓你永久失去 {cut} 點最大生命；這回合優先把它的攻擊擋滿，格擋不會浪費'})
+    return found
+
+STEAM = {'STEAM_ERUPTION_POWER'}  # Damage dealt at the end of your next turn after this enemy is killed.
+STEAM_PER_TURN = 3
+
+def steam_eruptions(enemies, player):
+    """The blast a Waterfall Giant leaves when killed, and the block it will take to live through.
+
+    Haiku brought the Giant to 4 HP with 27 HP left and then would not kill it for seven turns "to avoid
+    the blast"; the blast grew from 48 to 69, the stalling cost 17 HP, and the kill at 10 HP was fatal.
+    """
+    found = []
+    for enemy in enemies:
+        blast = sum(p.get('amount') or 0 for p in enemy.get('status') or []
+                    if str(p.get('id') or '').split('.')[-1] in STEAM)
+        if not blast: continue
+        weak = any(str(p.get('id') or '').split('.')[-1] == 'WEAK_POWER' for p in enemy.get('status') or [])
+        found.append({'enemy': enemy.get('entity_id'), 'blast_if_killed_now': blast, 'grows_each_turn': STEAM_PER_TURN,
+                      'block_needed_next_turn_if_killed_now': max(0, blast - (player.get('hp') or 0) + 1),
+                      **({'enemy_weak_now': True} if weak else {}),
+                      'rule': f'打死它後，你下一回合結束時受 {blast} 點傷害（它有虛弱時少 25%），它那回合不行動，整回合能量都能拿來格擋；'
+                              f'每拖一回合爆炸 +{STEAM_PER_TURN}，還要多挨一次攻擊。不要為了躲爆炸而不殺它：能打死就打死，下回合全力格擋'})
     return found
 
 # Enemy powers that stun the enemy and strip its Strength the first time its HP falls to the amount.

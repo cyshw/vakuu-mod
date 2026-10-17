@@ -1,0 +1,631 @@
+{
+ "id": "auto-1017-1841#57",
+ "type": "combat",
+ "note": "頭目瀑布巨兽剩13血、蒸汽45，上勾拳+就能打死（還帶虛弱減爆炸）；原本怕爆炸只打擊留血，之後拖7回合爆炸漲到69被炸死",
+ "expect": {
+  "kills_all": [
+   "=",
+   true
+  ]
+ },
+ "original": {
+  "advice": "你想一刀了结它，蒸汽却会在你的下回合末算账。\n建议：先用打击把它压到约4点血，不要用上勾拳+补刀；再打两张防御+挡下11点攻击，共18点格挡，血量保持27。打死它之后要在下回合结束前承受约45点蒸汽伤害，你现在扛不住，之后要先攒好格挡或血量再收尾。",
+  "stop": false,
+  "action": "play_card",
+  "parameters_json": "{\"card_index\":3,\"target\":\"WATERFALL_GIANT_0\"}",
+  "next_cards": [
+   {
+    "hand_index": 2,
+    "target": "",
+    "potion_slot": -1
+   },
+   {
+    "hand_index": 1,
+    "target": "",
+    "potion_slot": -1
+   },
+   {
+    "hand_index": -1,
+    "target": "",
+    "potion_slot": -1
+   }
+  ],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "execution": {
+   "queue_empty": true,
+   "running": false
+  },
+  "state_type": "boss",
+  "battle": {
+   "round": 12,
+   "turn": "player",
+   "is_play_phase": true,
+   "enemies": [
+    {
+     "entity_id": "WATERFALL_GIANT_0",
+     "combat_id": 1,
+     "name": "瀑布巨兽",
+     "hp": 13,
+     "max_hp": 240,
+     "block": 0,
+     "status": [
+      {
+       "id": "VULNERABLE_POWER",
+       "name": "易伤",
+       "amount": 5,
+       "type": "Debuff",
+       "description": "5回合内，受到的攻击伤害增加50%。",
+       "keywords": []
+      },
+      {
+       "id": "STEAM_ERUPTION_POWER",
+       "name": "蒸汽喷发",
+       "amount": 45,
+       "type": "Buff",
+       "description": "被击杀时，在你的下一回合结束时造成45点伤害。",
+       "keywords": []
+      },
+      {
+       "id": "WEAK_POWER",
+       "name": "虚弱",
+       "amount": 1,
+       "type": "Debuff",
+       "description": "1回合内，造成的攻击伤害减少25%。",
+       "keywords": []
+      }
+     ],
+     "intents": [
+      {
+       "type": "Attack",
+       "label": "11",
+       "title": "攻势",
+       "description": "这个敌人将要攻击造成11点伤害。"
+      },
+      {
+       "type": "Debuff",
+       "label": "",
+       "title": "策略",
+       "description": "这个敌人将要对你施加一个负面效果。"
+      },
+      {
+       "type": "Buff",
+       "label": "",
+       "title": "强化",
+       "description": "这个敌人将要使用一个强化效果。"
+      }
+     ]
+    }
+   ]
+  },
+  "run": {
+   "act": 1,
+   "floor": 17,
+   "ascension": 3
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得10点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "灵巧",
+       "description": "这张牌获得的格挡值增加2点。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得8点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成10点伤害。 给予3层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "HEADBUTT",
+     "name": "头槌",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 将你弃牌堆中的一张牌放到抽牌堆顶部。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "EVIL_EYE",
+     "name": "邪眼",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得8点格挡。 如果你在本回合消耗过卡牌，则额外获得8点格挡。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "UPPERCUT",
+     "name": "上勾拳+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成13点伤害。 给予2层虚弱。 给予2层易伤。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "SWORD_BOOMERANG",
+     "name": "飞剑回旋镖",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "随机对敌人造成3点伤害3次。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "RUPTURE",
+     "name": "撕裂",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每当你在你的回合失去生命值时, 获得1点力量。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      }
+     ]
+    },
+    {
+     "id": "REBOUND",
+     "name": "弹回",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 将你在本回合打出的下一张牌放置到你的抽牌堆顶部。",
+     "rarity": "Event",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "FORGOTTEN_RITUAL",
+     "name": "被遗忘的仪式",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得[ironclad_energy_icon.png][ironclad_energy_icon.png][ironclad_energy_icon.png]。 消耗。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    }
+   ],
+   "hp": 27,
+   "max_hp": 80,
+   "block": 0,
+   "energy": 3,
+   "max_energy": 3,
+   "hand": [
+    {
+     "id": "EVIL_EYE",
+     "name": "邪眼",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得8点格挡。 如果你在本回合消耗过卡牌，则额外获得8点格挡。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ],
+     "index": 0,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得8点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ],
+     "index": 1,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得10点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "灵巧",
+       "description": "这张牌获得的格挡值增加2点。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ],
+     "index": 2,
+     "target_type": "Self",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [],
+     "index": 3,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "UPPERCUT",
+     "name": "上勾拳+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成13点伤害。 给予2层虚弱。 给予2层易伤。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ],
+     "index": 4,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    }
+   ],
+   "draw_pile_count": 9,
+   "discard_pile_count": 0,
+   "exhaust_pile_count": 1,
+   "draw_pile": [
+    {
+     "name": "痛击+",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成10点伤害。 给予3层易伤。"
+    },
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。"
+    },
+    {
+     "name": "头槌",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 将你弃牌堆中的一张牌放到抽牌堆顶部。"
+    },
+    {
+     "name": "飞剑回旋镖",
+     "cost": "1",
+     "star_cost": null,
+     "description": "随机对敌人造成3点伤害3次。"
+    },
+    {
+     "name": "弹回",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成13点伤害。 将你在本回合打出的下一张牌放置到你的抽牌堆顶部。"
+    }
+   ],
+   "discard_pile": [],
+   "exhaust_pile": [
+    {
+     "name": "被遗忘的仪式",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得[ironclad_energy_icon.png][ironclad_energy_icon.png][ironclad_energy_icon.png]。 消耗。"
+    }
+   ],
+   "gold": 412,
+   "status": [
+    {
+     "id": "RUPTURE_POWER",
+     "name": "撕裂",
+     "amount": 1,
+     "type": "Buff",
+     "description": "每当你在自身回合失去生命时，获得1点力量。",
+     "keywords": [
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      }
+     ]
+    }
+   ],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "NEW_LEAF",
+     "name": "新叶",
+     "description": "拾起时，变化1张牌。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "变化",
+       "description": "卡牌被变化时会变成任意稀有度的随机牌。"
+      }
+     ]
+    },
+    {
+     "id": "HORN_CLEAT",
+     "name": "船夹板",
+     "description": "在你的第二回合开始时，获得14点格挡。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "potions": [
+    {
+     "id": "GLOWWATER_POTION",
+     "name": "发光水",
+     "description": "消耗你的手牌。抽10张牌。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "REGEN_POTION",
+     "name": "再生药水",
+     "description": "获得5层再生。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "再生",
+       "description": "再生会在你的回合结束时回复相应生命。每回合再生的数值会减少1。"
+      }
+     ]
+    },
+    {
+     "id": "MAZALETHS_GIFT",
+     "name": "马萨雷斯的赠礼",
+     "description": "获得1层仪式。",
+     "slot": 2,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "仪式",
+       "description": "在你的回合结束时获得力量。"
+      },
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      }
+     ]
+    }
+   ],
+   "max_potion_slots": 3
+  }
+ },
+ "tags": [
+  "steam"
+ ]
+}
