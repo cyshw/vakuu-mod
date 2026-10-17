@@ -26,6 +26,13 @@
 - `tests`：自動化測試。
 - `scripts`：建置、測試與安裝工具。
 - `tools`：開發測試工具：`takeover_log.py` 用磁碟上的最新程式接手並記錄每一步（不必重開遊戲），`exam/`（`regression.py` 考題集、`mine_exam.py` 從紀錄挖題、`replay_eval.py`）把紀錄中的局面重播給多個模型設定並自動評分（不必開遊戲、可直接比較），`reload_room.py` 強制重啟遊戲並按「繼續」，重打目前房間（可用來比較不同設定，死亡後存檔會被刪除，無法重打）。
+- 測試與評估（`tools/exam/`，都不需要開遊戲，除非另外註明）：
+  - `regression.py run --config claude:haiku@low`：考題集（`tests/regression/`），`--quick 2` 每類抽 2 題、`--tags` 指定類別。評分只在完整理解計畫時判錯；看不懂的牌或沒排完的回合列為「無法判定」，不算答錯。
+  - `large.py mine` / `large.py run`：從紀錄挖出的大題組，放在 `vakuu/button-runtime/exam-large/`，不進 git，也不拖慢單元測試。
+  - `codex_runs.py fetch` / `agree`：下載 Spire Codex 社群對局，還原每層牌組，量選卡跟 A10 玩家的一致率（同一批 300 題，`--seed 7`）；`sweep` 不呼叫模型，測跳過規則。
+  - `fight_bench.py sample` / `run` / `report`（**需要開遊戲**）：用練習工具重建社群對局裡的整場戰鬥，讓模型打完，跟真人比較掉血、回合數與死亡。`run --label` 可在改程式後重跑同一批比較。
+- 牌組打法（`vakuu/deck/playbook.py`）：每副牌由 Sol 寫一次「這副牌怎麼打」，存在 `button-runtime/playbooks/`，每回合附給模型。遊戲面板的接手預設開啟；`takeover_log.py` / `autoplay.py` 用 `--playbook codex:gpt-6.1-sol@low` 開啟。
+- 敵人筆記（`vakuu/combat/enemy_notes.md`）：特定敵人的打法，出現該敵人時附給模型；能用程式算的機制（擊暈門檻、吃最大血量、回合結束扣血的牌）另外算在 `combat_facts`。
 - `docs/DEPENDENCIES.md`：外部來源、固定版本與重建需求。
 
 這裡是後續維護的原始碼倉庫，遊戲目前也使用這裡的 Python 程式；上層原本的 outputs 資料夾是舊部署副本，不再使用。Python 修改在遊戲重開後載入，C# 修改需要重建與安裝，再重開遊戲。
