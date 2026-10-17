@@ -54,6 +54,8 @@ def project_route(rooms, hp, max_hp, damage):
             'boss_average_damage': round(damage['boss']),
             'hp_after_boss_if_average': round((curve[-1] if curve else hp) - damage['boss'])}
 
+ELITE_ARRIVAL_FLOOR = 0.5  # Share of max HP below which arriving at a route's first elite is flagged.
+
 BOSS_NEAR_ROOMS = 6  # Rooms left before the boss at which projections are trusted for the last elite.
 
 BOSS_SPARE = 0.2  # HP share an average boss fight should leave for the last elite to be worth it.
@@ -147,6 +149,15 @@ def route_facts(state):
         risky = route['projected']['hp_after_boss_if_average'] < BOSS_SPARE * (player.get('max_hp') or 1)
         if len(before_boss) <= BOSS_NEAR_ROOMS and any(r['type'] == 'Elite' for r in before_boss) and risky:
             route['elite_too_risky_before_boss'] = True
+        # The HP the route arrives at its first elite with, not the HP now: at 55/80 Haiku took a branch
+        # forcing an elite three fights later ("69% HP, manageable"), arrived with 35 and died.
+        first = route['first_elite_at_room']
+        if first:
+            arrival = route['projected']['hp_by_room'][first - 2] if first > 1 else player.get('hp') or 0
+            if arrival < ELITE_ARRIVAL_FLOOR * (player.get('max_hp') or 1):
+                route['elite_reached_below_half_hp'] = {
+                    'hp_on_arrival': round(arrival),
+                    'rule': '照平均掉血，走到這條路的第一個菁英時血量不到一半；有其他路線可選時不要選這條'}
     facts = {'hp_ratio': round((player.get('hp') or 0) / (player.get('max_hp') or 1), 2), 'options': [],
              'expected_damage_per_room': damage, 'candidate_routes': routes}
     for option in world.get('next_options') or []:

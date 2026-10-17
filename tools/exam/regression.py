@@ -63,7 +63,7 @@ def played_route(path, case):
     for line in open(path, encoding='utf-8'):
         record = json.loads(line)
         if record['kind'] == 'state': last = record['state']
-        elif record['kind'] == 'model' and last and last.get('state_type') == 'map' and record['decision'].get('next_nodes'):
+        elif record['kind'] == 'model' and last and last.get('state_type') == 'map' and record['decision'].get('action') == 'choose_map_node':
             drawn = (last, record['decision'])
         if record['kind'] == 'model' and last is not None and replay_eval.fingerprint(last) == replay_eval.fingerprint(case['state']):
             break

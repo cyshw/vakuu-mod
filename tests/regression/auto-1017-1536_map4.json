@@ -1,0 +1,1098 @@
+{
+ "id": "auto-1017-1536#map4",
+ "type": "map",
+ "tags": [
+  "route"
+ ],
+ "note": "第4層 55/80：舊路線走進只通往菁英的分支（3房後被迫打菁英，進場35血死亡），另兩條路13房內都沒有菁英",
+ "expect": {
+  "rooms_before_elite": [
+   ">=",
+   4
+  ]
+ },
+ "original": {
+  "advice": "（程式照第1層畫的路線前進）",
+  "stop": false,
+  "action": "choose_map_node",
+  "parameters_json": "{\"index\": 0}",
+  "next_cards": [],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "state_type": "map",
+  "map": {
+   "current_position": {
+    "col": 3,
+    "row": 3,
+    "type": "Monster"
+   },
+   "visited": [
+    {
+     "col": 3,
+     "row": 0,
+     "type": "Ancient"
+    },
+    {
+     "col": 4,
+     "row": 1,
+     "type": "Monster"
+    },
+    {
+     "col": 4,
+     "row": 2,
+     "type": "Monster"
+    },
+    {
+     "col": 3,
+     "row": 3,
+     "type": "Monster"
+    }
+   ],
+   "next_options": [
+    {
+     "index": 0,
+     "col": 2,
+     "row": 4,
+     "type": "Monster",
+     "leads_to": [
+      {
+       "col": 2,
+       "row": 5,
+       "type": "Unknown"
+      }
+     ]
+    },
+    {
+     "index": 1,
+     "col": 3,
+     "row": 4,
+     "type": "Unknown",
+     "leads_to": [
+      {
+       "col": 4,
+       "row": 5,
+       "type": "Unknown"
+      }
+     ]
+    },
+    {
+     "index": 2,
+     "col": 4,
+     "row": 4,
+     "type": "Monster",
+     "leads_to": [
+      {
+       "col": 4,
+       "row": 5,
+       "type": "Unknown"
+      }
+     ]
+    }
+   ],
+   "nodes": [
+    {
+     "col": 3,
+     "row": 0,
+     "type": "Ancient",
+     "children": [
+      [
+       0,
+       1
+      ],
+      [
+       4,
+       1
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 2,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 3,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 5,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 6,
+     "type": "Elite",
+     "children": [
+      [
+       0,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 7,
+     "type": "Unknown",
+     "children": [
+      [
+       0,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 8,
+     "type": "Unknown",
+     "children": [
+      [
+       0,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 9,
+     "type": "Treasure",
+     "children": [
+      [
+       0,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 10,
+     "type": "Monster",
+     "children": [
+      [
+       0,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 11,
+     "type": "Shop",
+     "children": [
+      [
+       0,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 12,
+     "type": "RestSite",
+     "children": [
+      [
+       0,
+       13
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 13,
+     "type": "Elite",
+     "children": [
+      [
+       0,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 14,
+     "type": "Unknown",
+     "children": [
+      [
+       0,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 0,
+     "row": 15,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       16
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 5,
+     "type": "Unknown",
+     "children": [
+      [
+       2,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 6,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 7,
+     "type": "Elite",
+     "children": [
+      [
+       2,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 8,
+     "type": "RestSite",
+     "children": [
+      [
+       2,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 2,
+     "row": 9,
+     "type": "Treasure",
+     "children": [
+      [
+       3,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 3,
+     "type": "Monster",
+     "children": [
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 4,
+     "type": "Unknown",
+     "children": [
+      [
+       4,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 8,
+     "type": "Elite",
+     "children": [
+      [
+       4,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 10,
+     "type": "RestSite",
+     "children": [
+      [
+       4,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 1,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       2
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 2,
+     "type": "Monster",
+     "children": [
+      [
+       3,
+       3
+      ],
+      [
+       5,
+       3
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 4,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 5,
+     "type": "Unknown",
+     "children": [
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 6,
+     "type": "Elite",
+     "children": [
+      [
+       4,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 7,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 8,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 9,
+     "type": "Treasure",
+     "children": [
+      [
+       4,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 10,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 11,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       12
+      ],
+      [
+       5,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 12,
+     "type": "Shop",
+     "children": [
+      [
+       4,
+       13
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 13,
+     "type": "Elite",
+     "children": [
+      [
+       4,
+       14
+      ],
+      [
+       5,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 14,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 4,
+     "row": 15,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       16
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 3,
+     "type": "Unknown",
+     "children": [
+      [
+       4,
+       4
+      ],
+      [
+       6,
+       4
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 6,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 7,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 8,
+     "type": "Elite",
+     "children": [
+      [
+       6,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 9,
+     "type": "Treasure",
+     "children": [
+      [
+       4,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 10,
+     "type": "RestSite",
+     "children": [
+      [
+       5,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 11,
+     "type": "Monster",
+     "children": [
+      [
+       5,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 12,
+     "type": "Monster",
+     "children": [
+      [
+       4,
+       13
+      ],
+      [
+       6,
+       13
+      ]
+     ]
+    },
+    {
+     "col": 5,
+     "row": 14,
+     "type": "Unknown",
+     "children": [
+      [
+       4,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 4,
+     "type": "Unknown",
+     "children": [
+      [
+       6,
+       5
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 5,
+     "type": "Shop",
+     "children": [
+      [
+       6,
+       6
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 6,
+     "type": "Elite",
+     "children": [
+      [
+       5,
+       7
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 8,
+     "type": "Unknown",
+     "children": [
+      [
+       6,
+       9
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 9,
+     "type": "Treasure",
+     "children": [
+      [
+       5,
+       10
+      ],
+      [
+       6,
+       10
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 10,
+     "type": "Unknown",
+     "children": [
+      [
+       5,
+       11
+      ],
+      [
+       6,
+       11
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 11,
+     "type": "RestSite",
+     "children": [
+      [
+       5,
+       12
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 13,
+     "type": "Unknown",
+     "children": [
+      [
+       5,
+       14
+      ],
+      [
+       6,
+       14
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 14,
+     "type": "Monster",
+     "children": [
+      [
+       6,
+       15
+      ]
+     ]
+    },
+    {
+     "col": 6,
+     "row": 15,
+     "type": "RestSite",
+     "children": [
+      [
+       3,
+       16
+      ]
+     ]
+    },
+    {
+     "col": 3,
+     "row": 16,
+     "type": "Boss",
+     "children": [],
+     "id": "WATERFALL_GIANT_BOSS",
+     "name": "瀑布巨兽"
+    }
+   ],
+   "boss": {
+    "col": 3,
+    "row": 16,
+    "id": "WATERFALL_GIANT_BOSS",
+    "name": "瀑布巨兽"
+   },
+   "bosses": [
+    {
+     "col": 3,
+     "row": 16,
+     "id": "WATERFALL_GIANT_BOSS",
+     "name": "瀑布巨兽"
+    }
+   ]
+  },
+  "run": {
+   "act": 1,
+   "floor": 4,
+   "ascension": 3
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成8点伤害。 给予2层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "TAUNT",
+     "name": "挑衅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得6点格挡。 给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "THUNDERCLAP",
+     "name": "闪电霹雳",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "对所有敌人造成4点伤害，给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "BODY_SLAM",
+     "name": "全身撞击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成你当前格挡值的伤害。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "hp": 55,
+   "max_hp": 80,
+   "block": 0,
+   "gold": 135,
+   "status": [],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "PHIAL_HOLSTER",
+     "name": "药瓶皮套",
+     "description": "拾起时，获得1个药水栏位并获得2瓶随机药水。",
+     "counter": null,
+     "keywords": []
+    }
+   ],
+   "potions": [
+    {
+     "id": "STRENGTH_POTION",
+     "name": "力量药水",
+     "description": "获得2点力量。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      }
+     ]
+    },
+    {
+     "id": "CLARITY",
+     "name": "明晰提取物",
+     "description": "抽1张牌。在你的下3个回合开始时，额外抽1张牌。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    },
+    {
+     "id": "EXPLOSIVE_AMPOULE",
+     "name": "爆炸安瓿",
+     "description": "对所有敌人造成10点伤害。",
+     "slot": 2,
+     "can_use_in_combat": true,
+     "target_type": "AllEnemies",
+     "keywords": []
+    },
+    {
+     "id": "HEART_OF_IRON",
+     "name": "铁心药水",
+     "description": "获得7层覆甲。",
+     "slot": 3,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": [
+      {
+       "name": "覆甲",
+       "description": "在你的回合结束时获得格挡。覆甲会在你的回合开始时减少1层。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "max_potion_slots": 4
+  }
+ }
+}
