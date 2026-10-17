@@ -35,6 +35,7 @@ def combat_facts(state):
     if exhaust_block:
         end_defense = {**end_defense, 'exhaust_block': exhaust_block, 'block': end_defense.get('block', 0) + exhaust_block}
     loss = max(0, incoming - block - orbs.get('block', 0) - end_defense.get('block', 0))
+    held_loss = sum(hand_end_loss(c) for c in player.get('hand') or [])
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
         **({'card_trigger_counts': triggers} if (triggers := trigger_facts(player)) else {}),
@@ -49,7 +50,9 @@ def combat_facts(state):
         'current_block': block,
         'block_needed_for_no_damage': loss,
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
-        'lethal_if_no_more_block': loss >= hp > 0,
+        # Cards that cost HP if still held at the end of the turn (Beckon) count too: block cannot stop them.
+        **({'hp_lost_to_cards_held_at_end_of_turn': held_loss} if held_loss else {}),
+        'lethal_if_no_more_block': loss + held_loss >= hp > 0,
         **tempo_facts(enemies, player, incoming, block + orbs.get('block', 0), loss),
         **({'stun_thresholds': stuns} if (stuns := stun_thresholds(enemies)) else {}),
         'energy': player.get('energy'),
@@ -69,6 +72,13 @@ def combat_facts(state):
         **potion_facts(state, loss),
         'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環／無懼疼痛虛無消耗。其他未知觸發另計。',
     }
+
+HELD_LOSS = re.compile(r'在你的回合结束时，如果这张牌在你的手牌中，\s*你失去(\d+)点生命')
+
+def hand_end_loss(card):
+    """HP a card costs if it is still in hand when the turn ends (the Soul Fysh's Beckon: 6)."""
+    match = HELD_LOSS.search(re.sub(r'\s+', '', str(card.get('description') or '')).replace('，你', '，你'))
+    return int(match[1]) if match else 0
 
 # Enemy powers that stun the enemy and strip its Strength the first time its HP falls to the amount.
 STUN_AT_HP = {'PLOW_POWER'}
@@ -364,6 +374,19 @@ def card_effects(card):
 
 
 BLOCK_DAMAGE = '造成你当前格挡值的伤害'
+
+def play_notes(state):
+    """Cards worth playing just to get them out of hand, keyed by hand index.
+
+    An Ironclad run died to its act 1 boss at 4 HP holding two Beckons ("lose 6 HP at the end of your
+    turn if this is in your hand") with 2 energy left to play both: its own hand dealt the last 12.
+    """
+    notes = {}
+    for card in (state.get('player') or {}).get('hand') or []:
+        loss = hand_end_loss(card)
+        if loss and card.get('can_play'):
+            notes[card.get('index')] = f'回合結束還在手上會失去 {loss} 點生命（格擋擋不住）；打掉它（{card.get("cost")} 費）就不會扣血'
+    return notes
 
 def block_damage_notes(state):
     """For Body Slam-like cards, the damage after first playing the best block the energy allows.

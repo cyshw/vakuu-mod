@@ -20,7 +20,7 @@ SOURCE = Path(__file__).resolve().parents[2] / 'vakuu'
 sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402
-from combat.facts import card_cost, card_effects, combat_facts, gives_energy_now, hand_verdicts, incoming_damage, wastes_energy_card  # noqa: E402
+from combat.facts import card_cost, card_effects, combat_facts, gives_energy_now, hand_end_loss, hand_verdicts, incoming_damage, wastes_energy_card  # noqa: E402
 from combat.search import evaluate_sequence  # noqa: E402
 from route.facts import route_facts  # noqa: E402
 from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
@@ -152,6 +152,8 @@ def score_combat(state, decision):
             'dies': (unblocked >= (player.get('hp') or 0)) if ends and not invalid else None,
             'wasted_energy_card': any(wastes_energy_card(state, c) for c in cards),
             'drank_potion': bool(drunk_potions(decision)),
+            # HP the plan loses to cards it leaves in hand that cost HP at the end of the turn (Beckon).
+            'held_card_hp_loss': sum(hand_end_loss(c) for c in player.get('hand') or [] if id(c) not in played) if ends else None,
             # Played a card the prompt marked skip_this_turn (wasted energy, block not needed).
             'played_skipped_card': any(c.get('index') in hand_verdicts(state, facts) for c in cards),
             # Every living enemy dies to the plan's damage and end-of-turn orbs.
