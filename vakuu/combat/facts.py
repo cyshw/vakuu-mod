@@ -55,6 +55,7 @@ def combat_facts(state):
         'lethal_if_no_more_block': loss + held_loss >= hp > 0,
         **tempo_facts(enemies, player, incoming, block + orbs.get('block', 0), loss),
         **({'stun_thresholds': stuns} if (stuns := stun_thresholds(enemies)) else {}),
+        **({'max_hp_lost_to_unblocked_hits': cuts} if (cuts := max_hp_cuts(enemies)) and loss else {}),
         'energy': player.get('energy'),
         'hand_end_of_turn_rule': ('符文金字塔使未打出的手牌不因回合結束而棄掉；虛無等效果仍依描述處理。' if retain_hand else
                                   '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。'),
@@ -79,6 +80,27 @@ def hand_end_loss(card):
     """HP a card costs if it is still in hand when the turn ends (the Soul Fysh's Beckon: 6)."""
     match = HELD_LOSS.search(re.sub(r'\s+', '', str(card.get('description') or '')).replace('，你', '，你'))
     return int(match[1]) if match else 0
+
+HITS = re.compile(r'\d+\s*[x×*]\s*(\d+)')
+MAX_HP_CUT = {'PAPER_CUTS_POWER'}  # Each unblocked hit from this enemy removes `amount` max HP.
+
+def max_hp_cuts(enemies):
+    """Max HP this turn's attacks take for good if they land unblocked (Scroll of Biting: 2 a hit).
+
+    An Ironclad run lost 14 max HP to two Scroll of Biting fights in act 3 (80 to 66) and then could
+    not survive the boss; the tempo hint had said HP was high enough to skip block.
+    """
+    found = []
+    for enemy in enemies:
+        cut = sum(p.get('amount') or 0 for p in enemy.get('status') or []
+                  if str(p.get('id') or '').split('.')[-1] in MAX_HP_CUT)
+        if not cut: continue
+        hits = sum(int(m[1]) if (m := HITS.search(str(i.get('label') or ''))) else 1
+                   for i in enemy.get('intents') or [] if deals_damage(i))
+        if hits:
+            found.append({'enemy': enemy.get('entity_id'), 'hits': hits, 'max_hp_lost_if_all_unblocked': cut * hits,
+                          'rule': f'它每一段沒擋下的攻擊都會讓你永久失去 {cut} 點最大生命；這回合優先把它的攻擊擋滿，格擋不會浪費'})
+    return found
 
 # Enemy powers that stun the enemy and strip its Strength the first time its HP falls to the amount.
 STUN_AT_HP = {'PLOW_POWER'}
@@ -113,6 +135,8 @@ def tempo_facts(enemies, player, incoming, covered, loss):
     """
     hp, max_hp = player.get('hp') or 0, player.get('max_hp') or 0
     facts = {}
+    # Against Scroll of Biting every unblocked hit also costs max HP for good: block is never wasted.
+    if max_hp_cuts(enemies): return facts
     if incoming and covered > incoming:
         facts['block_surplus'] = covered - incoming
         facts['block_surplus_rule'] = '格擋已超過敵人本回合攻擊，不要再補格擋，剩下能量改打傷害'
