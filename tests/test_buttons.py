@@ -716,3 +716,23 @@ class Tests(unittest.TestCase):
         self.assertIsNone(route_plans.route_decision(route,at(0,1,'RestSite',60,[0,1])))  # Rethink after a rest site.
 
 if __name__=='__main__': unittest.main()
+
+
+class SetupPotionTests(unittest.TestCase):
+    def fight(self, kind='boss', round_=1, potions=None):
+        return {'state_type': kind, 'battle': {'round': round_, 'turn': 'player', 'is_play_phase': True, 'enemies': []},
+                'player': {'hand': [], 'potions': potions if potions is not None else [
+                    {'slot': 0, 'name': '火焰药水', 'description': '对一名敌人造成20点伤害。', 'target_type': 'AnyEnemy'},
+                    {'slot': 2, 'name': '力量药水', 'description': '获得2点力量。', 'target_type': 'AnyPlayer'}]}}
+
+    def test_boss_first_turn_drinks_the_buff_potion(self):
+        decision = plans.auto_decision(self.fight())
+        self.assertEqual((decision['action'], json.loads(decision['parameters_json'])), ('use_potion', {'slot': 2}))
+
+    def test_only_first_turn_of_hard_fights(self):
+        self.assertIsNone(plans.setup_potion(self.fight(round_=2)))
+        self.assertIsNone(plans.setup_potion(self.fight(kind='monster')))
+        self.assertIsNone(plans.setup_potion({**self.fight(), 'game_mode': 'multiplayer'}))
+        self.assertIsNone(plans.setup_potion(self.fight(potions=[
+            {'slot': 1, 'name': '格挡药水', 'description': '获得12点格挡。', 'target_type': 'AnyPlayer'}])))
+

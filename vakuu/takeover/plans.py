@@ -1,7 +1,7 @@
 """Moves takeover makes without the model: forced moves, and the rest of a planned turn or shopping list."""
 import json
 from collections import Counter
-from combat.facts import wastes_energy_card
+from combat.facts import SETUP_POTION, wastes_energy_card
 from combat.relics import after_card_relics
 from combat.triggers import after_card_triggers
 from core.rules import COMBAT, END_TURN, LEAVE_SHOP, hand_selection_complete, program_move, selection_complete
@@ -146,10 +146,31 @@ def plan_decision(plan, state):
 # decent card bloats the deck, so weaker winners go to the model, which may skip.
 AUTO_PICK_MIN_SCORE = 60
 
+def setup_potion(state):
+    """A buff potion to drink on the first turn of an elite or boss fight, or None.
+
+    The prompt said to drink Strength and similar potions in the first turns of hard fights; Haiku
+    still held Strength and Blessing of the Forge through an 11-turn act 2 boss and died with them,
+    and in the exam it drank them one time in three. Their value only shrinks with every turn held.
+    """
+    if state.get('state_type') not in ('elite', 'boss') or state.get('game_mode') == 'multiplayer': return None
+    battle = state.get('battle') or {}
+    if battle.get('round') != 1 or battle.get('turn') != 'player' or battle.get('is_play_phase') is False: return None
+    for potion in (state.get('player') or {}).get('potions') or []:
+        text = str(potion.get('description') or '')
+        if (potion.get('can_use_in_combat', True) and potion.get('target_type') in ('AnyPlayer', 'Self', 'None', None)
+                and SETUP_POTION.search(text) and '格挡' not in text and '伤害' not in text):
+            return potion
+    return None
+
 def auto_decision(state, opened=None):
     """Takeover steps with exactly one sensible move; skipping the model saves a full CLI call."""
     kind = state.get('state_type')
     player = state.get('player') or {}
+    potion = setup_potion(state)
+    if potion:
+        return program_move(f"力量要趁早，這瓶現在就喝。\n建議：第一回合先喝{potion.get('name')}，增益藥水越早喝越賺。",
+                            'use_potion', slot=potion['slot'])
     if hand_selection_complete(state):
         return program_move('選好了，落筆。\n建議：確認選擇的牌。', 'combat_confirm_selection')
     if selection_complete(state) and state['card_select'].get('can_confirm'):
