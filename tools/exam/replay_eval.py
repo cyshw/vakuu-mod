@@ -21,6 +21,7 @@ sys.path.insert(0, str(SOURCE))
 from takeover import controller as engine  # noqa: E402
 from deck.advisor import advise  # noqa: E402
 from combat.facts import card_cost, card_effects, combat_facts, gives_energy_now, hand_verdicts, incoming_damage, wastes_energy_card  # noqa: E402
+from combat.search import evaluate_sequence  # noqa: E402
 from route.facts import route_facts  # noqa: E402
 from core.rules import COMBAT, END_TURN, fingerprint, transitional, validate  # noqa: E402
 
@@ -124,21 +125,37 @@ def score_combat(state, decision):
     played = {id(c) for c in cards}
     affordable_left = [c for c in player.get('hand') or [] if id(c) not in played and c.get('can_play')
                        and not gives_energy_now(c) and card_cost(c) <= budget - cost]
+    # When the shared combat simulation supports the whole plan its numbers are exact and replace the
+    # text reading below; otherwise the text reading stays, as a lower bound marked uncertain.
+    simulation = evaluate_plan(state, decision)
+    exact = simulation.get('confidence') == 'simulated'
+    # A card played twice or aimed at no living enemy cannot be executed: nothing can be certified.
+    alive = {e.get('entity_id') for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0}
+    targets = [json.loads(decision['parameters_json'] or '{}').get('target')] + [e.get('target') for e in decision.get('next_cards') or []]
+    invalid = broken or any(t and t not in alive for t in targets)
+    if exact:
+        damage, block = simulation['damage_dealt'], simulation['block_gained']
+        if ends:
+            unblocked = simulation['predicted_hp_loss']
+            surplus = max(0, simulation['end_block'] - simulation['incoming_after_kills'])
+        killed = [e for e in (state.get('battle') or {}).get('enemies') or [] if e.get('entity_id') in simulation['killed_enemies']]
     return {'plan_cards': len(cards), 'complete_turn': ends, 'broken_plan': broken,
+            'simulation_reason': simulation.get('reason'), 'simulation_confidence': simulation.get('confidence'),
             # The numbers below are exact only when the plan ends the turn and every card's text and
             # orb was understood; otherwise a failed numeric check reads "cannot tell" in the exam.
-            'text_known': all(e['complete'] for e in known) and orbs_known,
-            'certain': ends and all(e['complete'] for e in known) and orbs_known,
+            'text_known': exact or (all(e['complete'] for e in known) and orbs_known),
+            'certain': ends and (exact or (all(e['complete'] for e in known) and orbs_known)),
             'overspend': cost > budget, 'unused_energy': max(0, budget - cost) if ends else None,
             'left_affordable_cards': len(affordable_left) if ends else None,
-            'block': block, 'damage': damage, 'block_surplus': surplus if ends else None, 'unblocked': unblocked if ends else None,
-            'dies': (unblocked >= (player.get('hp') or 0)) if ends else None,
+            'block': block, 'damage': damage, 'block_surplus': surplus if ends and not invalid else None,
+            'unblocked': unblocked if ends and not invalid else None,
+            'dies': (unblocked >= (player.get('hp') or 0)) if ends and not invalid else None,
             'wasted_energy_card': any(wastes_energy_card(state, c) for c in cards),
             'drank_potion': bool(drunk_potions(decision)),
             # Played a card the prompt marked skip_this_turn (wasted energy, block not needed).
             'played_skipped_card': any(c.get('index') in hand_verdicts(state, facts) for c in cards),
             # Every living enemy dies to the plan's damage and end-of-turn orbs.
-            'kills_all': len(killed) == len([e for e in (state.get('battle') or {}).get('enemies') or [] if (e.get('hp') or 0) > 0]),
+            'kills_all': None if invalid else len(killed) == len(alive),
             # Potions both ways: held while the turn is lethal, and drunk in an ordinary fight that was safe.
             # Killing the attacker without a potion is fine; an incomplete plan cannot show that, so it counts.
             'potion_held_when_lethal': bool(facts.get('usable_potions')) and facts['lethal_if_no_more_block'] and not potions
@@ -202,6 +219,24 @@ def planned_kills(state, decision, facts):
     orbs_known = ((not channelled or (isinstance(slots, int) and len(player.get('orbs') or []) + channelled <= slots))
                   and (len(enemies) == 1 or not any(0 < left(e) <= random_total for e in enemies)))
     return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)], orbs_known
+
+
+def evaluate_plan(state, decision):
+    """The plan through the shared combat simulation; confidence 'simulated' only when it supports it all."""
+    if drunk_potions(decision): return {'reason': 'unsupported_plan_potion'}
+    params = json.loads(decision['parameters_json'] or '{}')
+    moves = []
+    if decision['action'] == 'play_card': moves.append(params)
+    elif decision['action'] != 'end_turn': return {'reason': 'unsupported_plan_action'}
+    ends = decision['action'] == 'end_turn'
+    for entry in decision.get('next_cards') or []:
+        if entry.get('hand_index') == END_TURN:
+            ends = True
+            break
+        move = {'card_index': entry.get('hand_index')}
+        if entry.get('target'): move['target'] = entry['target']
+        moves.append(move)
+    return evaluate_sequence(state, moves, end_turn=ends)
 
 
 def drunk_potions(decision):
@@ -289,8 +324,8 @@ def report(results_path):
     rows = [json.loads(line) for line in open(results_path, encoding='utf-8')]
     configs = sorted({r['config'] for r in rows})
     lines = [f'# 離線重播評估：{results_path.parent.name}', '',
-             '| 設定 | 呼叫 | 錯誤 | 合法 | 平均秒數 | 戰鬥：會死 | 戰鬥：平均漏傷 | 戰鬥：能量超支 | 戰鬥：剩能量又有牌可打 | 浪費加能量牌 | 致命卻沒喝藥水 | 安全時喝藥水 | 休息點照規則 | 選牌分數（最佳=1） | 低血時選了很快遇菁英的路 |',
-             '|' + '---|' * 15]
+             '| 設定 | 呼叫 | 錯誤 | 合法 | 平均秒數 | 戰鬥：無法模擬 | 戰鬥：會死 | 戰鬥：平均漏傷 | 戰鬥：能量超支 | 戰鬥：剩能量又有牌可打 | 浪費加能量牌 | 致命卻沒喝藥水 | 安全時喝藥水 | 休息點照規則 | 選牌分數（最佳=1） | 低血時選了很快遇菁英的路 |',
+             '|' + '---|' * 16]
     for config in configs:
         mine = [r for r in rows if r['config'] == config]
         ok = [r for r in mine if 'score' in r]
@@ -301,7 +336,8 @@ def report(results_path):
         lines.append('| ' + ' | '.join(str(x) for x in [
             config, len(mine), len(mine) - len(ok), f"{sum(r['score']['valid'] for r in ok)}/{len(ok)}",
             mean([r['seconds'] for r in ok]),
-            f"{sum(bool(f['dies']) for f in fights)}/{len(fights)}", mean([f['unblocked'] for f in fights]),
+            sum(f.get('simulation_confidence') != 'simulated' for f in fights),
+            f"{sum(f['dies'] is True for f in fights)}/{sum(f['dies'] is not None for f in fights)}", mean([f['unblocked'] for f in fights]),
             sum(f['overspend'] for f in fights), sum(bool(f['left_affordable_cards']) for f in fights),
             sum(f['wasted_energy_card'] for f in [r['score'] for r in ok if r['type'] == 'combat' and 'wasted_energy_card' in r['score']]),
             sum(bool(f.get('potion_held_when_lethal')) for f in [r['score'] for r in ok if r['type'] == 'combat']),
@@ -310,7 +346,7 @@ def report(results_path):
             mean([(p['picked_score'] or 0) / p['best_score'] for p in picks if not p['skipped']]),
             f"{sum(r['rooms_before_elite'] <= 2 and r['hp_ratio'] < 0.5 for r in routes)}/{len(routes)}",
         ]) + ' |')
-    lines += ['', '「會死」與「漏傷」只算排完整個回合的計畫，依卡牌說明估算格擋（含計畫中喝的藥水）、計畫打得死的敵人不算它的攻擊，未計充能球與能力。「安全時喝藥水」指普通戰鬥、不致命、藥水也打不死敵人時就喝。', '', '## 各設定判斷不同的局面', '']
+    lines += ['', '「會死」與「漏傷」只統計完整回合、共用模擬器完整支援的指定序列。未支援藥水、抽牌、隨機或其他效果時為 null，列入「無法模擬」，不當成安全或通過；文字中的傷害／格擋另列 described_*，不作擊殺證據。「安全時喝藥水」仍是藥水使用規則的判斷。', '', '## 各設定判斷不同的局面', '']
     by_case = collections.defaultdict(dict)
     for r in rows:
         if 'decision' in r: by_case[(r['case'], r['type'])][r['config']] = r

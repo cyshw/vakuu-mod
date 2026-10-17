@@ -1,26 +1,64 @@
 """Validated on-play relic effects shared by search and guarded queues."""
 import copy
 import re
+from dataclasses import dataclass
 
 # Audited v0.111.0 effects that have finished before the settled play phase.
 # Their results are already in the hand, deck, block or powers; never add them twice.
-ENTRY_RELICS = {
-    'ARCANE_SCROLL': '拾起时，将一张随机稀有牌加入你的牌组。',
-    'ANCHOR': '每场战斗开始时获得10点格挡。',
-    'GORGET': '在每场战斗开始时，获得4层覆甲。',
-    'DIAMOND_DIADEM': '战斗开始时获得20点格挡。你的格挡不会在你的第2回合开始前被移除。',
-    'RADIANT_PEARL': '在每场战斗开始时，将1张冷光加入你的手牌。',
-    'BAG_OF_MARBLES': '在每场战斗开始时，给予所有敌人1层易伤。',
-    'VAJRA': '在每场战斗开始时，获得1点力量。',
-    'FRAGRANT_MUSHROOM': '拾起时，失去15点生命，然后随机升级2张牌。',
-    'WAR_PAINT': '拾起时，随机升级2张技能牌。',
+@dataclass(frozen=True)
+class RelicRule:
+    description: str
+    timing: str
+    event: str
+    effect: str
+    amount: int = 0
+    period: int = 0
+
+
+# Timing and trigger are explicit. Random/hidden-state effects are boundaries,
+# not claims that the simulator knows their outcome.
+RELIC_RULES = {
+    'ARCANE_SCROLL': RelicRule('拾起时，将一张随机稀有牌加入你的牌组。', 'pickup', 'settled_state', 'already_applied'),
+    'ANCHOR': RelicRule('每场战斗开始时获得10点格挡。', 'combat_start', 'settled_state', 'already_applied'),
+    'GORGET': RelicRule('在每场战斗开始时，获得4层覆甲。', 'combat_start', 'settled_state', 'already_applied'),
+    'DIAMOND_DIADEM': RelicRule('战斗开始时获得20点格挡。你的格挡不会在你的第2回合开始前被移除。', 'combat_start', 'settled_state', 'already_applied'),
+    'RADIANT_PEARL': RelicRule('在每场战斗开始时，将1张冷光加入你的手牌。', 'combat_start', 'settled_state', 'already_applied'),
+    'BAG_OF_MARBLES': RelicRule('在每场战斗开始时，给予所有敌人1层易伤。', 'combat_start', 'settled_state', 'already_applied'),
+    'VAJRA': RelicRule('在每场战斗开始时，获得1点力量。', 'combat_start', 'settled_state', 'already_applied'),
+    'FRAGRANT_MUSHROOM': RelicRule('拾起时，失去15点生命，然后随机升级2张牌。', 'pickup', 'settled_state', 'already_applied'),
+    'WAR_PAINT': RelicRule('拾起时，随机升级2张技能牌。', 'pickup', 'settled_state', 'already_applied'),
+    'MUMMIFIED_HAND': RelicRule('你每打出一张能力牌，手牌中就有一张随机牌在这个回合可以免费打出。', 'after_card', 'Power', 'random_free_cost', amount=0),
+    'UNCEASING_TOP': RelicRule('在你的回合，当你没有手牌时，抽一张牌。', 'after_card', 'hand_empty', 'draw_on_empty', amount=1),
+    'CENTENNIAL_PUZZLE': RelicRule('你在每场战斗中第一次损失生命值时，抽3张牌。', 'damage_received', 'hp_lost_first_time', 'draw_on_damage', amount=3),
+    'CLOAK_CLASP': RelicRule('在你的回合结束时，每有一张手牌，就获得1点格挡', 'before_hand_flush', 'turn_end', 'block_per_held_card', amount=1),
+    'TUNING_FORK': RelicRule('你每打出10张技能牌，获得7点格挡。', 'after_card', 'Skill', 'periodic_block', amount=7, period=10),
 }
-CONDITIONAL_RELICS = {
-    'MUMMIFIED_HAND': '你每打出一张能力牌，手牌中就有一张随机牌在这个回合可以免费打出。',
-    'UNCEASING_TOP': '在你的回合，当你没有手牌时，抽一张牌。',
-    'CENTENNIAL_PUZZLE': '你在每场战斗中第一次损失生命值时，抽3张牌。',
-    'CLOAK_CLASP': '在你的回合结束时，每有一张手牌，就获得1点格挡',
-}
+# Compatibility views used by existing prompts/tests; one source for descriptions.
+ENTRY_RELICS = {key: rule.description for key, rule in RELIC_RULES.items() if rule.effect == 'already_applied'}
+CONDITIONAL_RELICS = {key: rule.description for key, rule in RELIC_RULES.items()
+                      if rule.effect not in {'already_applied', 'periodic_block'}}
+
+
+def relic_effects(ids):
+    """Call after relic validation; only registered trigger kinds are returned."""
+    return {RELIC_RULES[key].effect for key in ids if key in RELIC_RULES}
+
+
+def held_card_block(ids, count):
+    return sum(RELIC_RULES[key].amount * count for key in ids
+               if key in RELIC_RULES and RELIC_RULES[key].effect == 'block_per_held_card')
+
+
+def counted_card_indices(hand):
+    event = RELIC_RULES['TUNING_FORK'].event
+    return {card['index'] for card in hand if card.get('type') == event and 'index' in card}
+
+
+def periodic_block(counter, cards_played):
+    """Block from the current card; counter/played include only eligible skills."""
+    rule = RELIC_RULES['TUNING_FORK']
+    return rule.amount if counter is not None and (counter + cards_played) % rule.period == 0 else 0
+
 
 
 def normalized(text):
@@ -29,8 +67,8 @@ def normalized(text):
 
 def audited_relic(relic):
     key = str(relic.get('id') or '').split('.')[-1]
-    expected = {**ENTRY_RELICS, **CONDITIONAL_RELICS}.get(key)
-    return bool(expected and normalized(relic.get('description')) == normalized(expected)
+    rule = RELIC_RULES.get(key)
+    return bool(rule and rule.effect != 'periodic_block' and normalized(relic.get('description')) == normalized(rule.description)
                 and relic.get('counter') is None)
 
 
@@ -55,8 +93,9 @@ def turn_end_defense(player, hand_count=None):
                 if relic.get('id') == 'CLOAK_CLASP' and audited_relic(relic))
     if cloak > 1: raise ValueError('duplicate_cloak_clasp')
     count = len(player.get('hand') or []) if hand_count is None else hand_count
-    return {'plating_block': plating, 'cloak_clasp_block': cloak * count,
-            'block': plating + cloak * count, 'retain_block': retain}
+    cloak_block = held_card_block({'CLOAK_CLASP'} if cloak else set(), count)
+    return {'plating_block': plating, 'cloak_clasp_block': cloak_block,
+            'block': plating + cloak_block, 'retain_block': retain}
 
 
 def compact_relics(compact, state):
@@ -75,7 +114,8 @@ def tuning_fork_counter(relics):
     relic = forks[0]
     text = re.sub(r'\s+', '', str(relic.get('description') or ''))
     counter = relic.get('counter')
-    if text != '你每打出10张技能牌，获得7点格挡。' or type(counter) is not int or not 0 <= counter < 10:
+    rule = RELIC_RULES['TUNING_FORK']
+    if text != rule.description or type(counter) is not int or not 0 <= counter < rule.period:
         raise ValueError('unknown_tuning_fork')
     return counter
 
@@ -83,8 +123,8 @@ def tuning_fork_counter(relics):
 def after_card_relics(relics, card):
     result = copy.deepcopy(relics)
     counter = tuning_fork_counter(result)
-    if counter is not None and card.get('type') == 'Skill':
+    if counter is not None and card.get('type') == RELIC_RULES['TUNING_FORK'].event:
         for relic in result:
             if str(relic.get('id') or '').split('.')[-1] == 'TUNING_FORK':
-                relic['counter'] = (counter + 1) % 10
+                relic['counter'] = (counter + 1) % RELIC_RULES['TUNING_FORK'].period
     return result

@@ -26,7 +26,7 @@ SUITE = Path(__file__).resolve().parents[2] / 'tests' / 'regression'
 
 
 CHECKS = {'<=': lambda a, b: a is not None and a <= b, '>=': lambda a, b: a is not None and a >= b,
-          '!=': lambda a, b: a != b, '=': lambda a, b: a == b}
+          '!=': lambda a, b: a is not None and a != b, '=': lambda a, b: a == b}
 
 
 def parse_expect(text):
@@ -111,7 +111,8 @@ def verdict(case, decision):
     for key, check in case['expect'].items():
         op, value = check if isinstance(check, list) else ['=', check]
         if CHECKS[op](result.get(key), value): continue
-        note = f'{key}={result.get(key)!r}（應 {op} {value!r}）'
+        note = (f'{key} 無法判定（{result.get("simulation_reason", "incomplete_plan")}；應 {op} {value!r}）'
+                if result.get(key) is None else f'{key}={result.get(key)!r}（應 {op} {value!r}）')
         if (result.get(key) is None or (key in COMPUTED and result.get('certain') is False)
                 or (key in TEXT_COMPUTED and result.get('text_known') is False)): unsure.append(note)
         else: wrong.append(note)

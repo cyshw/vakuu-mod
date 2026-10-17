@@ -54,17 +54,6 @@ class ModelCalls:
     def sync_combat(self, state):
         previous_key = self.combat_key
         key = fight_key(state)
-        # Exhaust/discard prompts are still part of the fight. The API supplies
-        # battle data on hand_select, even though ordinary combat actions pause.
-        if state.get('state_type') == 'hand_select' and state.get('battle'):
-            run = state.get('run') or {}
-            key = (run.get('act'), run.get('floor'))
-        player = state.get('player') or {}
-        # Grid overlays (e.g. Hologram's discard-pile selection) omit battle.
-        # The API only includes hand/energy while CombatManager is in progress.
-        if state.get('state_type') in {'card_select', 'bundle_select', 'relic_select'} and 'hand' in player and 'energy' in player:
-            run = state.get('run') or {}
-            key = (run.get('act'), run.get('floor'))
         round_number = (state.get('battle') or {}).get('round')
         restarted = (key is not None and key == self.combat_key
                      and type(round_number) is int and type(self.combat_round) is int

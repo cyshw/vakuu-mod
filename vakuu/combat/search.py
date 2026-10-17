@@ -7,10 +7,10 @@ explicit support; they must never silently disappear from the simulation.
 import json
 import re
 import time
-from dataclasses import dataclass
 from combat.facts import incoming_damage
-from combat.relics import audited_relic, tuning_fork_counter, turn_end_defense
-from combat.triggers import panache_counters
+from combat.relics import audited_relic, tuning_fork_counter, turn_end_defense, relic_effects, held_card_block, periodic_block, counted_card_indices
+from combat.triggers import panache_counters, card_trigger_values, POWER_RULES
+from combat.card_effects import Move, STRIKES, DEFENDS, card_move, INERT_HAND, INERT_TEXT
 from core.rules import COMBAT
 
 
@@ -25,7 +25,7 @@ PLAYER_STATUS = {'STRENGTH_POWER', 'DEXTERITY_POWER', 'WEAK_POWER', 'FRAIL_POWER
                  'AUTOMATION_POWER', 'ITERATION_POWER', 'ENTROPY_POWER', 'LIGHTNING_ROD_POWER',
                  'ENERGY_NEXT_TURN_POWER',
                  # Search moves never play Power cards, so Storm cannot fire.
-                 'STORM_POWER', 'PANACHE_POWER', 'PLATING_POWER', 'BLUR_POWER'}
+                 'STORM_POWER', 'PANACHE_POWER', 'PLATING_POWER', 'BLUR_POWER'} | POWER_RULES.keys()
 # Statuses that only add to this turn's damage or act on other turns (start of turn, end of turn,
 # damage taken). Ignoring them can miss a kill but never invent one, so a search holding them only
 # accepts a kill. Echo Form doubles the first card; Shrink and Tender cut damage and stay unknown.
@@ -34,12 +34,12 @@ KILL_SAFE_STATUS = {'ECHO_FORM_POWER', 'MAYHEM_POWER', 'SUBROUTINE_POWER', 'THE_
 # Supported moves do not apply debuffs, so Artifact cannot trigger here.
 ENEMY_STATUS = {'STRENGTH_POWER', 'WEAK_POWER', 'ARTIFACT_POWER', 'RITUAL_POWER',
                 'VULNERABLE_POWER', 'RAVENOUS_POWER'}
-INERT_HAND = {'ASCENDERS_BANE', 'CLUMSY', 'INJURY'}
-INERT_TEXT = {'ASCENDERS_BANE': '不能被打出。虚无。永恒。',
-              'CLUMSY': '不能被打出。虚无。', 'INJURY': '不能被打出。'}
 # These known descriptions have no trigger when another card is played. Their
 # own effects are unsupported, so they still prevent a non-winning turn plan.
 HELD_SAFE = {
+    'AFTERIMAGE': r'(?:固有。)?你每打出一张牌，都获得\d+点格挡。',
+    'FEEL_NO_PAIN': r'每当有一张牌被消耗时，获得\d+点格挡。',
+    'ACCURACY': r'小刀额外造成\d+点伤害。',
     'DEMON_FORM': r'在你的回合开始时，获得\d+点力量。',
     'LUMINESCE': r'保留。获得(?:\[[a-z_]+_energy_icon\.png\]){2}。消耗。',
     'PANACHE': r'每当你在一回合内打出五张牌时，对所有敌人造成\d+点伤害。',
@@ -74,66 +74,12 @@ HELD_SAFE = {
     'ECHO_FORM': r'(?:虚无。)?你每回合打出的第一张牌会被打出两次。',
     'AUTOMATION': r'你每抽\d+张牌，获得\[defect_energy_icon.png\]。',
 }
-STRIKES = {'STRIKE_' + c for c in ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT')}
-DEFENDS = {'DEFEND_' + c for c in ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT')}
-DAMAGE = re.compile(r'造成(\d+)[点點][伤傷]害[。.]?')
-BLOCK = re.compile(r'[获獲]得(\d+)[点點]格[挡擋][。.]?')
-
 
 def key(row):
     return str(row.get('id') or '').split('.')[-1]
 
 
-@dataclass(frozen=True)
-class Move:
-    index: int
-    cost: int
-    damage: int = 0
-    block: int = 0
-    channel: str = ''
-    evokes: int = 0
-    # Adaptive/Momentum have future-turn effects not valued by a one-turn search.
-    kill_only: bool = False
-    hits: int = 1
-    vulnerable: int = 0
-
-
-def card_move(card):
-    cid = key(card)
-    if type(card.get('index')) is not int or card.get('star_cost') not in (None, 0): return None
-    try: cost = int(card['cost'])
-    except (KeyError, TypeError, ValueError): return None
-    if cost < 0: return None
-    text = re.sub(r'\s+', '', str(card.get('description') or ''))
-    damage, block = DAMAGE.fullmatch(text), BLOCK.fullmatch(text)
-    if cid in STRIKES | {'SLICE'} and damage and card.get('target_type') == 'AnyEnemy':
-        return Move(card['index'], cost, damage=int(damage[1]))
-    if cid in DEFENDS | {'DEFLECT'} and block and card.get('target_type') == 'Self':
-        return Move(card['index'], cost, block=int(block[1]))
-    if cid == 'TWIN_STRIKE' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害两次。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), hits=2)
-    if cid == 'BASH' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。给予(\d+)层易伤。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), vulnerable=int(match[2]))
-    # Exact descriptions prevent enchantments or added effects from being ignored.
-    if cid == 'ZAP' and text == '生成1个闪电充能球。' and card.get('target_type') == 'Self':
-        return Move(card['index'], cost, channel='LIGHTNING_ORB')
-    if cid == 'DUALCAST' and text == '激发你最右侧的充能球两次。' and card.get('target_type') == 'Self':
-        return Move(card['index'], cost, evokes=2)
-    if cid == 'BALL_LIGHTNING' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。生成1个闪电充能球。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), channel='LIGHTNING_ORB')
-    if cid == 'ADAPTIVE_STRIKE' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。将这张牌的一张0\[defect_energy_icon.png\]复制品添加到你的弃牌堆。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), kill_only=True)
-    if cid == 'MOMENTUM_STRIKE' and card.get('target_type') == 'AnyEnemy':
-        match = re.fullmatch(r'造成(\d+)点伤害。这张牌的耗能降为0\[defect_energy_icon.png\]。', text)
-        if match: return Move(card['index'], cost, damage=int(match[1]), kill_only=True)
-    return None
-
-
-def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False):
+def _turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False, forced=None, end_turn=True):
     """Return a decision and diagnostics; decision=None is an explicit model fallback."""
     def decline(reason, nodes=0): return {'decision': None, 'reason': reason, 'nodes': nodes}
     if max_nodes <= 0 or max_seconds <= 0: return decline('search_limit')
@@ -151,6 +97,8 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     kill_only = bool(unknown)  # Statuses ignored below can only add damage, so only a found kill counts.
     try: end_defense = turn_end_defense(player)
     except ValueError: return decline('unknown_end_turn_effect')
+    try: card_triggers = card_trigger_values(player)
+    except ValueError: return decline('unknown_card_trigger')
     try: panaches = panache_counters(player)
     except ValueError: return decline('unknown_trigger_counter')
     enemies = [e for e in battle.get('enemies') or [] if (e.get('hp') or 0) > 0]
@@ -185,10 +133,12 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
         return decline('missing_player_numbers')
     if any(type(e.get(k)) is not int for e in enemies for k in ('hp', 'block')):
         return decline('missing_enemy_numbers')
-    moves, complete = [], True
+    moves, complete, inert_ethereal = [], True, 0
     for card in player.get('hand') or []:
         text = re.sub(r'\s+', '', str(card.get('description') or ''))
-        if key(card) in INERT_HAND and card.get('can_play') is False and text == INERT_TEXT[key(card)]: continue
+        if key(card) in INERT_HAND and card.get('can_play') is False and text == INERT_TEXT[key(card)]:
+            inert_ethereal += '虚无。' in text
+            continue
         move = card_move(card)
         if move is None:
             # An unknown card could be Pain or another on-play trigger. A lethal
@@ -202,12 +152,13 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
         elif move.cost <= player['energy']:
             # A card blocked for a reason other than energy may unlock later.
             complete = False
-    if not moves: return decline('no_supported_moves')
+    if not moves and forced is None: return decline('no_supported_moves')
     # Top draws before the last played card's effect can be trusted; the new
     # card can change the state. A held/unaffordable card prevents emptying.
-    if 'UNCEASING_TOP' in relic_ids and len(moves) == len(player.get('hand') or []) and sum(m.cost for m in moves) <= player['energy']:
+    trigger_effects = relic_effects(relic_ids)
+    if 'draw_on_empty' in trigger_effects and len(moves) == len(player.get('hand') or []) and sum(m.cost for m in moves) <= player['energy']:
         return decline('unmodeled_hand_empty_draw')
-    if 'MUMMIFIED_HAND' in relic_ids and any(c.get('type') == 'Power' and card_move(c) is not None for c in player.get('hand') or []):
+    if 'random_free_cost' in trigger_effects and any(c.get('type') == 'Power' and card_move(c) is not None for c in player.get('hand') or []):
         return decline('unmodeled_random_cost')
     vulnerable = tuple(any(key(s) == 'VULNERABLE_POWER' and s['amount'] > 0 for s in e.get('status') or []) for e in enemies)
     ravenous = tuple(sum(s['amount'] for s in e.get('status') or [] if key(s) == 'RAVENOUS_POWER') for e in enemies)
@@ -218,7 +169,7 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     # with target Vulnerable can lose a fraction and invent a wrong exact kill.
     if any(key(s) == 'WEAK_POWER' for s in player.get('status') or []) and any(m.damage for m in moves) and (any(vulnerable) or any(m.vulnerable for m in moves)):
         return decline('combined_damage_rounding')
-    skill_indices = {c['index'] for c in player.get('hand') or [] if c.get('type') == 'Skill' and 'index' in c}
+    skill_indices = counted_card_indices(player.get('hand') or [])
     targeted_indices = {c['index'] for c in player.get('hand') or [] if c.get('target_type') == 'AnyEnemy' and 'index' in c}
     if fork_counter is not None and any(c.get('type') not in {'Attack', 'Skill'} for c in player.get('hand') or []
                                         if card_move(c) is not None):
@@ -246,6 +197,7 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
 
     start = time.perf_counter()
     visited, count, best = set(), 0, None
+    evaluated = None
     portfolios = {'減傷': [], '輸出': [], '保留能量': []}
     initial_hp = tuple(e['hp'] for e in enemies)
     initial_block = tuple(e['block'] for e in enemies)
@@ -263,30 +215,32 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
         return hps, blocks, block
 
     def walk(mask, energy, block, hps, blocks, balls, sequence, vulns, counters, triggers):
-        nonlocal count, best
+        nonlocal count, best, evaluated
         signature = (mask, energy, block, hps, blocks, balls, vulns, counters)
         if signature in visited: return
         visited.add(signature); count += 1
         if count > max_nodes or time.perf_counter() - start >= max_seconds: raise TimeoutError
         # Score the end of turn, after the current orbs' passive effects.
         hand_left = len(player.get('hand') or []) - mask.bit_count()
-        cloak_block = hand_left if 'CLOAK_CLASP' in relic_ids else 0
+        cloak_block = held_card_block(relic_ids, hand_left)
         end_hp, end_blocks, end_block = hps, blocks, block + end_defense['plating_block'] + cloak_block
         for orb in balls:
             if orb[0] == 'FROST_ORB': end_block += orb[1]
             elif end_hp[0] > 0: end_hp, end_blocks = hit(end_hp, end_blocks, 0, orb[1])
+        end_exhaust_block = inert_ethereal * card_triggers['block_per_exhaust'] if any(end_hp) else 0
+        end_block += end_exhaust_block
         deaths = sum(hp <= 0 for hp in end_hp)
         stunned = [i for i, hp in enumerate(end_hp) if hp > 0 and ravenous_active[i] and deaths]
         incoming_after = sum(a for i, (a, hp) in enumerate(zip(attacks, end_hp)) if hp > 0 and i not in stunned)
         loss = max(0, incoming_after - end_block)
         retained = max(0, end_block - incoming_after) if end_defense['retain_block'] else 0
-        damage_draw = 'CENTENNIAL_PUZZLE' in relic_ids and loss > 0
+        damage_draw = 'draw_on_damage' in trigger_effects and loss > 0
         win = not any(end_hp)
         # Unknown hand effects may trigger at turn end. Only direct wins are safe in that case.
         direct_win = not any(hps)
         eligible = (complete or direct_win) and not damage_draw
         rank = (win, loss < player['hp'], -loss, -sum(end_hp), retained, energy, -len(sequence))
-        if include_candidates:
+        if include_candidates or forced is not None:
             rankings = {'減傷': rank,
                         '輸出': (win, -sum(end_hp), -loss, retained, energy, -len(sequence)),
                         '保留能量': (win, loss < player['hp'], energy, -loss, -sum(end_hp), retained, -len(sequence))}
@@ -299,6 +253,10 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
                        'panache_triggers': triggers,
                        'panache_cards_left': [left for left, _ in counters],
                        'future_enemy_strength_gain': {enemies[i]['entity_id']: ravenous[i] * deaths for i in stunned},
+                       'damage_dealt': sum(initial_hp) + sum(initial_block) - sum(end_hp if end_turn else hps) - sum(end_blocks if end_turn else blocks),
+                       'block_gained': block - player['block'],
+                       'end_block': end_block,
+                       'end_turn_exhaust_block': end_exhaust_block,
                        'end_turn_relic_block': end_defense['plating_block'] + cloak_block,
                        'retained_block_next_turn': retained,
                        'end_turn': not direct_win,
@@ -312,17 +270,27 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
                 portfolio.append((score, outcome))
                 portfolio.sort(key=lambda row: row[0], reverse=True)
                 del portfolio[3:]
+        if forced is not None and len(sequence) == len(forced):
+            evaluated = outcome
+            if not end_turn and not direct_win:
+                evaluated = {**outcome, 'predicted_enemy_hp': list(hps),
+                             'killed_enemies': [e['entity_id'] for e, hp in zip(enemies, hps) if hp <= 0],
+                             'predicted_hp_loss': None, 'end_block': None,
+                             'retained_block_next_turn': None, 'end_turn': False}
+            return
         if eligible and (best is None or rank > best[0]):
             best = (rank, sequence, loss, end_hp, direct_win)
         if direct_win: return
         for i, move in enumerate(moves):
             if mask & (1 << i) or move.cost > energy: continue
+            if forced is not None and move.index != forced[len(sequence)].get('card_index'): continue
             targets = [j for j, hp in enumerate(hps) if hp > 0] if move.index in targeted_indices else [None]
             for target in targets:
-                hp2, blocks2, block2, balls2 = hps, blocks, block + move.block, balls
+                if forced is not None and forced[len(sequence)].get('target') != (enemies[target]['entity_id'] if target is not None else None): continue
+                hp2, blocks2, block2, balls2 = hps, blocks, block + move.block + card_triggers['block_per_card'] + (card_triggers['block_per_exhaust'] if move.exhaust else 0), balls
                 if fork_counter is not None and move.index in skill_indices:
                     skills_played = sum(bool(mask & (1 << j)) and m.index in skill_indices for j, m in enumerate(moves))
-                    if (fork_counter + skills_played + 1) % 10 == 0: block2 += 7
+                    block2 += periodic_block(fork_counter, skills_played + 1)
                 vulns2 = list(vulns)
                 if target is not None:
                     damage = move.damage * 3 // 2 if vulns[target] else move.damage
@@ -355,6 +323,9 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
 
     try: walk(0, player['energy'], player['block'], initial_hp, initial_block, orbs, (), vulnerable, panaches, 0)
     except TimeoutError: return decline('search_limit', count)
+    if forced is not None:
+        if evaluated is None: return decline('invalid_or_unresolved_sequence', count)
+        return {'reason': 'evaluated', 'nodes': count, **evaluated}
     candidates, seen_outcomes = [], set()
     if include_candidates:
         for style, portfolio in portfolios.items():
@@ -367,7 +338,7 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
                 break
     def fallback(reason):
         return {**decline(reason, count), 'candidates': candidates}
-    if best is None: return fallback('unmodeled_damage_draw' if 'CENTENNIAL_PUZZLE' in relic_ids else 'unsupported_hand')
+    if best is None: return fallback('unmodeled_damage_draw' if 'draw_on_damage' in trigger_effects else 'unsupported_hand')
     rank, sequence, loss, end_hp, direct_win = best
     if kill_only and not direct_win: return fallback('unknown_player_status')
     if not direct_win:
@@ -385,6 +356,23 @@ def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=Fal
     return {'decision': decision, 'reason': 'direct_win' if direct_win else 'supported_turn', 'nodes': count,
             'predicted_hp_loss': loss, 'predicted_enemy_hp': list(end_hp), 'sequence': list(sequence),
             **({'candidates': candidates} if include_candidates else {})}
+
+
+def search_turn(state, max_nodes=20000, max_seconds=0.05, include_candidates=False):
+    return _turn(state, max_nodes, max_seconds, include_candidates)
+
+
+def evaluate_sequence(state, sequence, end_turn=True):
+    """Evaluate exactly this order with the same effects and guards as live search.
+
+    No optimization substitutes a better plan. Unknown mechanics remain unscored.
+    """
+    if (not isinstance(sequence, (list, tuple)) or any(
+            not isinstance(step, dict) or type(step.get('card_index')) is not int
+            or ('target' in step and step['target'] is not None and not isinstance(step['target'], str))
+            for step in sequence)):
+        return {'reason': 'invalid_sequence', 'decision': None, 'nodes': 0}
+    return _turn(state, max_seconds=1, forced=sequence, end_turn=end_turn)
 
 
 def turn_candidates(state, search_result=None):
