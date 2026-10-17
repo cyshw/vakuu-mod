@@ -33,6 +33,11 @@ API = 'http://127.0.0.1:15526'
 COMBAT = {'monster', 'elite', 'boss'}
 # A relic sentence that does nothing in a fight: it acts on pickup, or mentions nothing fights involve.
 FIGHT_WORDS = re.compile(r'战斗|回合|打出|格挡|伤害|抽|能量|敌人|生命')
+# Relics whose text mentions fights or HP but which act between them (rest sites, shops, rewards,
+# the end of a fight); read off their Spire Codex descriptions.
+OUTSIDE_FIGHTS = {'BOOK_OF_FIVE_RINGS', 'AMETHYST_AUBERGINE', 'ETERNAL_FEATHER', 'MEAL_TICKET', 'JUZU_BRACELET',
+                  'LASTING_CANDY', 'CHOSEN_CHEESE', 'MEAT_ON_THE_BONE', 'FISHING_ROD', 'STONE_HUMIDIFIER', 'LAVA_ROCK',
+                  'SWORD_OF_STONE', 'PLANISPHERE', 'DOWSING_ROD', 'FRESNEL_LENS'}
 
 
 def lab_relics():
@@ -43,6 +48,7 @@ def lab_relics():
 
 
 def pickup_only(relic_id, relics):
+    if relic_id in OUTSIDE_FIGHTS: return True
     text = runs.spire_codex._plain((relics.get(relic_id) or {}).get('description'))
     parts = [s for s in re.split(r'[。\n]', text) if s.strip()]
     return bool(parts) and all(re.match(r'\s*(拾起时|获得时|拾取时)', s) or not FIGHT_WORDS.search(s) for s in parts)
