@@ -123,10 +123,10 @@ def outcome(log, hp_before):
             'finished': died or end.get('state_type') not in COMBAT | {'hand_select', 'card_select'}}
 
 
-def run(name, config, playbook):
+def run(name, config, playbook, label=None):
     import battle_lab
     chosen = json.loads((OUT / f'{name}.json').read_text(encoding='utf-8'))
-    tag = config.replace(':', '-').replace('@', '-') + ('-playbook' if playbook else '')
+    tag = config.replace(':', '-').replace('@', '-') + ('-playbook' if playbook else '') + (f'-{label}' if label else '')
     results = OUT / f'{name}.{tag}.jsonl'
     done = {json.loads(l)['id'] for l in open(results, encoding='utf-8')} if results.exists() else set()
     model, effort = (config.split('@') + ['low'])[:2]
@@ -175,11 +175,12 @@ def main():
     p.add_argument('--name', default='act1')
     p.add_argument('--config', default='claude:haiku@low')
     p.add_argument('--playbook', help='model that writes the deck playbook, e.g. codex:gpt-6.1-sol@low')
+    p.add_argument('--label', help='kept in the results name, to rerun a config after a change')
     p = sub.add_parser('report')
     p.add_argument('--name', default='act1')
     args = parser.parse_args()
     if args.command == 'sample': sample(args.count, set(args.acts), args.seed, args.name)
-    elif args.command == 'run': run(args.name, args.config, args.playbook)
+    elif args.command == 'run': run(args.name, args.config, args.playbook, args.label)
     else: report(args.name)
 
 
