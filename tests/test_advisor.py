@@ -1,3 +1,4 @@
+import json
 import copy
 import sys
 import tempfile
@@ -124,3 +125,37 @@ class MonsterIntelTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RatingPickTests(unittest.TestCase):
+    # The rating picks the card; the model only takes it or skips.
+    def setUp(self):
+        patcher = patch.object(advisor, 'codex_metrics', return_value=METRICS)
+        patcher.start(); self.addCleanup(patcher.stop)
+        from takeover import controller
+        self.engine = controller
+
+    def decide(self, answer, mode='rating'):
+        c = self.engine.Controller(lambda m: None)
+        with patch.object(self.engine, 'CARD_PICK', mode), \
+             patch.object(self.engine.api, 'compact', side_effect=copy.deepcopy), \
+             patch.object(c, 'call_model', return_value=answer) as call:
+            decision = c.decide(sample(), {'model_key': 'claude:haiku', 'effort': 'low'})
+        return decision, call.call_args.args[0]
+
+    def test_only_the_best_rated_card_is_offered_and_kept(self):
+        answer = {'advice': '', 'stop': False, 'action': 'select_card_reward', 'parameters_json': '{"card_index": 2}'}
+        decision, prompt = self.decide(answer)
+        self.assertEqual(json.loads(decision['parameters_json']), {'card_index': 7})  # Not the model's Dark Embrace.
+        self.assertIn('"rating_pick": {"index": 7', prompt)
+        self.assertNotIn('黑暗之擁', prompt.split('遊戲狀態：', 1)[1])
+
+    def test_a_skip_stands(self):
+        answer = {'advice': '', 'stop': False, 'action': 'skip_card_reward', 'parameters_json': '{}'}
+        self.assertEqual(self.decide(answer)[0]['action'], 'skip_card_reward')
+
+    def test_free_mode_shows_every_offer(self):
+        answer = {'advice': '', 'stop': False, 'action': 'select_card_reward', 'parameters_json': '{"card_index": 2}'}
+        decision, prompt = self.decide(answer, 'free')
+        self.assertEqual(json.loads(decision['parameters_json']), {'card_index': 2})
+        self.assertNotIn('rating_pick', prompt.split('遊戲狀態：', 1)[1])

@@ -37,6 +37,25 @@ POLL_INTERVAL = 0.25
 CARD_POLL_INTERVAL = 0.1
 CARD_SETTLE_WINDOW = 0.2
 
+# Card rewards: 'rating' lets the Codex Score pick the card and asks the model only whether to take it
+# or skip; 'free' lets the model choose among all offers. On 300 act 1 Spire Codex spots, Haiku choosing
+# freely matched the A10 player 34-36%, always taking the best-rated card 41% (it never skips; players
+# skipped 39 times). tools/exam/codex_runs.py agree --mode compares the two.
+CARD_PICK = 'rating'
+
+
+def rating_pick(state, rating):
+    """The best-rated offer the model may only take or skip, or None when ratings cannot choose."""
+    if CARD_PICK != 'rating' or rating.get('status') != 'ok' or rating.get('best_scored_index') is None: return None
+    return next(row for row in rating['ranked_cards'] if row['index'] == rating['best_scored_index'])
+
+
+def keep_rating_pick(decision, pick):
+    """The model decides take or skip; a different card it names becomes the rated one."""
+    if decision.get('action') == 'select_card_reward':
+        decision['parameters_json'] = json.dumps({'card_index': pick['index']})
+    return decision
+
 
 class Controller(ModelCalls):
     def __init__(self, report, allow_model=True, program_comparison=False, program_first=False):
@@ -221,7 +240,16 @@ class Controller(ModelCalls):
         # Deck identities are essential for decisions; pile order is not needed.
         if 'player' in state and 'deck' in state['player']:
             compact['player']['deck'] = deck_summary(state['player']['deck'])
-        if state.get('state_type') == 'card_reward': compact['card_advice'] = advise(state)
+        pick = None
+        if state.get('state_type') == 'card_reward':
+            compact['card_advice'] = advise(state)
+            pick = rating_pick(state, compact['card_advice'])
+            if pick:
+                # Only the rated card is on the table: the question is whether it earns a deck slot.
+                compact['card_advice'] = {**compact['card_advice'], 'ranked_cards': [pick]}
+                reward = compact.get('card_reward') or {}
+                compact['card_reward'] = {**reward, 'cards': [c for c in reward.get('cards') or [] if c.get('index') == pick['index']]}
+                compact['rating_pick'] = {'index': pick['index'], 'name': pick.get('name'), 'score': pick.get('score')}
         if state.get('state_type') == 'shop': compact['shop_card_advice'] = advise(state)
         if state.get('state_type') == 'map':
             compact['route_facts'] = route_facts(state)
@@ -272,7 +300,8 @@ class Controller(ModelCalls):
         actions = {a: sorted(FIELDS[a]) for a in sorted(allowed_actions(state))}
         prompt = (instructions() + '\n目前畫面可用動作與參數：' + json.dumps(actions, ensure_ascii=False)
                   + '\n遊戲狀態：' + json.dumps(compact, ensure_ascii=False))
-        return self.call_model(prompt, SCHEMA, selection)
+        decision = self.call_model(prompt, SCHEMA, selection)
+        return keep_rating_pick(decision, pick) if pick else decision
 
     def run(self, takeover=False, max_steps=30, finish_candidate=False, scope=None):
         """scope: None (max_steps), 'screen' (only the decision on screen now), 'fight' or 'run'."""

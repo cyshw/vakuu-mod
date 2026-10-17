@@ -36,6 +36,9 @@ def hard_screen(state):
         rating = advise(state)
         rows = rating.get('ranked_cards', [])
         if rating.get('status') != 'ok': return True  # Unrated offers: let the stronger model judge.
+        # With the rating choosing the card, a close score between offers is no longer the model's call.
+        from takeover import controller
+        if controller.CARD_PICK == 'rating': return False
         return len(rows) >= 2 and rows[0]['score'] - rows[1]['score'] <= 5
     return False
 

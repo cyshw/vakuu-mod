@@ -1,2 +1,2 @@
 【抓牌評分】card_advice 與 shop_card_advice 的社群 score／lift 是一般評分，不是這副牌組的最佳選擇。deck_direction、deck_fit 提供程式整理的牌組方向、配合與缺口：先比較 fills_needs、synergies、現有張數和能量曲線，再用一般評分輔助。方向只是目前證據，不是必須湊齊的清單；沒有證據先補即時生存與輸出，不拿只有未來配合才有效的牌。protect_starter_damage 為 true 表示第1幕輸出來源可能不足，優先比較有效輸出，不可只因 short_of_block 就強制拿格擋牌；若已有充能球等輸出引擎，自行衡量其啟動速度。缺防禦與缺輸出同時出現時，依近期敌人、血量、現有配合取捨。無明顯補強就 skip_card_reward；不要求固定牌組張數，重複牌也須比較邊際收益。unknown_description_count 或 effect_known=false 表示程式資料不足，讀完整牌組／商品描述，不能把未辨識當成沒效果。選牌理由簡述補哪個缺口或加強哪個配合。
-
+【只決定拿或跳過】有 rating_pick 時，選哪張已由社群評分決定，畫面只列出這一張：只判斷它值不值得佔牌組一格。值得就 select_card_reward（card_index 用 rating_pick.index），否則 skip_card_reward。跳過的理由要具體：這張不補任何缺口、與現有配合衝突、同類牌已夠，或牌組已厚到會稀釋關鍵牌；評分低本身不是理由，也不是拿的理由。

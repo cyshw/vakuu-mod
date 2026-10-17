@@ -5,7 +5,8 @@ removed, transformed, upgraded). The deck at any card reward is rebuilt from tha
 question shows the deck the player really had on that floor, not the winning deck it became.
 
     python tools/exam/codex_runs.py fetch --characters IRONCLAD DEFECT --runs 150
-    python tools/exam/codex_runs.py agree --config claude:haiku@low --spots 60
+    python tools/exam/codex_runs.py agree --config claude:haiku@low --spots 300
+    python tools/exam/codex_runs.py agree --config claude:haiku@low --spots 300 --mode free
 
 Act 1 card rewards have no clearly wrong answer in the community's overall card statistics (the
 common cards' win-rate lifts all sit within about one point), so instead of pass/fail cases this
@@ -16,6 +17,10 @@ Measured 2026-10-13 on act 1 rewards: always taking the best-rated card matched 
 300 spots (42% of 300 in won runs, fetched with --wins); Spire Codex's deck-aware pick coach matched
 40% / 42%, no better, so it was not adopted. Haiku matched 38% of 60. A 60-spot sample once showed
 the pick coach 13 points ahead: use 300 spots before trusting a difference of a few points.
+
+--mode rating (the default, as in takeover) lets the best-rated card be the pick and asks the model
+only take or skip; --mode free lets it choose among all offers. Skips are scored apart: how many of
+the model's skips the player also made, and how many of the player's skips the model caught.
 """
 import argparse
 import json
@@ -174,9 +179,10 @@ def chosen(decision):
     return json.loads(decision['parameters_json'] or '{}').get('card_index')
 
 
-def agree(config, acts, count, seed, workers):
+def agree(config, acts, count, seed, workers, mode='rating'):
     import regression
     import replay_eval
+    replay_eval.engine.CARD_PICK = mode
     sample = spots(acts, count, seed)
     local, save, hits = regression.cached_calls(True)
 
@@ -195,11 +201,16 @@ def agree(config, acts, count, seed, workers):
                 tally['asked'] += 1; tally['same'] += same
                 tally['won'] += item['won']; tally['won_same'] += same and item['won']
                 tally['model_skip'] += pick is None; tally['player_skip'] += item['picked'] is None
+                tally['both_skip'] += pick is None and item['picked'] is None
+                tally['player_took'] += item['picked'] is not None; tally['took_same'] += same and item['picked'] is not None
     finally:
         save()
     rate = lambda a, b: f'{a}/{b} = {a / b:.0%}' if b else '—'
     print(f"\n{config}：與 A10 玩家選擇一致 {rate(tally['same'], tally['asked'])}；勝場 {rate(tally['won_same'], tally['won'])}"
-          f"（跳過：模型 {tally['model_skip']}、玩家 {tally['player_skip']}；錯誤 {tally['error']}；沿用快取 {hits[0]}）")
+          f"（{mode}；錯誤 {tally['error']}；沿用快取 {hits[0]}）")
+    print(f"跳過：模型 {tally['model_skip']} 次，其中玩家也跳過 {rate(tally['both_skip'], tally['model_skip'])}；"
+          f"玩家跳過 {tally['player_skip']} 次，模型抓到 {rate(tally['both_skip'], tally['player_skip'])}")
+    print(f"玩家有拿牌的 {tally['player_took']} 題：選到同一張 {rate(tally['took_same'], tally['player_took'])}")
 
 
 def main():
@@ -216,9 +227,11 @@ def main():
     p.add_argument('--acts', type=int, nargs='+', default=[1])
     p.add_argument('--seed', type=int, default=1)
     p.add_argument('--workers', type=int, default=4)
+    p.add_argument('--mode', choices=['rating', 'free'], default='rating',
+                   help='rating: best-rated card, model takes or skips; free: model chooses among offers')
     args = parser.parse_args()
     if args.command == 'fetch': fetch(args.characters, args.runs, args.ascension, args.wins)
-    else: agree(args.config, set(args.acts), args.spots, args.seed, args.workers)
+    else: agree(args.config, set(args.acts), args.spots, args.seed, args.workers, args.mode)
 
 
 if __name__ == '__main__': main()
