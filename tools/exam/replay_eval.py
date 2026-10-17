@@ -116,7 +116,8 @@ def score_combat(state, decision):
     slots = set(drunk_potions(decision))
     potions = [p for p in facts.get('usable_potions') or [] if p['slot'] in slots]
     block += sum(p.get('block', 0) for p in potions)
-    killed, orbs_known = planned_kills(state, decision, facts)
+    killed, orbs_known, plan_block = planned_kills(state, decision, facts)
+    block += max(0, plan_block - block)  # Frost evoked by the plan adds block the card texts do not show.
     incoming = sum(incoming_damage(i) for e in killed for i in e.get('intents') or [])
     frost = sum(e['frost'] for e in known) * FROST_PASSIVE
     unblocked = max(0, facts['incoming_attack_damage'] - incoming - facts['current_block'] - block - frost)
@@ -195,6 +196,8 @@ def planned_kills(state, decision, facts):
     dealt = collections.Counter()
     channelled = new_lightning = 0
     held = player.get('block') or 0
+    orbs_now = list(player.get('orbs') or [])
+    evoke_unknown = False
     for kind, key, target in moves:
         if kind == 'potion':
             single, every = (potions.get(key) or {}).get('damage', 0), 0
@@ -203,8 +206,17 @@ def planned_kills(state, decision, facts):
             effects = card_effects(hand[key])
             single = effects.get('damage', 0) * effects.get('hits', 1) + (held if effects['block_damage'] else 0)
             held += effects['block']
+            if effects['evoke']:
+                orb = orbs_now[-1] if orbs_now and not channelled else None
+                if orb and orb.get('id') == 'LIGHTNING_ORB' and len(enemies) == 1:
+                    dealt[enemies[0].get('entity_id')] += (orb.get('evoke_val') or 0) * effects['evoke']
+                elif orb and orb.get('id') == 'FROST_ORB':
+                    held += (orb.get('evoke_val') or 0) * effects['evoke']
+                else:
+                    evoke_unknown = True
+                if orb: orbs_now.pop()
             every = effects.get('damage_all', 0) * effects.get('hits', 1)
-            channelled += effects.get('lightning', 0) + effects.get('frost', 0)
+            channelled += effects.get('lightning', 0) + effects.get('frost', 0) + effects.get('other_orbs', 0)
             new_lightning += effects.get('lightning', 0)
         for enemy in enemies:
             dealt[enemy.get('entity_id')] += every + (single if enemy.get('entity_id') == target else 0)
@@ -218,9 +230,9 @@ def planned_kills(state, decision, facts):
     random_total = orbs.get('damage_to_random_enemy', 0) + new_lightning * lightning
     left = lambda e: (e.get('hp') or 0) + (e.get('block') or 0) - dealt[e.get('entity_id')]
     # Random Lightning among several enemies matters only when it could finish one of them.
-    orbs_known = ((not channelled or (isinstance(slots, int) and len(player.get('orbs') or []) + channelled <= slots))
+    orbs_known = (not evoke_unknown and (not channelled or (isinstance(slots, int) and len(player.get('orbs') or []) + channelled <= slots))
                   and (len(enemies) == 1 or not any(0 < left(e) <= random_total for e in enemies)))
-    return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)], orbs_known
+    return [e for e in enemies if dealt[e.get('entity_id')] >= (e.get('hp') or 0) + (e.get('block') or 0)], orbs_known, held - (player.get('block') or 0)
 
 
 def evaluate_plan(state, decision):
