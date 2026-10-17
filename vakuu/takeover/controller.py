@@ -10,7 +10,7 @@ from combat.search import search_turn, turn_candidates
 from combat.triggers import compact_triggers
 from core import game_api as api
 from core.keywords import pull_keywords
-from core.rules import COMBAT, FIELDS, SCHEMA, allowed_actions, fingerprint, potion_belt_full, still_valid, transitional, validate, waiting_for_teammates
+from core.rules import COMBAT, FIELDS, SCHEMA, allowed_actions, fingerprint, potion_belt_full, program_move, still_valid, transitional, validate, waiting_for_teammates
 from core.screens import combat_choice, execution_busy, in_fight, same_screen, screen_label
 from core.spire_codex import event_advice, monster_intel
 from deck.advisor import advise
@@ -37,16 +37,16 @@ POLL_INTERVAL = 0.25
 CARD_POLL_INTERVAL = 0.1
 CARD_SETTLE_WINDOW = 0.2
 
-# Card rewards: 'rating' lets the Codex Score pick the card and asks the model only whether to take it
-# or skip; 'free' lets the model choose among all offers. On 300 act 1 Spire Codex spots, Haiku choosing
-# freely matched the A10 player 34-36%, always taking the best-rated card 41% (it never skips; players
-# skipped 39 times). tools/exam/codex_runs.py agree --mode compares the two.
-CARD_PICK = 'rating'
+# Card rewards: 'top' takes the best-rated card without asking the model; 'rating' shows the model only
+# that card to take or skip; 'free' lets it choose among all offers. On 300 act 1 Spire Codex spots
+# (seed 7) the A10 player's pick was matched 41% by 'top', 34-36% by Haiku in 'free' and 29% in 'rating'
+# (Haiku skipped 152 of 300; players skipped 39). tools/exam/codex_runs.py agree --mode compares them.
+CARD_PICK = 'top'
 
 
 def rating_pick(state, rating):
     """The best-rated offer the model may only take or skip, or None when ratings cannot choose."""
-    if CARD_PICK != 'rating' or rating.get('status') != 'ok' or rating.get('best_scored_index') is None: return None
+    if CARD_PICK not in ('top', 'rating') or rating.get('status') != 'ok' or rating.get('best_scored_index') is None: return None
     return next(row for row in rating['ranked_cards'] if row['index'] == rating['best_scored_index'])
 
 
@@ -217,6 +217,11 @@ class Controller(ModelCalls):
 
     def decide(self, state, selection=None):
         self.sync_combat(state)
+        if CARD_PICK == 'top' and state.get('state_type') == 'card_reward':
+            pick = rating_pick(state, advise(state))
+            if pick:
+                return program_move(f"照社群評分，收下 {pick['name']}。\n建議：選 {pick['name']}（{pick['score']} 分，依 Spire Codex 評分）。",
+                                    'select_card_reward', card_index=pick['index'])
         selection = selection or models.settings()
         cached = self.local_search
         result = cached[1] if cached and cached[0] == fingerprint(state) else None

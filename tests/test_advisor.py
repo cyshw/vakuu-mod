@@ -159,3 +159,10 @@ class RatingPickTests(unittest.TestCase):
         decision, prompt = self.decide(answer, 'free')
         self.assertEqual(json.loads(decision['parameters_json']), {'card_index': 2})
         self.assertNotIn('rating_pick', prompt.split('遊戲狀態：', 1)[1])
+
+    def test_top_mode_takes_the_best_rated_card_without_the_model(self):
+        c = self.engine.Controller(lambda m: None)
+        with patch.object(self.engine, 'CARD_PICK', 'top'), patch.object(c, 'call_model') as call:
+            decision = c.decide(sample(), {'model_key': 'claude:haiku', 'effort': 'low'})
+        call.assert_not_called()
+        self.assertEqual((decision['action'], json.loads(decision['parameters_json'])), ('select_card_reward', {'card_index': 7}))
