@@ -74,7 +74,7 @@ def played_route(path, case):
     if not route or not options: return None
     offset = (world['run']['floor'] + 1) - options[0]['row']
     row = case['state']['run']['floor'] - offset
-    return {'act': route['act'], 'hp_ratio': route['hp_ratio'], 'max_hp': route['max_hp'],
+    return {'act': route['act'], 'hp_ratio': route['hp_ratio'], 'max_hp': route['max_hp'], 'row_floor': route.get('row_floor'),
             'path': [list(n) for n in route['path'] if n[1] > row],
             'assumed': [list(n) for n in route.get('assumed') or [] if n[1] > row],
             'types': [[n[0], n[1], t] for n, t in route['types'].items()]}

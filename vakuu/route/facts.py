@@ -162,9 +162,18 @@ REST_HEAL = 0.3  # Resting heals 30% of max HP.
 
 REST_FLOOR = 0.3  # Rest when upgrading would leave less than this share of max HP before the next rest site.
 
-def ahead_nodes(route):
-    """The drawn route, then the assumed safest way on to the boss where the drawing stopped short."""
-    return list(route.get('path') or []) + list(route.get('assumed') or [])
+def ahead_nodes(route, state=None):
+    """The drawn route, then the assumed safest way on to the boss where the drawing stopped short.
+
+    Only rooms past the current floor: a move the program makes alone (the only way on) does not walk
+    the route, and an Ironclad run upgraded before its act 1 boss because the room just cleared still
+    counted as the next one ahead.
+    """
+    nodes = list(route.get('path') or []) + list(route.get('assumed') or [])
+    floor = ((state or {}).get('run') or {}).get('floor')
+    if isinstance(floor, int) and isinstance(route.get('row_floor'), int):
+        nodes = [node for node in nodes if node[1] + route['row_floor'] > floor]
+    return nodes
 
 # Before a boss, rest when an average boss fight would leave less than this share of max HP after
 # upgrading. Lower than REST_FLOOR: the act ends with a heal, so the boss only has to be survived.
@@ -181,7 +190,7 @@ def rest_facts(state, route):
     heal = min(int(max_hp * REST_HEAL), max_hp - hp)
     facts = {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal}
     if not route or not route.get('types'): return {**facts, 'planned_next_rooms': None}
-    ahead = ahead_nodes(route)
+    ahead = ahead_nodes(route, state)
     rooms, boss_next = [], False
     for node in ahead:
         kind = route['types'].get(node)
@@ -207,14 +216,14 @@ def rest_facts(state, route):
                       'rest_recommended': facts['rest_recommended'] or after_upgrade < BOSS_REST_FLOOR * max_hp})
     return facts
 
-def route_ahead(route):
+def route_ahead(route, state=None):
     """The planned rooms after this one, and how far the next rest site, shop and elite are.
 
     Event options trade HP or gold; whether 7 HP for 101 gold is worth it depends on the next rest
     site and shop, which the event screen does not show.
     """
     if not route or not route.get('types'): return None
-    rooms = [route['types'].get(node) for node in ahead_nodes(route)]
+    rooms = [route['types'].get(node) for node in ahead_nodes(route, state)]
     if not rooms: return None
     distance = lambda kind: next((i + 1 for i, room in enumerate(rooms) if room == kind), None)
     return {'next_rooms': rooms[:8], 'rooms_to_rest_site': distance('RestSite'), 'rooms_to_shop': distance('Shop'),

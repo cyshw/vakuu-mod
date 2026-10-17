@@ -33,7 +33,10 @@ def start_route(state, decision):
     curve = project_route([{'type': kinds.get(node), 'row': node[1]} for node in walk],
                           player.get('hp') or 0, player.get('max_hp') or 1, route_damage(state))['hp_by_room']
     assumed = safest_tail(state.get('map') or {}, walk[-1])
+    floor = (state.get('run') or {}).get('floor')
     return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path,
+            # Floor of a node = row + row_floor; the chosen node is the next floor.
+            'row_floor': floor + 1 - first[1] if first and isinstance(floor, int) else None,
             'assumed': assumed, 'types': {node: kinds.get(node) for node in walk + assumed},
             'expected_hp': dict(zip(walk, curve)), 'max_hp': player.get('max_hp') or 1}
 

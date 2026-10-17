@@ -73,6 +73,7 @@ def main():
     parser.add_argument('--effort', default='low')
     parser.add_argument('--character', default='DEFECT')
     parser.add_argument('--retries', type=int, default=3)
+    parser.add_argument('--playbook', metavar='MODEL', help='model that writes the deck playbook, e.g. codex:gpt-6.1-sol@low')
     args = parser.parse_args()
     started, retries, last_floor = 0, 0, None
     log = LOGS / time.strftime('auto-%m%d-%H%M.jsonl')
@@ -89,7 +90,8 @@ def main():
         floor = (screen.get('run') or {}).get('floor')
         say(f'接手：第 {floor} 層 {screen.get("state_type")}，血 {(screen.get("player") or {}).get("hp")}')
         subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tools' / 'takeover_log.py'), '--steps', '3000',
-                        '--model', args.model, '--effort', args.effort, '--log', str(log)], cwd=ROOT,
+                        '--model', args.model, '--effort', args.effort, '--log', str(log)]
+                       + (['--playbook', args.playbook] if args.playbook else []), cwd=ROOT,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         after = state() or {}
         kind, floor_now = after.get('state_type'), (after.get('run') or {}).get('floor')

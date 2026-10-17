@@ -259,7 +259,7 @@ class Controller(ModelCalls):
             advice = event_advice(event.get('event_id'), event.get('options') or [],
                                   (state.get('player') or {}).get('character_id') or '')
             if advice: compact['event_advice'] = advice
-            ahead = route_ahead(self.route)
+            ahead = route_ahead(self.route, state)
             if ahead: compact['route_ahead'] = ahead
         if state.get('state_type') in ('card_reward', 'shop', 'card_select', 'event'):
             compact['deck_size'] = len((state.get('player') or {}).get('deck') or [])
