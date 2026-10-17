@@ -19,7 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LOGS = ROOT / 'vakuu' / 'button-runtime' / 'logs'
 API = 'http://127.0.0.1:15526/api/v1/singleplayer'
 # Menu buttons pressed, in order of preference, to get from wherever the menu is to a new run.
-MENU_PATH = ('main_menu', 'singleplayer', 'standard')
+# With a saved run the main menu shows continue instead of singleplayer: resume that run.
+MENU_PATH = ('main_menu', 'singleplayer', 'standard', 'continue')
 DISMISS = ('ok', 'confirm', 'close', 'skip', 'proceed')
 
 
