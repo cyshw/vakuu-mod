@@ -393,7 +393,9 @@ class Controller(ModelCalls):
                     decision, plan = self.adopt_model_plan(state, decision, plan)
                 elif plan and not plan['queue']: plan = None
                 self.report(decision['advice'])
-                if decision['stop'] or decision['action'] == 'none':
+                # A real action still runs when stop is set: at 10 HP Haiku chose a potion and also set
+                # stop, which handed the run back mid-fight; stop goes with action none.
+                if decision['action'] == 'none' or (decision['stop'] and not takeover):
                     self.close_combat_session()
                     break
                 if not takeover: break
