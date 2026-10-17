@@ -12,6 +12,9 @@ from core.paths import RUNTIME
 from deck.facts import deck_summary
 
 CACHE = RUNTIME / 'playbooks'
+# The panel's takeover writes playbooks with this model; exams and tools pass their own or none.
+DEFAULT_MODEL = 'codex:gpt-6.1-sol@low'
+_failed = set()  # Deck keys whose playbook call failed in this process: not retried every turn.
 SCHEMA = {'type': 'object', 'additionalProperties': False,
           'properties': {'playbook': {'type': 'string'}}, 'required': ['playbook']}
 INSTRUCTIONS = ('你是殺戮尖塔2的高手。以下是玩家目前的角色、牌組與遺物（JSON）。用繁體中文寫這副牌在戰鬥中的打法，'
@@ -46,11 +49,15 @@ def deck_playbook(state, ask):
     None when the state has no deck or the model call fails; the turn then goes on without it.
     """
     if not (state.get('player') or {}).get('deck'): return None
-    path = CACHE / f'{deck_key(state)}.json'
+    key = deck_key(state)
+    path = CACHE / f'{key}.json'
     try: return json.loads(path.read_text(encoding='utf-8'))['playbook']
     except (OSError, ValueError, KeyError): pass
+    if key in _failed: return None
     try: answer = ask(playbook_prompt(state), SCHEMA)
-    except (RuntimeError, ValueError, OSError): return None
+    except (RuntimeError, ValueError, OSError):
+        _failed.add(key)  # Not logged in or out of quota: play on without it rather than wait each turn.
+        return None
     text = str((answer or {}).get('playbook') or '').strip()
     if not text: return None
     path.parent.mkdir(parents=True, exist_ok=True)

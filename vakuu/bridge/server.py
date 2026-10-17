@@ -11,6 +11,7 @@ from core.paths import RUNTIME
 from core.screens import in_fight, screen_label
 from models import catalog as models
 from models import quota
+from deck.playbook import DEFAULT_MODEL as DEFAULT_PLAYBOOK
 from takeover.controller import Controller
 
 def bridge_server(port):
@@ -22,6 +23,8 @@ def bridge_server(port):
             else: status['message']=message
             status['sequence']+=1
     controller=Controller(report)
+    # Haiku lost a rebuilt boss fight 3 of 3 without a deck playbook and won 2 of 3 with it (and the stun note).
+    controller.playbook_model=DEFAULT_PLAYBOOK
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args): pass
         def respond(self,value,code=200):
