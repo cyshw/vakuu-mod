@@ -241,6 +241,58 @@ def sweep(acts, count, seed):
                   f'{right:>3} ({right / skips if skips else 0:.0%})  {right}/{player_skip}')
 
 
+def act_rewards(character):
+    """(run hash, act, offered ids, picked index or None, won) for every card reward, once per run."""
+    seen = set()
+    for path in sorted(RUNS.glob(f'{character}-*.json')):
+        run_hash = path.stem.split('-')[-1]
+        if run_hash in seen: continue  # A won run can be stored both in the mixed and the -win- set.
+        seen.add(run_hash)
+        run = json.loads(path.read_text(encoding='utf-8'))
+        if len(run.get('players') or []) != 1: continue
+        for _, act, stats in reward_spots(run):
+            choices = stats['card_choices']
+            yield (run_hash, act, [bare(c['card']['id']) for c in choices],
+                   next((i for i, c in enumerate(choices) if c.get('was_picked')), None), bool(run.get('win')))
+
+
+def count_picks(rewards):
+    rows = {}
+    for _, act, offered, picked, _ in rewards:
+        for i, card in enumerate(offered):
+            counts = rows.setdefault(str(act), {}).setdefault(card, [0, 0])
+            counts[0] += 1; counts[1] += picked == i
+    return rows
+
+
+def pickrates(characters, folds=5):
+    """Write the per-act pick-rate table takeover uses, after checking it out of sample by run."""
+    import zlib
+    from deck import pick_rates
+    out = {'built_at': time.strftime('%Y-%m-%d'), 'characters': {}}
+    for character in characters:
+        rewards = list(act_rewards(character))
+        if not rewards: print(character, '沒有對局，先 fetch'); continue
+        for act in sorted({r[1] for r in rewards}):
+            tally = Counter()
+            for k in range(folds):
+                fold = lambda r: zlib.crc32(r[0].encode()) % folds == k
+                pick_rates._table = {'characters': {character: count_picks([r for r in rewards if not fold(r)])}}
+                for _, act_, offered, picked, _ in (r for r in rewards if fold(r) and r[1] == act):
+                    state = {'state_type': 'card_reward', 'player': {'character_id': character}, 'run': {'act': act_},
+                             'card_reward': {'can_skip': True, 'cards': [{'index': i, 'id': c} for i, c in enumerate(offered)]}}
+                    choice = pick_rates.popular_pick(state)
+                    tally['n'] += 1; tally['skip'] += picked is None
+                    tally['same'] += (None if choice.get('skip') else choice['index']) == picked
+            print(f"{character} 第 {act} 幕：{tally['n']} 題，玩家跳過 {tally['skip']}；選取率規則與玩家一致 "
+                  f"{tally['same'] / tally['n']:.1%}（{folds} 折，依對局切分）")
+        out['characters'][character] = count_picks(rewards)
+    pick_rates._table = None
+    pick_rates.PATH.parent.mkdir(parents=True, exist_ok=True)
+    pick_rates.PATH.write_text(json.dumps(out, ensure_ascii=False), encoding='utf-8')
+    print('寫入', pick_rates.PATH)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -257,12 +309,15 @@ def main():
     p.add_argument('--workers', type=int, default=4)
     p.add_argument('--mode', choices=['top', 'rating', 'free'], default='top',
                    help='top: best-rated card, no model; rating: model takes or skips it; free: model chooses')
+    p = sub.add_parser('pickrates', help='write the per-act pick-rate table takeover picks card rewards with')
+    p.add_argument('--characters', nargs='+', default=['IRONCLAD', 'DEFECT'])
     p = sub.add_parser('sweep')
     p.add_argument('--spots', type=int, default=300)
     p.add_argument('--acts', type=int, nargs='+', default=[1])
     p.add_argument('--seed', type=int, default=7)
     args = parser.parse_args()
     if args.command == 'fetch': fetch(args.characters, args.runs, args.ascension, args.wins)
+    elif args.command == 'pickrates': pickrates(args.characters)
     elif args.command == 'sweep': sweep(set(args.acts), args.spots, args.seed)
     else: agree(args.config, set(args.acts), args.spots, args.seed, args.workers, args.mode)
 

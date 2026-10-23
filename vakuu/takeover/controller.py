@@ -16,6 +16,7 @@ from core.spire_codex import event_advice, monster_intel
 from deck.advisor import advise
 from deck.direction import deck_direction
 from deck.facts import deck_profile, deck_summary
+from deck.pick_rates import popular_pick
 from deck.playbook import deck_playbook
 from models import catalog as models
 from models.calls import ModelCalls, instructions
@@ -38,7 +39,8 @@ POLL_INTERVAL = 0.25
 CARD_POLL_INTERVAL = 0.1
 CARD_SETTLE_WINDOW = 0.2
 
-# Card rewards: 'top' takes the best-rated card without asking the model; 'rating' shows the model only
+# Card rewards: 'top' takes the card A10 players take most often in this act (deck/pick_rates.py), or
+# the best-rated one without a pick-rate table, without asking the model; 'rating' shows the model only
 # that card to take or skip; 'free' lets it choose among all offers. On 300 act 1 Spire Codex spots
 # (seed 7) the A10 player's pick was matched 41% by 'top', 34-36% by Haiku in 'free' and 29% in 'rating'
 # (Haiku skipped 152 of 300; players skipped 39). tools/exam/codex_runs.py agree --mode compares them.
@@ -241,6 +243,14 @@ class Controller(ModelCalls):
     def decide(self, state, selection=None):
         self.sync_combat(state)
         if CARD_PICK == 'top' and state.get('state_type') == 'card_reward':
+            popular = popular_pick(state)
+            if popular and popular.get('skip'):
+                best = popular['best']
+                return program_move(f"這些牌高手大多不拿，跳過。\n建議：跳過；最常被拿的{best['name']}，A10 玩家這一幕只有 {best['pick_rate']:.0%} 會拿。",
+                                    'skip_card_reward')
+            if popular:
+                return program_move(f"照高手的選法，收下 {popular['name']}。\n建議：選 {popular['name']}（A10 玩家這一幕看到它時 {popular['pick_rate']:.0%} 會拿）。",
+                                    'select_card_reward', card_index=popular['index'])
             pick = rating_pick(state, advise(state))
             if pick:
                 return program_move(f"照社群評分，收下 {pick['name']}。\n建議：選 {pick['name']}（{pick['score']} 分，依 Spire Codex 評分）。",
