@@ -6,11 +6,16 @@ ROUTE_COUNTS = {'elites': ('Elite',), 'fights': ('Monster', 'Elite'), 'rests': (
 
 MAX_PATHS = 20000  # Act maps have hundreds to a few thousand paths; stop enumerating beyond this.
 
+FIGHT_TARGET = 7  # Fights (elites included) per act that grow the deck; more add risk, not much else.
+
 ROUTE_STYLES = {
     # name: sort key over a path's counts (smaller is better)
     # Guides call skipping every elite weak (elites give the relics that win runs): take 1-2 per act
     # when a rest site follows within two rooms.
-    'balanced': lambda c: (not 1 <= c['elites'] <= 2, c['elites'] - c['elites_rest_after'], -c['rests'], c['fights']),
+    # Then up to FIGHT_TARGET fights before more rest sites: a run whose act 1 had 5 fights and 4 rest
+    # sites met the boss with a starter deck and 3 relics, and lost.
+    'balanced': lambda c: (not 1 <= c['elites'] <= 2, c['elites'] - c['elites_rest_after'],
+                           -min(c['fights'], FIGHT_TARGET), -c['rests'], c['fights']),
     'safest': lambda c: (c['elites'], c['fights'], -c['rests']),
     'most_rest': lambda c: (-c['rests'], c['elites'], c['fights']),
     'most_shops': lambda c: (-c['shops'], c['elites'], -c['rests']),

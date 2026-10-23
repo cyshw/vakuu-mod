@@ -624,6 +624,18 @@ class Tests(unittest.TestCase):
         elite_route=route_plans.start_route(at(0,[1,4]),drawn); elite_route['types'][(2,2)]='Elite'
         self.assertIsNone(route_plans.route_decision(elite_route,at(1,[0,2])))  # Always re-asked before an elite.
 
+    def test_balanced_route_fights_enough_to_grow_the_deck(self):
+        # Two routes with one elite and a rest site after it: 3 fights and 3 rest sites, or 6 fights.
+        node=lambda col,row,kind,*kids: {'col':col,'row':row,'type':kind,'children':[list(k) for k in kids]}
+        calm=['Monster','Elite','RestSite','RestSite','Monster','RestSite']
+        busy=['Monster','Elite','RestSite','Monster','Monster','Monster','Monster']
+        nodes=[node(c,r+1,kind,*([(c,r+2)] if r+1<len(kinds) else [])) for c,kinds in ((0,calm),(1,busy)) for r,kind in enumerate(kinds)]
+        state={'state_type':'map','player':{'hp':60,'max_hp':75},'map':{'nodes':nodes,'next_options':[
+            {'index':i,'col':c,'row':1,'type':'?'} for i,c in enumerate((0,1))]}}
+        routes={r['style']:r for r in routing.route_facts(state)['candidate_routes']}
+        self.assertEqual(routes['balanced']['option_index'],1)
+        self.assertEqual(routes['safest']['option_index'],0)  # The quiet route is still offered.
+
     def test_guide_rules_rest_balanced_routes_and_pick_threshold(self):
         node=lambda col,row,kind,*kids: {'col':col,'row':row,'type':kind,'children':[list(k) for k in kids]}
         nodes=[node(0,1,'Monster',(0,2)), node(0,2,'Elite',(0,3)), node(0,3,'RestSite',(0,4)), node(0,4,'Monster'),
