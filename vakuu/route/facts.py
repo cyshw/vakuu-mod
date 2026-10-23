@@ -54,6 +54,8 @@ def project_route(rooms, hp, max_hp, damage):
             'boss_average_damage': round(damage['boss']),
             'hp_after_boss_if_average': round((curve[-1] if curve else hp) - damage['boss'])}
 
+ELITE_ARRIVAL_FLOOR = 0.5  # Share of max HP below which arriving at a route's first elite is flagged.
+
 BOSS_NEAR_ROOMS = 6  # Rooms left before the boss at which projections are trusted for the last elite.
 
 BOSS_SPARE = 0.2  # HP share an average boss fight should leave for the last elite to be worth it.
@@ -147,6 +149,15 @@ def route_facts(state):
         risky = route['projected']['hp_after_boss_if_average'] < BOSS_SPARE * (player.get('max_hp') or 1)
         if len(before_boss) <= BOSS_NEAR_ROOMS and any(r['type'] == 'Elite' for r in before_boss) and risky:
             route['elite_too_risky_before_boss'] = True
+        # The HP the route arrives at its first elite with, not the HP now: at 55/80 Haiku took a branch
+        # forcing an elite three fights later ("69% HP, manageable"), arrived with 35 and died.
+        first = route['first_elite_at_room']
+        if first:
+            arrival = route['projected']['hp_by_room'][first - 2] if first > 1 else player.get('hp') or 0
+            if arrival < ELITE_ARRIVAL_FLOOR * (player.get('max_hp') or 1):
+                route['elite_reached_below_half_hp'] = {
+                    'hp_on_arrival': round(arrival),
+                    'rule': '照平均掉血，走到這條路的第一個菁英時血量不到一半；有其他路線可選時不要選這條'}
     facts = {'hp_ratio': round((player.get('hp') or 0) / (player.get('max_hp') or 1), 2), 'options': [],
              'expected_damage_per_room': damage, 'candidate_routes': routes}
     for option in world.get('next_options') or []:
@@ -162,9 +173,18 @@ REST_HEAL = 0.3  # Resting heals 30% of max HP.
 
 REST_FLOOR = 0.3  # Rest when upgrading would leave less than this share of max HP before the next rest site.
 
-def ahead_nodes(route):
-    """The drawn route, then the assumed safest way on to the boss where the drawing stopped short."""
-    return list(route.get('path') or []) + list(route.get('assumed') or [])
+def ahead_nodes(route, state=None):
+    """The drawn route, then the assumed safest way on to the boss where the drawing stopped short.
+
+    Only rooms past the current floor: a move the program makes alone (the only way on) does not walk
+    the route, and an Ironclad run upgraded before its act 1 boss because the room just cleared still
+    counted as the next one ahead.
+    """
+    nodes = list(route.get('path') or []) + list(route.get('assumed') or [])
+    floor = ((state or {}).get('run') or {}).get('floor')
+    if isinstance(floor, int) and isinstance(route.get('row_floor'), int):
+        nodes = [node for node in nodes if node[1] + route['row_floor'] > floor]
+    return nodes
 
 # Before a boss, rest when an average boss fight would leave less than this share of max HP after
 # upgrading. Lower than REST_FLOOR: the act ends with a heal, so the boss only has to be survived.
@@ -181,7 +201,7 @@ def rest_facts(state, route):
     heal = min(int(max_hp * REST_HEAL), max_hp - hp)
     facts = {'hp_ratio': round(hp / max_hp, 2), 'rest_heals': heal, 'hp_after_rest': hp + heal}
     if not route or not route.get('types'): return {**facts, 'planned_next_rooms': None}
-    ahead = ahead_nodes(route)
+    ahead = ahead_nodes(route, state)
     rooms, boss_next = [], False
     for node in ahead:
         kind = route['types'].get(node)
@@ -207,14 +227,14 @@ def rest_facts(state, route):
                       'rest_recommended': facts['rest_recommended'] or after_upgrade < BOSS_REST_FLOOR * max_hp})
     return facts
 
-def route_ahead(route):
+def route_ahead(route, state=None):
     """The planned rooms after this one, and how far the next rest site, shop and elite are.
 
     Event options trade HP or gold; whether 7 HP for 101 gold is worth it depends on the next rest
     site and shop, which the event screen does not show.
     """
     if not route or not route.get('types'): return None
-    rooms = [route['types'].get(node) for node in ahead_nodes(route)]
+    rooms = [route['types'].get(node) for node in ahead_nodes(route, state)]
     if not rooms: return None
     distance = lambda kind: next((i + 1 for i, room in enumerate(rooms) if room == kind), None)
     return {'next_rooms': rooms[:8], 'rooms_to_rest_site': distance('RestSite'), 'rooms_to_shop': distance('Shop'),

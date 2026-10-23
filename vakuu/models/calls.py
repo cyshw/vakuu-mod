@@ -54,17 +54,6 @@ class ModelCalls:
     def sync_combat(self, state):
         previous_key = self.combat_key
         key = fight_key(state)
-        # Exhaust/discard prompts are still part of the fight. The API supplies
-        # battle data on hand_select, even though ordinary combat actions pause.
-        if state.get('state_type') == 'hand_select' and state.get('battle'):
-            run = state.get('run') or {}
-            key = (run.get('act'), run.get('floor'))
-        player = state.get('player') or {}
-        # Grid overlays (e.g. Hologram's discard-pile selection) omit battle.
-        # The API only includes hand/energy while CombatManager is in progress.
-        if state.get('state_type') in {'card_select', 'bundle_select', 'relic_select'} and 'hand' in player and 'energy' in player:
-            run = state.get('run') or {}
-            key = (run.get('act'), run.get('floor'))
         round_number = (state.get('battle') or {}).get('round')
         restarted = (key is not None and key == self.combat_key
                      and type(round_number) is int and type(self.combat_round) is int
@@ -74,32 +63,35 @@ class ModelCalls:
         if key is None: self.combat_round = None
         elif round_number is not None or key != previous_key: self.combat_round = round_number
 
-    def call_model(self, prompt, schema, selection, candidate=False):
+    def call_model(self, prompt, schema, selection, candidate=False, one_off=False):
+        """one_off: a side question (the deck playbook) asked outside the fight's conversations, which
+        are left as they are."""
         started = time.perf_counter()
         agy = selection['model_key'].startswith('agy:')
         # "claude" below means a stream-json CLI kept open per fight: Claude Code or Antigravity's agy.
         claude = selection['model_key'].startswith('claude:') or agy
         # Fights keep one conversation; so does the run of screens between two fights (rewards, card
         # pick, map, event come within a minute), whose rules then need not be resent.
-        persistent = (self.combat_key is not None and (claude or selection['model_key'].startswith('codex:'))) or \
-                     (self.combat_key is None and claude)
+        persistent = not one_off and ((self.combat_key is not None and (claude or selection['model_key'].startswith('codex:')))
+                                      or (self.combat_key is None and claude))
         stale = lambda session: time.monotonic() - getattr(session, 'last_used', time.monotonic()) > SESSION_IDLE_SECONDS
-        if self.parked_sessions and any(stale(s) for s in self.parked_sessions.values()):
+        if one_off: pass
+        elif self.parked_sessions and any(stale(s) for s in self.parked_sessions.values()):
             with self.lock: old = [k for k, s in self.parked_sessions.items() if stale(s)]
             for key in old: self.parked_sessions.pop(key).close()
-        if persistent and self.combat_session and self.combat_session.selection != selection:
+        if not one_off and persistent and self.combat_session and self.combat_session.selection != selection:
             with self.lock:  # Another model's turn: park the active conversation, resume this model's own.
                 parked = self.combat_session
                 self.parked_sessions[parked.selection['model_key'] + '@' + parked.selection.get('effort', '')] = parked
                 self.combat_session = self.parked_sessions.pop(selection['model_key'] + '@' + selection.get('effort', ''), None)
-        if self.combat_session and (not persistent or self.combat_session.selection != selection
+        if not one_off and self.combat_session and (not persistent or self.combat_session.selection != selection
                                     or (claude and self.combat_session.schema != schema)  # Claude fixes it at start.
                                     or (claude and self.combat_session.turns >= SESSION_MAX_TURNS)
                                     or (claude and stale(self.combat_session))):  # Its cache has likely expired.
             # Claude's CLI keeps its bounded sessions; Codex retains one thread per battle.
             with self.lock: session, self.combat_session = self.combat_session, None
             session.close()
-        if not persistent and self.parked_sessions: self.close_combat_session()
+        if not one_off and not persistent and self.parked_sessions: self.close_combat_session()
         prune_runs(exclude=tuple(s.directory for s in [self.combat_session, *self.parked_sessions.values()] if s))
         run_dir = RUNTIME / str(uuid.uuid4())
         run_dir.mkdir(parents=True)

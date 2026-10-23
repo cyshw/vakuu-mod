@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--model', help='Model key for this run only, e.g. auto:, auto:brief, claude:sonnet')
     parser.add_argument('--effort', choices=['low', 'medium', 'high'])
     parser.add_argument('--one-fight', action='store_true', help='Stop as soon as the current fight ends')
+    parser.add_argument('--playbook', metavar='MODEL', help='Model that writes the deck playbook, e.g. codex:gpt-6.1-sol@low')
     parser.add_argument('--stop-at-boss-rest', action='store_true',
                         help="Stop on reaching the rest site right before a boss, before anything is chosen there")
     parser.add_argument('--no-ai', action='store_true', help='Use local decisions only; stop when a model would be needed')
@@ -62,6 +63,7 @@ def main():
     controller = engine.Controller(lambda m: (write('report', message=m), print(m.replace('\n', ' | '), flush=True)),
                                    allow_model=not args.no_ai, program_comparison=args.program_compare,
                                    program_first=args.program_first)
+    controller.playbook_model = args.playbook
     raw_search = engine.search_turn
     candidate_remaining = None
     def logged_search(state, **kwargs):

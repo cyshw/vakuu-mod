@@ -1,0 +1,625 @@
+{
+ "id": "auto-1017-1356#72",
+ "type": "combat",
+ "note": "頭目灵魂异鱼第10回合 4血：手上兩張呼唤（留著回合結束各扣6血）、還有2能量，沒打掉被自己的牌打死",
+ "expect": {
+  "held_card_hp_loss": [
+   "<=",
+   0
+  ]
+ },
+ "original": {
+  "advice": "战士，这一击的数值躲不掉，我们只能尽力。\n建议：敌人攻击13点，手上唯一的格挡牌是挑衅（6点），仍会受到7点伤害，血量4会死。它有无实体，你的攻击只会造成1点伤害，别浪费能量；先打挑衅，再喝能力药水碰碰运气（若出覆甲，回合结束也只有3点格挡，仍不够）。",
+  "stop": false,
+  "action": "play_card",
+  "parameters_json": "{\"card_index\": 3, \"target\": \"SOUL_FYSH_0\"}",
+  "next_cards": [
+   {
+    "hand_index": -1,
+    "target": "",
+    "potion_slot": -1
+   }
+  ],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "execution": {
+   "queue_empty": true,
+   "running": false
+  },
+  "state_type": "boss",
+  "battle": {
+   "round": 10,
+   "turn": "player",
+   "is_play_phase": true,
+   "enemies": [
+    {
+     "entity_id": "SOUL_FYSH_0",
+     "combat_id": 1,
+     "name": "灵魂异鱼",
+     "hp": 41,
+     "max_hp": 211,
+     "block": 0,
+     "status": [
+      {
+       "id": "VULNERABLE_POWER",
+       "name": "易伤",
+       "amount": 1,
+       "type": "Debuff",
+       "description": "1回合内，受到的攻击伤害增加50%。",
+       "keywords": []
+      },
+      {
+       "id": "INTANGIBLE_POWER",
+       "name": "无实体",
+       "amount": 1,
+       "type": "Buff",
+       "description": "将受到的所有伤害和生命减少效果降低为1。持续1回合。",
+       "keywords": []
+      }
+     ],
+     "intents": [
+      {
+       "type": "Attack",
+       "label": "13",
+       "title": "攻势",
+       "description": "这个敌人将要攻击造成13点伤害。"
+      },
+      {
+       "type": "Debuff",
+       "label": "",
+       "title": "策略",
+       "description": "这个敌人将要对你施加一个负面效果。"
+      }
+     ]
+    }
+   ]
+  },
+  "run": {
+   "act": 1,
+   "floor": 17,
+   "ascension": 3
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成10点伤害。 给予3层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "THUNDERCLAP",
+     "name": "闪电霹雳",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "对所有敌人造成4点伤害，给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "TAUNT",
+     "name": "挑衅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得6点格挡。 给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BULLY",
+     "name": "欺凌",
+     "type": "Attack",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成4点伤害。 该敌人身上每有一层易伤就额外造成2点伤害。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "TAUNT",
+     "name": "挑衅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得6点格挡。 给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "CONFLAGRATION",
+     "name": "焚烧",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "对所有敌人造成2点伤害4次。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "SHOCKWAVE",
+     "name": "震荡波",
+     "type": "Skill",
+     "cost": "2",
+     "star_cost": null,
+     "description": "给予所有敌人3层虚弱和易伤。 消耗。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "VICIOUS",
+     "name": "凶恶",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每当你给予易伤时，抽1张牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "JUGGLING",
+     "name": "杂耍",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "将你在每回合打出的第三张攻击牌的复制品加入你的手牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "PILLAGE",
+     "name": "劫掠",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。 抽牌直到你抽到一张非攻击牌。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": []
+    }
+   ],
+   "hp": 4,
+   "max_hp": 80,
+   "block": 0,
+   "energy": 3,
+   "max_energy": 3,
+   "hand": [
+    {
+     "id": "BECKON",
+     "name": "呼唤",
+     "type": "Status",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合结束时，如果这张牌在你的手牌中， 你失去6点生命。",
+     "rarity": "Status",
+     "is_upgraded": false,
+     "keywords": [],
+     "index": 0,
+     "target_type": "None",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "BECKON",
+     "name": "呼唤",
+     "type": "Status",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合结束时，如果这张牌在你的手牌中， 你失去6点生命。",
+     "rarity": "Status",
+     "is_upgraded": false,
+     "keywords": [],
+     "index": 1,
+     "target_type": "None",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "BASH",
+     "name": "痛击+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成10点伤害。 给予3层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ],
+     "index": 2,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "TAUNT",
+     "name": "挑衅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得6点格挡。 给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ],
+     "index": 3,
+     "target_type": "AnyEnemy",
+     "can_play": true,
+     "unplayable_reason": null
+    },
+    {
+     "id": "THUNDERCLAP",
+     "name": "闪电霹雳",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "对所有敌人造成4点伤害，给予1层易伤。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ],
+     "index": 4,
+     "target_type": "AllEnemies",
+     "can_play": true,
+     "unplayable_reason": null
+    }
+   ],
+   "draw_pile_count": 6,
+   "discard_pile_count": 11,
+   "exhaust_pile_count": 0,
+   "draw_pile": [
+    {
+     "name": "挑衅",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得6点格挡。 给予1层易伤。"
+    },
+    {
+     "name": "劫掠",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 抽牌直到你抽到一张非攻击牌。"
+    },
+    {
+     "name": "震荡波",
+     "cost": "2",
+     "star_cost": null,
+     "description": "给予所有敌人3层虚弱和易伤。 消耗。"
+    },
+    {
+     "name": "焚烧",
+     "cost": "1",
+     "star_cost": null,
+     "description": "对所有敌人造成2点伤害4次。"
+    },
+    {
+     "name": "呼唤",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合结束时，如果这张牌在你的手牌中， 你失去6点生命。"
+    },
+    {
+     "name": "呼唤",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合结束时，如果这张牌在你的手牌中， 你失去6点生命。"
+    }
+   ],
+   "discard_pile": [
+    {
+     "name": "呼唤",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合结束时，如果这张牌在你的手牌中， 你失去6点生命。"
+    },
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    },
+    {
+     "name": "呼唤",
+     "cost": "1",
+     "star_cost": null,
+     "description": "在你的回合结束时，如果这张牌在你的手牌中， 你失去6点生命。"
+    },
+    {
+     "name": "欺凌",
+     "cost": "0",
+     "star_cost": null,
+     "description": "造成12点伤害。 该敌人身上每有一层易伤就额外造成2点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。"
+    },
+    {
+     "name": "防御",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。"
+    },
+    {
+     "name": "打击",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。"
+    }
+   ],
+   "exhaust_pile": [],
+   "gold": 184,
+   "status": [
+    {
+     "id": "VICIOUS_POWER",
+     "name": "凶恶",
+     "amount": 1,
+     "type": "Buff",
+     "description": "每当你给予易伤, 抽1张牌。",
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "JUGGLING_POWER",
+     "name": "杂耍",
+     "amount": 1,
+     "type": "Buff",
+     "description": "将你在每回合打出的第三张攻击牌的1张复制品加入你的手牌。",
+     "keywords": []
+    }
+   ],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "PRECARIOUS_SHEARS",
+     "name": "松动羊毛剪",
+     "description": "拾起时，从你的牌组中移除2张牌并失去16点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "GREMLIN_HORN",
+     "name": "地精之角",
+     "description": "每当有一名敌人死亡时，获得[ironclad_energy_icon.png]并抽1张牌。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    },
+    {
+     "id": "BAG_OF_PREPARATION",
+     "name": "准备背包",
+     "description": "在每场战斗开始时，额外抽2张牌。",
+     "counter": null,
+     "keywords": []
+    }
+   ],
+   "potions": [
+    {
+     "id": "POWER_POTION",
+     "name": "能力药水",
+     "description": "从3张随机能力牌中选择1张加入你的手牌。这张牌在本回合可以免费打出。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    }
+   ],
+   "max_potion_slots": 3
+  }
+ },
+ "tags": [
+  "held_loss"
+ ]
+}

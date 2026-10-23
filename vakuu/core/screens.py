@@ -1,6 +1,13 @@
 """What screen the game is on: fights, scoped takeover screens and the action queue."""
 from core.rules import COMBAT
 
+def has_execution_state(state):
+    execution = state.get('execution')
+    return (isinstance(execution, dict)
+            and type(execution.get('running')) is bool
+            and type(execution.get('queue_empty')) is bool)
+
+
 def execution_busy(state):
     execution = state.get('execution')
     if not isinstance(execution, dict): return False  # Older mod compatibility.
@@ -22,11 +29,18 @@ def in_fight(state):
     return kind in COMBAT or kind == 'hand_select' or (
         kind in ('card_select', 'bundle_select', 'relic_select') and 'hand' in player and 'energy' in player)
 
+def fight_key(state):
+    """One fight per floor, including the selections that pause its action queue."""
+    if not in_fight(state): return None
+    run = state.get('run') or {}
+    return (run.get('act'), run.get('floor'))
+
+
 def same_screen(start, now):
     """Whether the decision begun on start is still going (same turn of a fight, same shop...)."""
     kind = start.get('state_type')
     if kind in COMBAT:
-        return in_fight(now) and (now.get('battle') or {}).get('round') in (None, (start.get('battle') or {}).get('round'))
+        return fight_key(start) == fight_key(now) and in_fight(now) and (now.get('battle') or {}).get('round') in (None, (start.get('battle') or {}).get('round'))
     if kind == 'map': return now.get('state_type') == 'map' and (now.get('run') or {}).get('floor') == (start.get('run') or {}).get('floor')
     return now.get('state_type') in SCREEN_GROUPS.get(kind, {kind})
 

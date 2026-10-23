@@ -1,5 +1,5 @@
 """Deck summaries and the block/damage profile used on card and shop screens."""
-import re
+from combat.text import BLOCK as BLOCK_TEXT
 
 def deck_summary(deck):
     """One entry per distinct card with a count, so the model knows what each card does without repeats."""
@@ -11,7 +11,6 @@ def deck_summary(deck):
                              'upgraded': bool(card.get('is_upgraded')), 'description': card.get('description')}
     return list(groups.values())
 
-BLOCK_TEXT = re.compile(r'[获獲]得\s*(\d+)\s*点?[格]挡')
 
 STARTERS = ('STRIKE', 'DEFEND')
 

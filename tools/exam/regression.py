@@ -26,7 +26,7 @@ SUITE = Path(__file__).resolve().parents[2] / 'tests' / 'regression'
 
 
 CHECKS = {'<=': lambda a, b: a is not None and a <= b, '>=': lambda a, b: a is not None and a >= b,
-          '!=': lambda a, b: a != b, '=': lambda a, b: a == b}
+          '!=': lambda a, b: a is not None and a != b, '=': lambda a, b: a == b}
 
 
 def parse_expect(text):
@@ -63,7 +63,7 @@ def played_route(path, case):
     for line in open(path, encoding='utf-8'):
         record = json.loads(line)
         if record['kind'] == 'state': last = record['state']
-        elif record['kind'] == 'model' and last and last.get('state_type') == 'map' and record['decision'].get('next_nodes'):
+        elif record['kind'] == 'model' and last and last.get('state_type') == 'map' and record['decision'].get('action') == 'choose_map_node':
             drawn = (last, record['decision'])
         if record['kind'] == 'model' and last is not None and replay_eval.fingerprint(last) == replay_eval.fingerprint(case['state']):
             break
@@ -74,7 +74,7 @@ def played_route(path, case):
     if not route or not options: return None
     offset = (world['run']['floor'] + 1) - options[0]['row']
     row = case['state']['run']['floor'] - offset
-    return {'act': route['act'], 'hp_ratio': route['hp_ratio'], 'max_hp': route['max_hp'],
+    return {'act': route['act'], 'hp_ratio': route['hp_ratio'], 'max_hp': route['max_hp'], 'row_floor': route.get('row_floor'),
             'path': [list(n) for n in route['path'] if n[1] > row],
             'assumed': [list(n) for n in route.get('assumed') or [] if n[1] > row],
             'types': [[n[0], n[1], t] for n, t in route['types'].items()]}
@@ -111,7 +111,8 @@ def verdict(case, decision):
     for key, check in case['expect'].items():
         op, value = check if isinstance(check, list) else ['=', check]
         if CHECKS[op](result.get(key), value): continue
-        note = f'{key}={result.get(key)!r}（應 {op} {value!r}）'
+        note = (f'{key} 無法判定（{result.get("simulation_reason", "incomplete_plan")}；應 {op} {value!r}）'
+                if result.get(key) is None else f'{key}={result.get(key)!r}（應 {op} {value!r}）')
         if (result.get(key) is None or (key in COMPUTED and result.get('certain') is False)
                 or (key in TEXT_COMPUTED and result.get('text_known') is False)): unsure.append(note)
         else: wrong.append(note)
@@ -154,8 +155,8 @@ def cached_calls(enabled):
     except (OSError, ValueError): store = {}
     hits = [0]
 
-    def call_model(self, prompt, schema, selection, candidate=False):
-        if not enabled or not getattr(local, 'use', False): return raw(self, prompt, schema, selection, candidate)
+    def call_model(self, prompt, schema, selection, candidate=False, **extra):
+        if not enabled or not getattr(local, 'use', False) or extra: return raw(self, prompt, schema, selection, candidate, **extra)
         key = hashlib.sha256(json.dumps([prompt, schema, selection, candidate], ensure_ascii=False).encode()).hexdigest()
         with lock: answer = store.get(key)
         if answer is not None:

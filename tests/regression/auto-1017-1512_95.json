@@ -1,0 +1,699 @@
+{
+ "id": "auto-1017-1512#95",
+ "type": "rest_site",
+ "note": "第27層 38/80：上一層模型沒畫路線，程式看不到下一間就是唯一的菁英；選鍛造後死在菁英",
+ "expect": {
+  "rested": [
+   "=",
+   true
+  ]
+ },
+ "original": {
+  "action": "choose_rest_option",
+  "advice": "血量還在四成以上，先把刀磨利。\n建議：選鍛造（index 1）升級牌組中的一張牌。你血量是38/80（約47%），高於需要休息的門檻，且路線上的菁英與頭目需要更強的輸出；把打擊、狂亂撕扯或剑柄打擊之類的核心牌升級，比回24點血更划算。",
+  "stop": false,
+  "parameters_json": "{\"index\":1}",
+  "next_cards": [],
+  "next_purchases": [],
+  "strategy": "",
+  "next_nodes": []
+ },
+ "state": {
+  "state_type": "rest_site",
+  "rest_site": {
+   "options": [
+    {
+     "index": 0,
+     "id": "HEAL",
+     "name": "休息",
+     "description": "回复最大生命值的30%（24）。",
+     "is_enabled": true
+    },
+    {
+     "index": 1,
+     "id": "SMITH",
+     "name": "锻造",
+     "description": "升级你牌组中的1张牌。",
+     "is_enabled": true
+    }
+   ],
+   "can_proceed": false
+  },
+  "run": {
+   "act": 2,
+   "floor": 27,
+   "ascension": 3
+  },
+  "player": {
+   "character": "铁甲战士",
+   "character_id": "IRONCLAD",
+   "deck": [
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "STRIKE_IRONCLAD",
+     "name": "打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成6点伤害。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DEFEND_IRONCLAD",
+     "name": "防御",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。",
+     "rarity": "Basic",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "BASH",
+     "name": "痛击+",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "保留。 造成10点伤害。 给予3层易伤。",
+     "rarity": "Basic",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "稳定",
+       "description": "这张牌获得保留。"
+      },
+      {
+       "name": "保留",
+       "description": "保留的牌不会在回合结束时被弃掉。"
+      }
+     ]
+    },
+    {
+     "id": "TRUE_GRIT",
+     "name": "坚毅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。  随机消耗1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "注能",
+       "description": "这张牌在每场战斗开始时自动打出。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "FORGOTTEN_RITUAL",
+     "name": "被遗忘的仪式",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得[ironclad_energy_icon.png][ironclad_energy_icon.png][ironclad_energy_icon.png]。 消耗。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "SHOCKWAVE",
+     "name": "震荡波+",
+     "type": "Skill",
+     "cost": "2",
+     "star_cost": null,
+     "description": "保留。 给予所有敌人5层虚弱和易伤。 消耗。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "稳定",
+       "description": "这张牌获得保留。"
+      },
+      {
+       "name": "保留",
+       "description": "保留的牌不会在回合结束时被弃掉。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "RIP_AND_TEAR",
+     "name": "狂乱撕扯",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "随机对敌人造成7点伤害两次。",
+     "rarity": "Event",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "POMMEL_STRIKE",
+     "name": "剑柄打击",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成9点伤害。 抽1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": []
+    },
+    {
+     "id": "DOMINATE",
+     "name": "主宰+",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "给予2层易伤。 敌人身上每有一层易伤，就获得1点力量。 消耗。",
+     "rarity": "Rare",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "THINKING_AHEAD",
+     "name": "深谋远虑",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "抽2张牌。 将手牌中的一张牌放到你的抽牌堆的顶端。 消耗。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "UPPERCUT",
+     "name": "上勾拳",
+     "type": "Attack",
+     "cost": "2",
+     "star_cost": null,
+     "description": "造成13点伤害。 给予1层虚弱。 给予1层易伤。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "BRAND",
+     "name": "烙印",
+     "type": "Skill",
+     "cost": "0",
+     "star_cost": null,
+     "description": "失去1点生命。 消耗1张牌。 获得1点力量。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "力量",
+       "description": "力量会增加攻击牌造成的伤害。"
+      }
+     ]
+    },
+    {
+     "id": "FEEL_NO_PAIN",
+     "name": "无惧疼痛+",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每当有一张牌被消耗时，获得4点格挡。",
+     "rarity": "Uncommon",
+     "is_upgraded": true,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "COLOSSUS",
+     "name": "巨像",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得4点格挡。 在本回合中，有易伤状态的敌人对你造成的伤害降低50%。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "TRUE_GRIT",
+     "name": "坚毅",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得7点格挡。  随机消耗1张牌。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "FEEL_NO_PAIN",
+     "name": "无惧疼痛",
+     "type": "Power",
+     "cost": "1",
+     "star_cost": null,
+     "description": "每当有一张牌被消耗时，获得3点格挡。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      },
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    },
+    {
+     "id": "DRUM_OF_BATTLE",
+     "name": "战鼓",
+     "type": "Skill",
+     "cost": "1",
+     "star_cost": null,
+     "description": "抽2张牌。 这张牌被消耗时，获得[ironclad_energy_icon.png][ironclad_energy_icon.png]。",
+     "rarity": "Uncommon",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "THRASH",
+     "name": "痛殴",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成4点伤害两次。 消耗你的手牌中随机一张攻击牌，并将它的伤害添加给这张牌。",
+     "rarity": "Rare",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "消耗",
+       "description": "在战斗结束前移除。"
+      }
+     ]
+    },
+    {
+     "id": "HEADBUTT",
+     "name": "头槌+",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "造成12点伤害。 将你弃牌堆中的一张牌放到抽牌堆顶部。",
+     "rarity": "Common",
+     "is_upgraded": true,
+     "keywords": []
+    },
+    {
+     "id": "IRON_WAVE",
+     "name": "铁斩波",
+     "type": "Attack",
+     "cost": "1",
+     "star_cost": null,
+     "description": "获得5点格挡。 造成5点伤害。",
+     "rarity": "Common",
+     "is_upgraded": false,
+     "keywords": [
+      {
+       "name": "格挡",
+       "description": "在下个回合前，阻挡伤害。"
+      }
+     ]
+    }
+   ],
+   "hp": 38,
+   "max_hp": 80,
+   "block": 0,
+   "gold": 728,
+   "status": [],
+   "relics": [
+    {
+     "id": "BURNING_BLOOD",
+     "name": "燃烧之血",
+     "description": "在战斗结束时，回复6点生命。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "LOST_COFFER",
+     "name": "失物盒",
+     "description": "拾起时，获得1次卡牌奖励和1瓶随机药水。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "BAG_OF_MARBLES",
+     "name": "弹珠袋",
+     "description": "在每场战斗开始时，给予所有敌人1层易伤。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    },
+    {
+     "id": "FESTIVE_POPPER",
+     "name": "节日拉炮",
+     "description": "在每场战斗开始时，对所有敌人造成9点伤害。",
+     "counter": null,
+     "keywords": []
+    },
+    {
+     "id": "ELECTRIC_SHRYMP",
+     "name": "放电异虾",
+     "description": "拾起时，选择一张技能牌为它附魔：注能。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "注能",
+       "description": "这张牌在每场战斗开始时自动打出。"
+      }
+     ]
+    },
+    {
+     "id": "AKABEKO",
+     "name": "赤牛",
+     "description": "在每场战斗开始时，获得8点活力。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "活力",
+       "description": "你的下一张攻击牌伤害增加。"
+      }
+     ]
+    },
+    {
+     "id": "LANTERN",
+     "name": "灯笼",
+     "description": "在每场战斗的第一回合获得[ironclad_energy_icon.png]。",
+     "counter": null,
+     "keywords": [
+      {
+       "name": "能量",
+       "description": "能量用于打出你手牌中的卡牌。"
+      }
+     ]
+    }
+   ],
+   "potions": [
+    {
+     "id": "BLOOD_POTION",
+     "name": "鲜血药水",
+     "description": "回复你最大生命值的20%。",
+     "slot": 0,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    },
+    {
+     "id": "POWER_POTION",
+     "name": "能力药水",
+     "description": "从3张随机能力牌中选择1张加入你的手牌。这张牌在本回合可以免费打出。",
+     "slot": 1,
+     "can_use_in_combat": true,
+     "target_type": "AnyPlayer",
+     "keywords": []
+    },
+    {
+     "id": "POTION_OF_BINDING",
+     "name": "缚魂药水",
+     "description": "给予所有敌人1层虚弱和1层易伤。",
+     "slot": 2,
+     "can_use_in_combat": true,
+     "target_type": "AllEnemies",
+     "keywords": [
+      {
+       "name": "虚弱",
+       "description": "虚弱的生物造成的攻击伤害减少25%。"
+      },
+      {
+       "name": "易伤",
+       "description": "易伤的生物从攻击中受到的伤害增加50%。"
+      }
+     ]
+    }
+   ],
+   "max_potion_slots": 3
+  }
+ },
+ "route": {
+  "act": 2,
+  "hp_ratio": 0.475,
+  "max_hp": 80,
+  "row_floor": 18,
+  "path": [],
+  "assumed": [
+   [
+    5,
+    10
+   ],
+   [
+    4,
+    11
+   ],
+   [
+    4,
+    12
+   ],
+   [
+    3,
+    13
+   ],
+   [
+    4,
+    14
+   ],
+   [
+    3,
+    15
+   ]
+  ],
+  "types": [
+   [
+    4,
+    9,
+    "RestSite"
+   ],
+   [
+    5,
+    10,
+    "Elite"
+   ],
+   [
+    4,
+    11,
+    "Unknown"
+   ],
+   [
+    4,
+    12,
+    "Monster"
+   ],
+   [
+    3,
+    13,
+    "Monster"
+   ],
+   [
+    4,
+    14,
+    "RestSite"
+   ],
+   [
+    3,
+    15,
+    "Boss"
+   ]
+  ]
+ }
+}

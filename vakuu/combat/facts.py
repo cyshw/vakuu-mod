@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 from combat.relics import turn_end_defense
-from combat.triggers import trigger_facts
+from combat.triggers import trigger_facts, end_hand_exhaust_block
 
 
 COMMON_INTENTS = {'Attack', 'Defend', 'Buff', 'Debuff', 'Sleep', 'Unknown'}
@@ -30,7 +30,12 @@ def combat_facts(state):
     orbs = orb_end_of_turn(player)
     try: end_defense = turn_end_defense(player)
     except ValueError: end_defense = {}
+    try: exhaust_block = end_hand_exhaust_block(player)
+    except ValueError: exhaust_block = 0
+    if exhaust_block:
+        end_defense = {**end_defense, 'exhaust_block': exhaust_block, 'block': end_defense.get('block', 0) + exhaust_block}
     loss = max(0, incoming - block - orbs.get('block', 0) - end_defense.get('block', 0))
+    held_loss = sum(hand_end_loss(c) for c in player.get('hand') or [])
     retain_hand = any(r.get('id') in RETAIN_HAND_RELICS for r in player.get('relics') or [])
     return {
         **({'card_trigger_counts': triggers} if (triggers := trigger_facts(player)) else {}),
@@ -45,8 +50,11 @@ def combat_facts(state):
         'current_block': block,
         'block_needed_for_no_damage': loss,
         'hp_after_enemy_attacks_if_no_more_block': hp - loss,
-        'lethal_if_no_more_block': loss >= hp > 0,
+        # Cards that cost HP if still held at the end of the turn (Beckon) count too: block cannot stop them.
+        **({'hp_lost_to_cards_held_at_end_of_turn': held_loss} if held_loss else {}),
+        'lethal_if_no_more_block': loss + held_loss >= hp > 0,
         **tempo_facts(enemies, player, incoming, block + orbs.get('block', 0), loss),
+        **({'stun_thresholds': stuns} if (stuns := stun_thresholds(enemies)) else {}),
         'energy': player.get('energy'),
         'hand_end_of_turn_rule': ('符文金字塔使未打出的手牌不因回合結束而棄掉；虛無等效果仍依描述處理。' if retain_hand else
                                   '一般未打出的手牌回合結束會棄掉；保留、虛無或改變棄牌的特殊效果依描述處理，不要假設普通手牌能留到下回合。'),
@@ -62,8 +70,38 @@ def combat_facts(state):
         **({'cards_kept_by_retain': retained} if (retained := [c.get('name') for c in player.get('hand') or []
                                                                 if '保留' in str(c.get('description') or '')]) else {}),
         **potion_facts(state, loss),
-        'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環。其他未知觸發另計。',
+        'note': '敵人意圖、卡牌描述已含顯示修正；承傷已扣目前格擋、冰霜與已驗證的覆甲／扣環／無懼疼痛虛無消耗。其他未知觸發另計。',
     }
+
+HELD_LOSS = re.compile(r'在你的回合结束时，如果这张牌在你的手牌中，\s*你失去(\d+)点生命')
+
+def hand_end_loss(card):
+    """HP a card costs if it is still in hand when the turn ends (the Soul Fysh's Beckon: 6)."""
+    match = HELD_LOSS.search(re.sub(r'\s+', '', str(card.get('description') or '')).replace('，你', '，你'))
+    return int(match[1]) if match else 0
+
+# Enemy powers that stun the enemy and strip its Strength the first time its HP falls to the amount.
+STUN_AT_HP = {'PLOW_POWER'}
+
+def stun_thresholds(enemies):
+    """Damage still needed to reach a stun threshold, with the Strength it would wipe out.
+
+    Haiku held the Ceremonial Beast at 157 HP for three turns, 7 short of the 150 that stuns it and
+    removes all its Strength, while that Strength grew from 10 to 14; the player who won pushed it
+    under 150 by turn 6.
+    """
+    found = []
+    for enemy in enemies:
+        for power in enemy.get('status') or []:
+            if str(power.get('id') or '').split('.')[-1] not in STUN_AT_HP or not isinstance(power.get('amount'), int): continue
+            needed = (enemy.get('hp') or 0) + (enemy.get('block') or 0) - power['amount']
+            if needed <= 0: continue
+            strength = sum(s.get('amount') or 0 for s in enemy.get('status') or []
+                           if str(s.get('id') or '').split('.')[-1] == 'STRENGTH_POWER')
+            found.append({'enemy': enemy.get('entity_id'), 'damage_to_stun': needed, 'strength_it_removes': strength,
+                          'rule': f"再打 {needed} 點傷害（含它的格擋）就會擊暈它、下回合不能行動，並清掉它 {strength} 點力量；"
+                                  '能在這回合打到就優先輸出，比補格擋划算，拖越久它的力量越高'})
+    return found
 
 TEMPO_SAFE_HP = 0.6  # Share of max HP that must remain after this turn's attacks for damage to outrank more block.
 
@@ -336,6 +374,19 @@ def card_effects(card):
 
 
 BLOCK_DAMAGE = '造成你当前格挡值的伤害'
+
+def play_notes(state):
+    """Cards worth playing just to get them out of hand, keyed by hand index.
+
+    An Ironclad run died to its act 1 boss at 4 HP holding two Beckons ("lose 6 HP at the end of your
+    turn if this is in your hand") with 2 energy left to play both: its own hand dealt the last 12.
+    """
+    notes = {}
+    for card in (state.get('player') or {}).get('hand') or []:
+        loss = hand_end_loss(card)
+        if loss and card.get('can_play'):
+            notes[card.get('index')] = f'回合結束還在手上會失去 {loss} 點生命（格擋擋不住）；打掉它（{card.get("cost")} 費）就不會扣血'
+    return notes
 
 def block_damage_notes(state):
     """For Body Slam-like cards, the damage after first playing the best block the energy allows.

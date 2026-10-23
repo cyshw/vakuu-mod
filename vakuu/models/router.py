@@ -2,6 +2,7 @@
 import json
 from combat.facts import combat_facts
 from core.rules import COMBAT, validate
+from core.screens import fight_key
 from deck.advisor import advise
 
 
@@ -48,9 +49,3 @@ def undecided(state, decision):
     try: validate(state, decision['action'], json.loads(decision['parameters_json']))
     except (ValueError, TypeError): return True
     return False
-
-def fight_key(state):
-    """Identifies the current fight (one per floor), or None outside combat."""
-    if state.get('state_type') not in COMBAT: return None
-    run = state.get('run') or {}
-    return (run.get('act'), run.get('floor'))

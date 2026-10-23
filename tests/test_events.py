@@ -40,3 +40,11 @@ class EventTests(unittest.TestCase):
         self.assertEqual(result['rooms_to_elite'], 3)
         self.assertIsNone(result['rooms_to_shop'])
         self.assertIsNone(route_ahead(None))
+
+    def test_rooms_already_passed_are_not_ahead(self):
+        # A forced move (the only way on) does not walk the route; the floor still drops passed rooms.
+        route = {'path': [(1, 2), (2, 3), (1, 4)], 'row_floor': 10,
+                 'types': {(1, 2): 'Monster', (2, 3): 'RestSite', (1, 4): 'Boss'}}
+        result = route_ahead(route, {'run': {'floor': 13}})
+        self.assertEqual(result['next_rooms'], ['Boss'])
+        self.assertIsNone(result['rooms_to_rest_site'])

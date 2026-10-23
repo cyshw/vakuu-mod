@@ -19,11 +19,13 @@ def start_route(state, decision):
     if state.get('state_type') != 'map' or decision.get('action') != 'choose_map_node': return None
     path = [(node['col'], node['row']) for node in decision.get('next_nodes') or []
             if isinstance(node, dict) and isinstance(node.get('col'), int) and isinstance(node.get('row'), int)]
-    if not path: return None
     kinds = {(n.get('col'), n.get('row')): n.get('type') for n in (state.get('map') or {}).get('nodes') or []}
     # Expected HP at each room of the chosen route, to notice when the run falls behind the plan.
     options = {o.get('index'): (o.get('col'), o.get('row')) for o in (state.get('map') or {}).get('next_options') or []}
     first = options.get(json.loads(decision['parameters_json']).get('index'))
+    # With no next_nodes the route was dropped and the next rest site saw no rooms ahead: an Ironclad
+    # run upgraded at 38/80 into a forced elite. The chosen node and the assumed tail still count.
+    if not path and not first: return None
     if first:
         # The model often repeats the chosen node as the first of next_nodes; left in, the rest site
         # being entered counted as the next one ahead, and the projection saw nothing to rest for.
@@ -33,7 +35,10 @@ def start_route(state, decision):
     curve = project_route([{'type': kinds.get(node), 'row': node[1]} for node in walk],
                           player.get('hp') or 0, player.get('max_hp') or 1, route_damage(state))['hp_by_room']
     assumed = safest_tail(state.get('map') or {}, walk[-1])
+    floor = (state.get('run') or {}).get('floor')
     return {'act': (state.get('run') or {}).get('act'), 'hp_ratio': hp_ratio(state), 'path': path,
+            # Floor of a node = row + row_floor; the chosen node is the next floor.
+            'row_floor': floor + 1 - first[1] if first and isinstance(floor, int) else None,
             'assumed': assumed, 'types': {node: kinds.get(node) for node in walk + assumed},
             'expected_hp': dict(zip(walk, curve)), 'max_hp': player.get('max_hp') or 1}
 
@@ -76,6 +81,28 @@ def rest_decision(route, state):
     return program_move(f"照路線預估，升級的話到下一個休息點前會跌到 {facts['lowest_hp_before_next_rest_if_upgrade']} 血。"
                  '\n建議：休息回血。', 'choose_rest_option', index=heal['index'])
 
+ELITE_ENTRY_FLOOR = 0.5  # Re-plan at a fork when the planned route reaches its next elite below this share of max HP.
+
+def weak_at_next_elite(route, state):
+    """Projected HP on reaching the planned route's next elite is below half of max HP.
+
+    At floor 4 an Ironclad run at 55/80 followed its floor 1 route into a branch whose only way on was
+    an elite three rooms later, while the other two branches avoided elites for 13 rooms; it reached the
+    elite at 35 HP and died. A fork is where that can still be avoided.
+    """
+    types = route.get('types') or {}
+    rooms = []
+    for node in route.get('path') or []:
+        if types.get(node) == 'Elite': break
+        rooms.append({'type': types.get(node), 'row': node[1]})
+    else:
+        return False  # No elite on the planned path.
+    player = state.get('player') or {}
+    max_hp = player.get('max_hp') or 1
+    curve = project_route(rooms, player.get('hp') or 0, max_hp, route_damage(state))['hp_by_room']
+    arrival = curve[-1] if curve else (player.get('hp') or 0)
+    return arrival < ELITE_ENTRY_FLOOR * max_hp
+
 def route_decision(route, state):
     """Next node of the planned route; None asks the model to re-plan (route left, big HP loss, new act)."""
     if not route or state.get('state_type') != 'map': return None
@@ -93,6 +120,7 @@ def route_decision(route, state):
     route['path'] = [node for node in route['path'] if node[1] > row]  # Drop rooms already passed.
     route['assumed'] = [node for node in route.get('assumed') or [] if node[1] > row]
     if not route['path']: return None
+    if weak_at_next_elite(route, state): return None
     col, next_row = route['path'][0]
     # Entering an elite is decided with the HP and deck of that moment, not the plan's: a route drawn
     # at 5 HP ("rest, then decide on the elite") walked into the elite at 36% HP after resting and died.
