@@ -43,6 +43,17 @@ CARD_SETTLE_WINDOW = 0.2
 # (seed 7) the A10 player's pick was matched 41% by 'top', 34-36% by Haiku in 'free' and 29% in 'rating'
 # (Haiku skipped 152 of 300; players skipped 39). tools/exam/codex_runs.py agree --mode compares them.
 CARD_PICK = 'top'
+# 'top' skips the best-rated card when both community signals call it weak: a Codex Score below this
+# and takers winning no more than their own average (lift <= 0). A live run took Stomp at 23 points
+# and reached the act 1 boss with an unchanged starter deck. Uncalibrated: codex_runs.py sweep
+# scores other thresholds against A10 players.
+SKIP_BELOW_SCORE = 30
+
+
+def weak_pick(pick, rating):
+    score, lift = pick.get('score'), pick.get('lift')
+    return bool(rating.get('can_skip') and score is not None and lift is not None
+                and score < SKIP_BELOW_SCORE and lift <= 0)
 
 
 def rating_pick(state, rating):
@@ -241,7 +252,11 @@ class Controller(ModelCalls):
     def decide(self, state, selection=None):
         self.sync_combat(state)
         if CARD_PICK == 'top' and state.get('state_type') == 'card_reward':
-            pick = rating_pick(state, advise(state))
+            rating = advise(state)
+            pick = rating_pick(state, rating)
+            if pick and weak_pick(pick, rating):
+                return program_move(f"最好的 {pick['name']} 也只有 {pick['score']} 分，拿了反而稀釋牌組。\n建議：跳過這次卡牌獎勵。",
+                                    'skip_card_reward')
             if pick:
                 return program_move(f"照社群評分，收下 {pick['name']}。\n建議：選 {pick['name']}（{pick['score']} 分，依 Spire Codex 評分）。",
                                     'select_card_reward', card_index=pick['index'])

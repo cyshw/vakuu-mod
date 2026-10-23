@@ -25,8 +25,9 @@ and how many of the player's skips were caught.
 
     python tools/exam/codex_runs.py sweep --spots 300 --seed 7
 
-sweep asks no model: it tries "take the best-rated card unless its score is below N (in a deck of at
-least D cards)" for a grid of N and D, to see whether any plain skip rule beats always taking it.
+sweep asks no model: it tries "take the best-rated card unless its score is below N", alone or only
+when its lift is not positive or the deck is already 15 or 20 cards, to see whether any plain skip
+rule beats always taking it. Takeover skips at score < SKIP_BELOW_SCORE with lift <= 0.
 """
 import argparse
 import json
@@ -226,18 +227,20 @@ def sweep(acts, count, seed):
     for item in spots(acts, count, seed):
         ranked = advise(item['state']).get('ranked_cards') or []
         if not ranked: continue
-        rows.append((ranked[0]['index'], ranked[0].get('score'), len(item['state']['player']['deck']), item['picked']))
+        rows.append((ranked[0]['index'], ranked[0].get('score'), ranked[0].get('lift'),
+                     len(item['state']['player']['deck']), item['picked']))
     player_skip = sum(picked is None for *_, picked in rows)
     print(f'{len(rows)} 題，玩家跳過 {player_skip} 次')
-    print('分數低於  牌組至少  一致率        跳過次數  跳對      抓到玩家跳過')
-    for minimum in (0, 30, 35, 40, 45, 50, 55, 60):
-        for deck in (0, 15, 20):
-            if minimum == 0 and deck: continue
+    print('分數低於  條件        一致率        跳過次數  跳對      抓到玩家跳過')
+    for minimum in (0, 20, 25, 30, 35, 40, 45, 50, 55, 60):
+        for label, extra in (('—', lambda lift, size: True), ('lift<=0', lambda lift, size: lift is not None and lift <= 0),
+                             ('牌組>=15', lambda lift, size: size >= 15), ('牌組>=20', lambda lift, size: size >= 20)):
+            if minimum == 0 and label != '—': continue
             same = skips = right = 0
-            for top, score, size, picked in rows:
-                pick = None if score is not None and score < minimum and size >= deck else top
+            for top, score, lift, size, picked in rows:
+                pick = None if score is not None and score < minimum and extra(lift, size) else top
                 same += pick == picked; skips += pick is None; right += pick is None and picked is None
-            print(f'{minimum:>8}  {deck:>8}  {same:>3}/{len(rows)} = {same / len(rows):>4.0%}  {skips:>8}  '
+            print(f'{minimum:>8}  {label:<10}  {same:>3}/{len(rows)} = {same / len(rows):>4.0%}  {skips:>8}  '
                   f'{right:>3} ({right / skips if skips else 0:.0%})  {right}/{player_skip}')
 
 

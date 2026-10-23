@@ -166,3 +166,16 @@ class RatingPickTests(unittest.TestCase):
             decision = c.decide(sample(), {'model_key': 'claude:haiku', 'effort': 'low'})
         call.assert_not_called()
         self.assertEqual((decision['action'], json.loads(decision['parameters_json'])), ('select_card_reward', {'card_index': 7}))
+
+    def test_top_mode_skips_when_the_best_card_is_weak_on_both_signals(self):
+        weak = {**METRICS, 'cards': {'DARK_EMBRACE': {'score': 12, 'lift': -1.0},
+                                     'BODY_SLAM': {'score': 25, 'lift': -0.5}}}
+        c = self.engine.Controller(lambda m: None)
+        with patch.object(advisor, 'codex_metrics', return_value=weak), patch.object(self.engine, 'CARD_PICK', 'top'), \
+             patch.object(c, 'call_model') as call:
+            decision = c.decide(sample(), {'model_key': 'claude:haiku', 'effort': 'low'})
+        call.assert_not_called()
+        self.assertEqual(decision['action'], 'skip_card_reward')
+        weak['cards']['BODY_SLAM']['lift'] = 2.0  # Low score but takers win more: still taken.
+        with patch.object(advisor, 'codex_metrics', return_value=weak), patch.object(self.engine, 'CARD_PICK', 'top'):
+            self.assertEqual(c.decide(sample(), {'model_key': 'claude:haiku', 'effort': 'low'})['action'], 'select_card_reward')
